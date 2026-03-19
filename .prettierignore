@@ -1,0 +1,12 @@
+# Package managers
+node_modules
+pnpm-lock.yaml
+
+# Build output
+.svelte-kit
+build
+electron/build
+
+# Generated
+.env
+.env.*

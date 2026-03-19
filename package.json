@@ -1,0 +1,66 @@
+{
+  "name": "svelte-pe7-mastery",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Svelte PE7 Mastery — Course App with Embedded IDE",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write .",
+    "electron:dev": "node electron/dev.js",
+    "electron:build": "vite build && electron-builder"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:36011/git/billyribeiro-ux/svelte-frontend"
+  },
+  "author": "Billy Ribeiro",
+  "license": "ISC",
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^7.0.1",
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.55.0",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
+    "prettier": "^3.8.1",
+    "prettier-plugin-svelte": "^3.5.1",
+    "svelte": "^5.54.0",
+    "svelte-check": "^4.4.5",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1",
+    "wait-on": "^9.0.4"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@webcontainer/api": "^1.6.1",
+    "monaco-editor": "^0.55.1",
+    "svelte-splitpanes": "^8.0.12"
+  },
+  "main": "electron/main.js",
+  "build": {
+    "appId": "com.billyribeiro.svelte-pe7",
+    "productName": "Svelte PE7 Mastery",
+    "files": [
+      "build/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "output": "electron/build"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "zip"]
+    }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
