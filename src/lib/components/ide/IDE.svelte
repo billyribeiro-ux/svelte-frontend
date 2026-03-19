@@ -5,36 +5,65 @@
 	import MonacoEditor from './MonacoEditor.svelte';
 	import Preview from './Preview.svelte';
 	import {
-		getOpenFiles,
-		getActiveFileIndex,
 		getPreviewUrl,
 		getIsContainerBooting,
 		setActiveFile,
 		updateContent,
-		loadLesson
+		loadLesson,
+		setContainerBooting,
+		setContainerReady,
+		setPreviewUrl
 	} from '$lib/stores/ide.svelte';
 
 	let { files }: { files: LessonFile[] } = $props();
 
 	let activeFileIndex = $state(0);
+	let containerError = $state<string | null>(null);
 
-	// Load lesson files into the store when files prop changes
+	// Load lesson files and boot WebContainer when files change
 	$effect(() => {
 		if (files.length > 0) {
 			loadLesson(files);
+			activeFileIndex = 0;
+			bootContainer(files);
 		}
 	});
 
 	let activeFile = $derived(files[activeFileIndex]);
+
+	async function bootContainer(lessonFiles: LessonFile[]) {
+		containerError = null;
+		setContainerBooting();
+		try {
+			const { mountLessonFiles, startDevServer } = await import('$lib/utils/webcontainer');
+			await mountLessonFiles(lessonFiles);
+			const url = await startDevServer();
+			setPreviewUrl(url);
+			setContainerReady();
+		} catch (err) {
+			containerError = err instanceof Error ? err.message : 'Failed to start preview';
+			setContainerReady();
+		}
+	}
 
 	function handleTabSelect(index: number) {
 		activeFileIndex = index;
 		setActiveFile(index);
 	}
 
-	function handleContentChange(value: string) {
+	async function handleContentChange(value: string) {
 		if (activeFile) {
 			updateContent(activeFile.filename, value);
+			// Write changed file to WebContainer for HMR
+			try {
+				const { writeFile } = await import('$lib/utils/webcontainer');
+				const path = activeFile.filename.startsWith('src/')
+					? activeFile.filename
+					: `src/routes/${activeFile.filename}`;
+				await writeFile(path, value);
+			} catch {
+				// WebContainer may not be ready yet
+			}
 		}
 	}
 </script>
@@ -64,6 +93,7 @@
 					<Preview
 						url={getPreviewUrl()}
 						isBooting={getIsContainerBooting()}
+						error={containerError}
 					/>
 				</div>
 			</Pane>

@@ -1,15 +1,29 @@
 <script lang="ts">
 	let {
 		url,
-		isBooting
+		isBooting,
+		error = null
 	}: {
 		url: string | null;
 		isBooting: boolean;
+		error?: string | null;
 	} = $props();
 </script>
 
 <div class="preview-container">
-	{#if isBooting}
+	{#if error}
+		<div class="preview-placeholder">
+			<div class="error-icon">
+				<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<circle cx="12" cy="12" r="10" />
+					<line x1="15" y1="9" x2="9" y2="15" />
+					<line x1="9" y1="9" x2="15" y2="15" />
+				</svg>
+			</div>
+			<p class="status-text">Preview Error</p>
+			<p class="status-sub">{error}</p>
+		</div>
+	{:else if isBooting}
 		<div class="preview-placeholder">
 			<div class="spinner"></div>
 			<p class="status-text">Starting development server...</p>
@@ -76,6 +90,11 @@
 
 	.ready-icon {
 		color: var(--accent);
+		margin-bottom: var(--space-sm);
+	}
+
+	.error-icon {
+		color: var(--error);
 		margin-bottom: var(--space-sm);
 	}
 

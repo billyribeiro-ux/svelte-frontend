@@ -135,16 +135,16 @@ export async function mountLessonFiles(files: LessonFile[]): Promise<void> {
 export async function startDevServer(): Promise<string> {
 	const container = await getWebContainer();
 
-	// Install dependencies
-	const installProcess = await container.spawn('pnpm', ['install']);
+	// Install dependencies (WebContainer has npm built-in)
+	const installProcess = await container.spawn('npm', ['install']);
 
 	const installExitCode = await installProcess.exit;
 	if (installExitCode !== 0) {
-		throw new Error(`pnpm install failed with exit code ${installExitCode}`);
+		throw new Error(`npm install failed with exit code ${installExitCode}`);
 	}
 
 	// Start dev server
-	const devProcess = await container.spawn('pnpm', ['dev']);
+	const devProcess = await container.spawn('npm', ['run', 'dev']);
 
 	// Wait for the server-ready event to get the URL
 	return new Promise<string>((resolve) => {
