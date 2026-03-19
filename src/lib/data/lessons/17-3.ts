@@ -8,229 +8,249 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 3
 	},
-	description: `SvelteKit's $app/server module provides two powerful server-only utilities. getRequestEvent() returns the current request event from within any server-side function — not just load or actions — making it invaluable for building auth guards, permission checks, and utility functions that need access to cookies, locals, or headers. The read() function converts imported assets into Response objects, enabling you to serve files from your project at runtime.
+	description: `SvelteKit's $app/server module provides two important server-only utilities. getRequestEvent() returns the current request event from anywhere in server-side code during request handling — useful for accessing cookies, headers, and locals from deeply nested utility functions without passing the event through every function call.
 
-These utilities bridge the gap between SvelteKit's request lifecycle and your own server-side utility functions, keeping your code clean and decoupled.`,
+The read() function lets you access files from the server's filesystem in a platform-agnostic way. Together, these utilities enable patterns like auth guards in utility modules, reading uploaded files, and accessing configuration files — all while maintaining SvelteKit's portability across deployment platforms.`,
 	objectives: [
-		'Use getRequestEvent() to access the request context from any server function',
-		'Build reusable auth guards and permission checks with getRequestEvent()',
-		'Serve imported assets as Response objects with read()',
-		'Understand the server-only boundary and when these APIs are available'
+		'Access the current request event with getRequestEvent() in server utilities',
+		'Read cookies, headers, and locals without prop drilling the event',
+		'Use read() for platform-agnostic file access on the server',
+		'Understand server-only module restrictions and their security benefits'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // $app/server APIs — server-only utilities reference
+  // Demonstrates $app/server concepts
+  // These APIs only work on the server in real SvelteKit
 
-  interface ApiCard {
-    name: string;
-    signature: string;
-    description: string;
-    example: string;
-    useCase: string;
+  interface RequestEvent {
+    cookies: Map<string, string>;
+    request: { headers: Map<string, string>; method: string };
+    locals: Record<string, unknown>;
+    url: URL;
   }
 
-  let activeApi = $state<string>('getRequestEvent');
+  let simulatedEvent: RequestEvent | null = $state(null);
+  let authResult: { authenticated: boolean; user?: string; role?: string } | null = $state(null);
+  let fileContent: string | null = $state(null);
+  let activeDemo: 'event' | 'auth' | 'read' = $state('event');
 
-  const apis: ApiCard[] = [
-    {
-      name: 'getRequestEvent',
-      signature: 'getRequestEvent(): RequestEvent',
-      description: 'Returns the current RequestEvent from anywhere in server-side code during a request. This means your utility functions can access cookies, locals, url, and headers without passing them explicitly.',
-      useCase: 'Auth guards, permission checks, logging utilities, feature flags',
-      example: \`// src/lib/server/auth.ts
-import { getRequestEvent } from '$app/server';
-import { redirect } from '@sveltejs/kit';
+  function createMockEvent(authenticated: boolean): RequestEvent {
+    const cookies = new Map<string, string>();
+    const headers = new Map<string, string>();
 
-export function requireAuth() {
-  const event = getRequestEvent();
-  const user = event.locals.user;
-
-  if (!user) {
-    redirect(303, '/login');
-  }
-
-  return user;
-}
-
-export function requireRole(role: string) {
-  const user = requireAuth();
-  const event = getRequestEvent();
-
-  if (user.role !== role) {
-    redirect(303, '/unauthorized');
-  }
-
-  return user;
-}
-
-export function getClientIP() {
-  const event = getRequestEvent();
-  return event.request.headers.get('x-forwarded-for')
-    ?? event.getClientAddress();
-}
-
-// Usage in +page.server.ts — no need to pass event!
-// import { requireAuth } from '$lib/server/auth';
-//
-// export const load = async () => {
-//   const user = requireAuth(); // Just works!
-//   return { user };
-// };\`
-    },
-    {
-      name: 'read',
-      signature: 'read(asset: string): Response',
-      description: 'Takes an imported asset and returns it as a Response object. Useful when you need to serve static files from API routes or manipulate file contents on the server. The asset must be imported using a Vite import.',
-      useCase: 'Serving PDFs, generating dynamic images, streaming files from API routes',
-      example: \`// src/routes/api/resume/+server.ts
-import { read } from '$app/server';
-import resume from '$lib/assets/resume.pdf';
-
-export function GET() {
-  // read() converts the imported asset to a Response
-  return read(resume);
-}
-
-// Another example: serve a dynamically chosen asset
-// src/routes/api/docs/[slug]/+server.ts
-import terms from '$lib/docs/terms.pdf';
-import privacy from '$lib/docs/privacy.pdf';
-import { error } from '@sveltejs/kit';
-
-const docs: Record<string, string> = { terms, privacy };
-
-export function GET({ params }) {
-  const asset = docs[params.slug];
-  if (!asset) error(404, 'Document not found');
-
-  return read(asset);
-}
-
-// Works with images too
-import logo from '$lib/assets/logo.png';
-
-export function GET() {
-  return read(logo);
-  // Content-Type is automatically set based on the file
-}\`
-    },
-    {
-      name: 'Pattern: Auth Middleware',
-      signature: 'Composing getRequestEvent with utilities',
-      description: 'By combining getRequestEvent with reusable utility functions, you can build a clean middleware-like pattern without passing the event object through every function call.',
-      useCase: 'Clean architecture, dependency injection alternative',
-      example: \`// src/lib/server/db.ts
-import { getRequestEvent } from '$app/server';
-
-// Automatic tenant isolation using request context
-export function getTenantDB() {
-  const event = getRequestEvent();
-  const tenantId = event.locals.user?.tenantId;
-
-  if (!tenantId) throw new Error('No tenant context');
-
-  return db.forTenant(tenantId);
-}
-
-// src/lib/server/features.ts
-export function isFeatureEnabled(flag: string): boolean {
-  const event = getRequestEvent();
-  const user = event.locals.user;
-
-  // Check user-specific feature flags
-  return featureFlags.check(flag, {
-    userId: user?.id,
-    plan: user?.plan,
-    region: event.request.headers.get('cf-ipcountry')
-  });
-}
-
-// src/routes/dashboard/+page.server.ts
-import { requireAuth } from '$lib/server/auth';
-import { getTenantDB } from '$lib/server/db';
-import { isFeatureEnabled } from '$lib/server/features';
-
-export const load = async () => {
-  const user = requireAuth();
-  const db = getTenantDB();
-
-  return {
-    stats: await db.getStats(),
-    showBeta: isFeatureEnabled('beta-dashboard')
-  };
-};\`
+    if (authenticated) {
+      cookies.set('session', 'abc123-valid-token');
+      headers.set('authorization', 'Bearer eyJhbG...');
     }
-  ];
+    headers.set('user-agent', 'Mozilla/5.0 (Demo Browser)');
+    headers.set('accept-language', 'en-US,en;q=0.9');
 
-  let activeData = $derived(apis.find(a => a.name === activeApi)!);
+    return {
+      cookies,
+      request: { headers, method: 'GET' },
+      locals: { requestId: crypto.randomUUID().slice(0, 8) },
+      url: new URL('https://example.com/dashboard'),
+    };
+  }
+
+  function simulateGetRequestEvent(auth: boolean): void {
+    simulatedEvent = createMockEvent(auth);
+  }
+
+  function simulateAuthGuard(): void {
+    if (!simulatedEvent) {
+      authResult = { authenticated: false };
+      return;
+    }
+
+    const session = simulatedEvent.cookies.get('session');
+    if (session) {
+      authResult = {
+        authenticated: true,
+        user: 'alice@example.com',
+        role: 'admin',
+      };
+      simulatedEvent.locals['user'] = authResult;
+    } else {
+      authResult = { authenticated: false };
+    }
+  }
+
+  function simulateFileRead(filename: string): void {
+    const mockFiles: Record<string, string> = {
+      'config.json': JSON.stringify({ theme: 'dark', lang: 'en', version: '2.1.0' }, null, 2),
+      'template.html': '<html>\\n  <body>\\n    <h1>{{title}}</h1>\\n    <p>{{content}}</p>\\n  </body>\\n</html>',
+      'data.csv': 'name,email,role\\nAlice,alice@ex.com,admin\\nBob,bob@ex.com,user\\nCarol,carol@ex.com,editor',
+    };
+    fileContent = mockFiles[filename] ?? 'File not found';
+  }
 </script>
 
-<main>
-  <h1>$app/server: getRequestEvent & read</h1>
-  <p class="subtitle">Server-only utilities for accessing request context and serving assets</p>
+<h1>$app/server Utilities</h1>
 
-  <div class="warning-banner">
-    These APIs are <strong>server-only</strong> — they can only be used in +page.server.ts, +server.ts, hooks.server.ts, or files inside $lib/server/.
-  </div>
+<div class="tabs">
+  <button class:active={activeDemo === 'event'} onclick={() => activeDemo = 'event'}>
+    getRequestEvent()
+  </button>
+  <button class:active={activeDemo === 'auth'} onclick={() => activeDemo = 'auth'}>
+    Auth Guard Pattern
+  </button>
+  <button class:active={activeDemo === 'read'} onclick={() => activeDemo = 'read'}>
+    read()
+  </button>
+</div>
 
-  <div class="api-tabs">
-    {#each apis as api}
-      <button
-        class={['api-tab', activeApi === api.name && 'active']}
-        onclick={() => activeApi = api.name}
-      >
-        {api.name}
+{#if activeDemo === 'event'}
+  <section>
+    <h2>getRequestEvent()</h2>
+    <p>Access the current request from anywhere in server-side code.</p>
+
+    <div class="controls">
+      <button onclick={() => simulateGetRequestEvent(true)}>Simulate Authenticated Request</button>
+      <button onclick={() => simulateGetRequestEvent(false)}>Simulate Anonymous Request</button>
+    </div>
+
+    {#if simulatedEvent}
+      <div class="event-display">
+        <div class="event-section">
+          <h3>Cookies</h3>
+          {#each Array.from(simulatedEvent.cookies.entries()) as [key, val]}
+            <div class="kv"><span class="key">{key}</span><span class="val">{val}</span></div>
+          {/each}
+          {#if simulatedEvent.cookies.size === 0}
+            <p class="none">No cookies</p>
+          {/if}
+        </div>
+
+        <div class="event-section">
+          <h3>Headers</h3>
+          {#each Array.from(simulatedEvent.request.headers.entries()) as [key, val]}
+            <div class="kv"><span class="key">{key}</span><span class="val">{val}</span></div>
+          {/each}
+        </div>
+
+        <div class="event-section">
+          <h3>Locals</h3>
+          <pre>{JSON.stringify(Object.fromEntries(Object.entries(simulatedEvent.locals)), null, 2)}</pre>
+        </div>
+      </div>
+    {/if}
+
+    <pre class="code"><code>import &#123; getRequestEvent &#125; from '$app/server';
+
+export function getUserLocale(): string &#123;
+  const event = getRequestEvent();
+  return event.request.headers.get('accept-language')
+    ?? 'en-US';
+&#125;</code></pre>
+  </section>
+
+{:else if activeDemo === 'auth'}
+  <section>
+    <h2>Auth Guard with getRequestEvent()</h2>
+    <div class="controls">
+      <button onclick={() => { simulateGetRequestEvent(true); simulateAuthGuard(); }}>
+        Check Auth (with session)
       </button>
-    {/each}
-  </div>
+      <button onclick={() => { simulateGetRequestEvent(false); simulateAuthGuard(); }}>
+        Check Auth (no session)
+      </button>
+    </div>
 
-  <div class="api-detail">
-    <div class="api-header">
-      <code class="signature">{activeData.signature}</code>
+    {#if authResult}
+      <div class="auth-result" class:success={authResult.authenticated} class:fail={!authResult.authenticated}>
+        {#if authResult.authenticated}
+          <h3>Authenticated</h3>
+          <p>User: {authResult.user}</p>
+          <p>Role: {authResult.role}</p>
+        {:else}
+          <h3>Not Authenticated</h3>
+          <p>No valid session found. Redirect to login.</p>
+        {/if}
+      </div>
+    {/if}
+
+    <pre class="code"><code>// $lib/server/auth.ts
+import &#123; getRequestEvent &#125; from '$app/server';
+
+export function requireAuth() &#123;
+  const event = getRequestEvent();
+  const session = event.cookies.get('session');
+
+  if (!session) &#123;
+    throw redirect(303, '/login');
+  &#125;
+
+  return validateSession(session);
+&#125;</code></pre>
+  </section>
+
+{:else}
+  <section>
+    <h2>read() — File Access</h2>
+    <div class="controls">
+      <button onclick={() => simulateFileRead('config.json')}>Read config.json</button>
+      <button onclick={() => simulateFileRead('template.html')}>Read template.html</button>
+      <button onclick={() => simulateFileRead('data.csv')}>Read data.csv</button>
     </div>
-    <p class="api-desc">{activeData.description}</p>
-    <div class="use-case">
-      <strong>Common use cases:</strong> {activeData.useCase}
-    </div>
-    <h3>Example</h3>
-    <pre><code>{activeData.example}</code></pre>
-  </div>
-</main>
+
+    {#if fileContent}
+      <pre class="file-content"><code>{fileContent}</code></pre>
+    {/if}
+
+    <pre class="code"><code>import &#123; read &#125; from '$app/server';
+
+export async function GET() &#123;
+  const file = read('static/data.csv');
+  const text = await file.text();
+  return new Response(text);
+&#125;</code></pre>
+  </section>
+{/if}
 
 <style>
-  main { max-width: 850px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
-  h1 { text-align: center; color: #333; }
-  h3 { color: #555; margin-bottom: 0.5rem; }
-  .subtitle { text-align: center; color: #666; }
-
-  .warning-banner {
-    background: #fff3e0; border: 1px solid #ffcc80; border-radius: 8px;
-    padding: 0.75rem 1rem; margin: 1.5rem 0; color: #e65100; font-size: 0.9rem;
+  h1 { color: #2d3436; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 1rem; }
+  .tabs button {
+    flex: 1; padding: 0.6rem; border: none; background: #dfe6e9;
+    cursor: pointer; font-weight: 600; border-radius: 4px 4px 0 0;
   }
-
-  .api-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .api-tab {
-    padding: 0.5rem 1rem; border: 1px solid #ddd; border-radius: 20px;
-    background: white; cursor: pointer; font-size: 0.85rem;
+  .tabs button.active { background: #6c5ce7; color: white; }
+  section { padding: 1rem; background: #f8f9fa; border-radius: 0 0 8px 8px; }
+  h2 { margin-top: 0; color: #6c5ce7; font-size: 1.1rem; }
+  h3 { font-size: 0.95rem; margin: 0.5rem 0 0.25rem; color: #2d3436; }
+  .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #6c5ce7; color: white; cursor: pointer; font-weight: 600;
+    font-size: 0.85rem;
   }
-  .api-tab.active { background: #7b1fa2; color: white; border-color: #7b1fa2; }
-
-  .api-detail { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; }
-  .api-header { margin-bottom: 1rem; }
-  .signature {
-    background: #f3e5f5; color: #7b1fa2; padding: 0.4rem 0.75rem;
-    border-radius: 6px; font-size: 0.9rem; font-family: 'Fira Code', monospace;
+  .event-display { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
+  .event-section {
+    padding: 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9;
   }
-  .api-desc { color: #555; line-height: 1.6; }
-  .use-case {
-    background: #e8f5e9; padding: 0.5rem 0.75rem; border-radius: 6px;
-    font-size: 0.85rem; color: #2e7d32; margin-bottom: 1rem;
+  .kv {
+    display: flex; gap: 0.5rem; padding: 0.2rem 0;
+    font-family: monospace; font-size: 0.85rem;
   }
-
-  pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; }
-  code { font-family: 'Fira Code', monospace; }
+  .key { color: #6c5ce7; font-weight: 600; min-width: 120px; }
+  .val { color: #636e72; word-break: break-all; }
+  .none { color: #b2bec3; font-size: 0.85rem; }
+  .auth-result { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+  .auth-result.success { background: #e8f8f0; border: 1px solid #00b894; }
+  .auth-result.fail { background: #fff5f5; border: 1px solid #ff7675; }
+  .auth-result h3 { margin-top: 0; }
+  .auth-result.success h3 { color: #00b894; }
+  .auth-result.fail h3 { color: #d63031; }
+  .file-content {
+    padding: 1rem; background: white; border: 1px solid #dfe6e9;
+    border-radius: 6px; margin-bottom: 1rem; overflow-x: auto;
+  }
+  .code, pre { background: #2d3436; padding: 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0; }
+  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
 </style>`,
 			language: 'svelte'
 		}
