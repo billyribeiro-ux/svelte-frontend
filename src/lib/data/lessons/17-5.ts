@@ -8,235 +8,244 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 5
 	},
-	description: `SvelteKit's advanced routing lets you organize complex applications with layout groups, optional parameters, and parameter matchers. Layout groups like (marketing) and (app) apply different layouts to different sections without affecting the URL. Optional parameters like [[lang]] match with or without a value. Parameter matchers like [id=integer] validate route segments at the routing level, preventing invalid URLs from ever reaching your load functions.
+	description: `SvelteKit's file-based router supports advanced patterns for complex application architectures. Layout groups — directories wrapped in parentheses like (marketing) or (app) — let you apply different layouts to different sections of your site without affecting the URL structure.
 
-Together these patterns let you build sophisticated URL structures while keeping your codebase clean and maintainable.`,
+Optional parameters with [[param]], parameter matchers like [id=integer], and rest parameters [...path] give you fine-grained control over route matching. These patterns enable multi-locale apps, shared authentication layouts, and clean URL hierarchies.`,
 	objectives: [
 		'Organize routes with layout groups like (marketing) and (app)',
-		'Use optional parameters [[lang]] for multi-language URL patterns',
-		'Create and apply parameter matchers like [id=integer] for route validation',
-		'Combine advanced routing patterns for real-world application architectures'
+		'Use optional parameters [[lang]] for multi-locale URL patterns',
+		'Create parameter matchers for type-safe route parameters',
+		'Design complex route hierarchies with nested layouts'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Advanced Routing & Layout Groups — interactive reference
-
-  type RoutingConcept = {
-    name: string;
-    syntax: string;
+  interface RouteDefinition {
+    path: string;
+    file: string;
+    layout: string;
+    params: Record<string, string>;
     description: string;
-    example: string;
-    urlExamples: { url: string; matches: boolean; note: string }[];
-  };
+  }
 
-  const concepts: RoutingConcept[] = [
+  const routeExamples: RouteDefinition[] = [
     {
-      name: 'Layout Groups',
-      syntax: '(groupname)',
-      description: 'Group routes under a shared layout WITHOUT affecting the URL path. Routes inside (marketing)/ and (app)/ can have completely different layouts but both live at the root level of your site.',
-      example: \`src/routes/
+      path: '/', file: 'src/routes/(marketing)/+page.svelte',
+      layout: '(marketing)', params: {},
+      description: 'Marketing layout — full-width, public header',
+    },
+    {
+      path: '/pricing', file: 'src/routes/(marketing)/pricing/+page.svelte',
+      layout: '(marketing)', params: {},
+      description: 'Shares marketing layout without affecting URL',
+    },
+    {
+      path: '/dashboard', file: 'src/routes/(app)/dashboard/+page.svelte',
+      layout: '(app)', params: {},
+      description: 'App layout — sidebar navigation, auth required',
+    },
+    {
+      path: '/settings', file: 'src/routes/(app)/settings/+page.svelte',
+      layout: '(app)', params: {},
+      description: 'Shares app layout with dashboard',
+    },
+    {
+      path: '/en/blog', file: 'src/routes/[[lang]]/blog/+page.svelte',
+      layout: 'default', params: { lang: 'en (optional)' },
+      description: 'Optional locale prefix — /blog and /en/blog both work',
+    },
+    {
+      path: '/products/42', file: 'src/routes/products/[id=integer]/+page.svelte',
+      layout: 'default', params: { id: '42 (must match integer)' },
+      description: 'Param matcher ensures id is a valid integer',
+    },
+    {
+      path: '/docs/api/auth/login', file: 'src/routes/docs/[...path]/+page.svelte',
+      layout: 'default', params: { path: 'api/auth/login (rest)' },
+      description: 'Rest parameter catches entire sub-path',
+    },
+  ];
+
+  let selectedRoute: number = $state(0);
+  let current = $derived(routeExamples[selectedRoute]);
+
+  let showStructure: boolean = $state(false);
+
+  const fileStructure = \`src/routes/
   (marketing)/
-    +layout.svelte         # Marketing header + footer
-    +page.svelte           # / (homepage)
-    about/+page.svelte     # /about
-    pricing/+page.svelte   # /pricing
+    +layout.svelte      # Public layout (no sidebar)
+    +page.svelte        # /
+    pricing/
+      +page.svelte      # /pricing
+    about/
+      +page.svelte      # /about
 
   (app)/
-    +layout.server.ts      # Auth guard
-    +layout.svelte         # Dashboard sidebar + nav
-    dashboard/+page.svelte # /dashboard
-    settings/+page.svelte  # /settings
-    profile/+page.svelte   # /profile
+    +layout.svelte      # Auth layout (sidebar)
+    +layout.server.ts   # Auth guard
+    dashboard/
+      +page.svelte      # /dashboard
+    settings/
+      +page.svelte      # /settings
 
-  (auth)/
-    +layout.svelte         # Centered card layout
-    login/+page.svelte     # /login
-    register/+page.svelte  # /register\`,
-      urlExamples: [
-        { url: '/', matches: true, note: 'Renders inside (marketing) layout' },
-        { url: '/about', matches: true, note: 'Renders inside (marketing) layout' },
-        { url: '/dashboard', matches: true, note: 'Renders inside (app) layout' },
-        { url: '/login', matches: true, note: 'Renders inside (auth) layout' }
-      ]
-    },
-    {
-      name: 'Optional Parameters',
-      syntax: '[[param]]',
-      description: 'Double brackets make a route parameter optional. The route matches both with and without the parameter. Perfect for locale prefixes like /en/about and /about matching the same page.',
-      example: \`src/routes/
   [[lang]]/
-    +layout.server.ts  # Detect language from param or header
-    +page.svelte       # / or /en or /fr
-    about/+page.svelte # /about or /en/about
+    blog/
+      +page.svelte      # /blog or /en/blog
+      [slug]/
+        +page.svelte    # /blog/my-post or /en/blog/my-post
 
-// +layout.server.ts
-import type { LayoutServerLoad } from './$types';
+  products/
+    [id=integer]/
+      +page.svelte      # /products/42
 
-const supportedLangs = ['en', 'fr', 'de', 'es'];
+  docs/
+    [...path]/
+      +page.svelte      # /docs/any/nested/path
 
-export const load: LayoutServerLoad = async ({ params }) => {
-  const lang = params.lang && supportedLangs.includes(params.lang)
-    ? params.lang
-    : 'en';
+  params/
+    integer.ts          # Matcher: return /^\\d+$/.test(param)\`;
 
-  return { lang };
-};\`,
-      urlExamples: [
-        { url: '/', matches: true, note: 'lang = undefined, defaults to "en"' },
-        { url: '/en', matches: true, note: 'lang = "en"' },
-        { url: '/fr/about', matches: true, note: 'lang = "fr"' },
-        { url: '/about', matches: true, note: 'lang = undefined, page = about' }
-      ]
-    },
-    {
-      name: 'Parameter Matchers',
-      syntax: '[param=matcher]',
-      description: 'Matchers validate route parameters at the routing level. If a matcher returns false, SvelteKit tries the next route or returns a 404. Matchers are defined in src/params/ as functions that return boolean.',
-      example: \`// src/params/integer.ts
+  const matcherCode = \`// src/params/integer.ts
 import type { ParamMatcher } from '@sveltejs/kit';
 
 export const match: ParamMatcher = (param) => {
-  return /^\\d+$/.test(param);
+  return /^\\\\d+$/.test(param);
 };
 
-// src/params/slug.ts
-export const match: ParamMatcher = (param) => {
-  return /^[a-z0-9-]+$/.test(param);
-};
-
-// src/params/uuid.ts
-export const match: ParamMatcher = (param) => {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(param);
-};
-
-// Usage in routes:
-// src/routes/posts/[id=integer]/+page.svelte
-// src/routes/blog/[slug=slug]/+page.svelte
-// src/routes/users/[id=uuid]/+page.svelte\`,
-      urlExamples: [
-        { url: '/posts/42', matches: true, note: '[id=integer] matches — id is "42"' },
-        { url: '/posts/abc', matches: false, note: '[id=integer] rejects — not a number' },
-        { url: '/blog/hello-world', matches: true, note: '[slug=slug] matches' },
-        { url: '/blog/Hello World!', matches: false, note: '[slug=slug] rejects — invalid chars' }
-      ]
-    },
-    {
-      name: 'Rest Parameters',
-      syntax: '[...rest]',
-      description: 'Catch-all parameters match any number of path segments. Useful for file paths, nested categories, or custom 404 pages. The value is the entire remaining path as a string.',
-      example: \`// src/routes/docs/[...path]/+page.svelte
-// Matches /docs/getting-started
-// Matches /docs/api/components/button
-
-// +page.server.ts
-export const load = async ({ params }) => {
-  // params.path = "api/components/button"
-  const segments = params.path.split('/');
-  const doc = await loadDoc(segments);
-  return { doc, breadcrumbs: segments };
-};
-
-// Custom 404 page
-// src/routes/[...catchall]/+page.svelte
-// Matches any URL not matched by other routes
-
-// src/routes/[...catchall]/+page.ts
-import { error } from '@sveltejs/kit';
-export const load = () => { error(404, 'Page not found'); };\`,
-      urlExamples: [
-        { url: '/docs/intro', matches: true, note: 'path = "intro"' },
-        { url: '/docs/api/auth/login', matches: true, note: 'path = "api/auth/login"' },
-        { url: '/anything/else', matches: true, note: 'catchall matches everything' }
-      ]
-    }
-  ];
-
-  let activeConcept = $state('Layout Groups');
-  let activeData = $derived(concepts.find(c => c.name === activeConcept)!);
+// Usage: src/routes/products/[id=integer]/
+// /products/42    -> matches (id = '42')
+// /products/abc   -> does not match (404)\`;
 </script>
 
-<main>
-  <h1>Advanced Routing & Layout Groups</h1>
-  <p class="subtitle">Layout groups, optional params, matchers, and rest parameters</p>
+<h1>Advanced Routing</h1>
 
-  <div class="concept-tabs">
-    {#each concepts as concept}
+<section>
+  <h2>Route Examples</h2>
+  <div class="route-list">
+    {#each routeExamples as route, i}
       <button
-        class={['tab', activeConcept === concept.name && 'active']}
-        onclick={() => activeConcept = concept.name}
+        class="route-item"
+        class:active={selectedRoute === i}
+        onclick={() => selectedRoute = i}
       >
-        <code>{concept.syntax}</code>
-        <span>{concept.name}</span>
+        <code class="path">{route.path}</code>
+        <span class="file">{route.file}</span>
       </button>
     {/each}
   </div>
 
-  <div class="concept-detail">
-    <div class="concept-header">
-      <code class="syntax">{activeData.syntax}</code>
-      <h2>{activeData.name}</h2>
+  <div class="route-detail">
+    <h3>{current.path}</h3>
+    <div class="detail-row">
+      <span class="label">File:</span>
+      <code>{current.file}</code>
     </div>
-    <p class="concept-desc">{activeData.description}</p>
-
-    <h3>URL Matching</h3>
-    <div class="url-table">
-      {#each activeData.urlExamples as ex}
-        <div class="url-row" class:match={ex.matches} class:no-match={!ex.matches}>
-          <span class="url-status">{ex.matches ? '\u2713' : '\u2717'}</span>
-          <code class="url-path">{ex.url}</code>
-          <span class="url-note">{ex.note}</span>
+    <div class="detail-row">
+      <span class="label">Layout group:</span>
+      <span class="group-badge">{current.layout}</span>
+    </div>
+    {#if Object.keys(current.params).length > 0}
+      <div class="detail-row">
+        <span class="label">Params:</span>
+        <div class="params">
+          {#each Object.entries(current.params) as [key, val]}
+            <span class="param">{key}: {val}</span>
+          {/each}
         </div>
-      {/each}
-    </div>
-
-    <h3>Example</h3>
-    <pre><code>{activeData.example}</code></pre>
+      </div>
+    {/if}
+    <p class="desc">{current.description}</p>
   </div>
-</main>
+</section>
+
+<section>
+  <h2>File Structure</h2>
+  <button onclick={() => showStructure = !showStructure}>
+    {showStructure ? 'Hide' : 'Show'} File Structure
+  </button>
+  {#if showStructure}
+    <pre class="structure"><code>{fileStructure}</code></pre>
+  {/if}
+</section>
+
+<section>
+  <h2>Parameter Matchers</h2>
+  <pre class="code"><code>{matcherCode}</code></pre>
+</section>
+
+<section>
+  <h2>Layout Groups Summary</h2>
+  <div class="group-grid">
+    <div class="group-card marketing">
+      <h3>(marketing)</h3>
+      <p>Public pages with marketing header/footer</p>
+      <ul>
+        <li>/ (home)</li>
+        <li>/pricing</li>
+        <li>/about</li>
+      </ul>
+    </div>
+    <div class="group-card app">
+      <h3>(app)</h3>
+      <p>Authenticated pages with sidebar navigation</p>
+      <ul>
+        <li>/dashboard</li>
+        <li>/settings</li>
+        <li>/profile</li>
+      </ul>
+    </div>
+  </div>
+  <p class="hint">Parenthesized group names don't appear in the URL — they only affect layout inheritance.</p>
+</section>
 
 <style>
-  main { max-width: 850px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
-  h1 { text-align: center; color: #333; }
-  h2 { margin: 0; }
-  h3 { color: #555; margin: 1.25rem 0 0.5rem; }
-  .subtitle { text-align: center; color: #666; }
-
-  .concept-tabs { display: flex; gap: 0.5rem; margin: 2rem 0 1.5rem; flex-wrap: wrap; }
-  .tab {
-    display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
-    padding: 0.6rem 1rem; border: 2px solid #e0e0e0; border-radius: 10px;
-    background: #f8f9fa; cursor: pointer; flex: 1; min-width: 120px;
+  h1 { color: #2d3436; }
+  section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #e17055; font-size: 1.1rem; }
+  h3 { margin: 0 0 0.5rem; }
+  .route-list { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 1rem; }
+  .route-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.5rem 0.75rem; border: 1px solid #dfe6e9; border-radius: 6px;
+    background: white; cursor: pointer; text-align: left;
   }
-  .tab code { font-size: 0.85rem; color: #7b1fa2; }
-  .tab span { font-size: 0.8rem; color: #666; }
-  .tab.active { border-color: #1976d2; background: #e3f2fd; }
-  .tab.active code { color: #1976d2; }
-
-  .concept-detail { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; }
-  .concept-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-  .syntax {
-    font-size: 1.1rem; background: #f3e5f5; color: #7b1fa2;
-    padding: 0.3rem 0.75rem; border-radius: 6px;
+  .route-item.active { border-color: #e17055; background: #fff5f2; }
+  .path { color: #e17055; font-weight: 700; }
+  .file { font-size: 0.75rem; color: #636e72; }
+  .route-detail { padding: 1rem; background: white; border-radius: 6px; border: 1px solid #dfe6e9; }
+  .detail-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
+  .label { font-weight: 600; color: #2d3436; font-size: 0.85rem; min-width: 90px; }
+  .group-badge {
+    padding: 0.15rem 0.5rem; background: #e17055; color: white;
+    border-radius: 10px; font-size: 0.8rem;
   }
-  .concept-desc { color: #555; line-height: 1.6; }
-
-  .url-table { display: flex; flex-direction: column; gap: 0.25rem; }
-  .url-row {
-    display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0.75rem;
-    border-radius: 6px; font-size: 0.88rem;
+  .params { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .param {
+    padding: 0.15rem 0.5rem; background: #dfe6e9; border-radius: 4px;
+    font-family: monospace; font-size: 0.8rem;
   }
-  .url-row.match { background: #e8f5e9; }
-  .url-row.no-match { background: #fef2f2; }
-  .url-status { font-weight: 700; width: 20px; text-align: center; }
-  .match .url-status { color: #16a34a; }
-  .no-match .url-status { color: #dc2626; }
-  .url-path { background: #e0e0e0; padding: 0.15rem 0.4rem; border-radius: 4px; }
-  .url-note { color: #666; font-size: 0.82rem; }
-
-  pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; line-height: 1.5; }
-  code { font-family: 'Fira Code', monospace; }
+  .desc { color: #636e72; font-size: 0.9rem; margin-bottom: 0; }
+  button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #e17055; color: white; cursor: pointer; font-weight: 600;
+  }
+  .structure, .code, pre {
+    background: #2d3436; padding: 1rem; border-radius: 6px;
+    overflow-x: auto; margin: 0.75rem 0 0;
+  }
+  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
+  .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .group-card {
+    padding: 1rem; border-radius: 8px; border: 2px solid;
+  }
+  .group-card.marketing { border-color: #74b9ff; background: #f0f8ff; }
+  .group-card.app { border-color: #00b894; background: #f0fff4; }
+  .group-card h3 { margin-top: 0; font-family: monospace; }
+  .group-card p { font-size: 0.85rem; color: #636e72; }
+  .group-card ul { margin: 0; padding-left: 1.2rem; }
+  .group-card li { font-family: monospace; font-size: 0.85rem; }
+  .hint { font-size: 0.8rem; color: #636e72; margin-top: 0.5rem; }
 </style>`,
 			language: 'svelte'
 		}
