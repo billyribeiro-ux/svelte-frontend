@@ -42,7 +42,7 @@
 <div class="ide-container">
 	<FileTabs
 		{files}
-		{activeFileIndex}
+		activeIndex={activeFileIndex}
 		onselect={handleTabSelect}
 	/>
 
