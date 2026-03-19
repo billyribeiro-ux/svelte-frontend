@@ -8,333 +8,318 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 9
 	},
-	description: `SvelteKit provides four $env modules for safe environment variable access: $env/static/private and $env/static/public are inlined at build time for maximum performance, while $env/dynamic/private and $env/dynamic/public are read at runtime. The $lib/server/ directory enforces a server-only boundary — any import from it in client code triggers a build error, preventing accidental secret leakage. The transport hook in hooks.ts lets you define custom serialization for non-POD data types (like Date, Map, Set, or custom classes) that cross the server-client boundary.
+	description: `SvelteKit provides structured access to environment variables through dedicated modules. $env/static/private and $env/static/public expose build-time variables (tree-shakeable), while $env/dynamic/private and $env/dynamic/public provide runtime variables. Private env vars are never exposed to the client.
 
-These features work together to keep your secrets safe, your environment configuration clean, and your data serialization seamless.`,
+The $lib/server/ convention restricts modules to server-side imports only — attempting to import them in client code causes a build error, preventing accidental secret exposure. SvelteKit's transport hook lets you serialize non-JSON types like Date, Map, Set, and custom classes across the server/client boundary, so load function data arrives fully typed.`,
 	objectives: [
-		'Access environment variables safely with the four $env modules',
-		'Use $lib/server/ to enforce server-only code boundaries',
-		'Configure the transport hook to serialize custom data types across the wire',
-		'Understand the difference between static and dynamic env modules'
+		'Access environment variables safely through $env modules',
+		'Distinguish between static/dynamic and private/public env variables',
+		'Use $lib/server/ to enforce server-only module boundaries',
+		'Configure the transport hook to serialize custom types across boundaries'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Environment, Server-Only & Transport — interactive reference
+  let activeTab: 'env' | 'server' | 'transport' = $state('env');
 
-  type EnvModule = {
-    name: string;
-    prefix: string;
-    timing: string;
-    access: string;
-    description: string;
-    example: string;
+  // Simulated environment variables
+  const envVars = {
+    staticPrivate: [
+      { key: 'DATABASE_URL', value: 'postgres://localhost:5432/mydb', safe: false },
+      { key: 'API_SECRET', value: 'sk_live_abc123...', safe: false },
+      { key: 'SMTP_PASSWORD', value: 'mail_pass_xyz', safe: false },
+    ],
+    staticPublic: [
+      { key: 'PUBLIC_API_URL', value: 'https://api.example.com', safe: true },
+      { key: 'PUBLIC_APP_NAME', value: 'My SvelteKit App', safe: true },
+      { key: 'PUBLIC_VERSION', value: '2.1.0', safe: true },
+    ],
+    dynamicPrivate: [
+      { key: 'RUNTIME_SECRET', value: '(set at runtime)', safe: false },
+    ],
+    dynamicPublic: [
+      { key: 'PUBLIC_FEATURE_FLAG', value: 'true', safe: true },
+    ],
   };
 
-  const envModules: EnvModule[] = [
-    {
-      name: '$env/static/private',
-      prefix: 'Any (without PUBLIC_)',
-      timing: 'Build time',
-      access: 'Server only',
-      description: 'Private secrets inlined at build time. Cannot be imported in client code. Ideal for API keys, database URLs, and signing secrets.',
-      example: \`// .env
-DATABASE_URL=postgres://user:pass@host/db
-API_SECRET=sk_live_abc123
-STRIPE_KEY=sk_test_xyz
+  let showSecrets: boolean = $state(false);
 
-// src/lib/server/db.ts
-import { DATABASE_URL } from '$env/static/private';
+  const transportExample = \`// svelte.config.js
+export default &#123;
+  kit: &#123;
+    transport: &#123;
+      // Register custom type serializers
+      Date: &#123;
+        encode: (value) => value instanceof Date
+          ? value.toISOString()
+          : false,
+        decode: (str) => new Date(str),
+      &#125;,
+      Map: &#123;
+        encode: (value) => value instanceof Map
+          ? Array.from(value.entries())
+          : false,
+        decode: (entries) => new Map(entries),
+      &#125;,
+      Set: &#123;
+        encode: (value) => value instanceof Set
+          ? Array.from(value)
+          : false,
+        decode: (arr) => new Set(arr),
+      &#125;,
+    &#125;,
+  &#125;,
+&#125;;\`;
 
-export const db = createClient(DATABASE_URL);
+  const serverOnlyExample = \`// $lib/server/db.ts — ONLY importable on the server
+import &#123; DATABASE_URL &#125; from '$env/static/private';
 
-// src/routes/api/charge/+server.ts
-import { STRIPE_KEY } from '$env/static/private';
+const pool = new Pool(&#123; connectionString: DATABASE_URL &#125;);
 
-const stripe = new Stripe(STRIPE_KEY);
+export async function getUsers() &#123;
+  const result = await pool.query('SELECT * FROM users');
+  return result.rows;
+&#125;
 
-// Trying to import in client code → BUILD ERROR
-// src/routes/+page.svelte
-// import { API_SECRET } from '$env/static/private'; // ERROR!\`
-    },
-    {
-      name: '$env/static/public',
-      prefix: 'PUBLIC_',
-      timing: 'Build time',
-      access: 'Server + Client',
-      description: 'Public values inlined at build time. Available everywhere including client-side code. Must use the PUBLIC_ prefix.',
-      example: \`// .env
-PUBLIC_API_URL=https://api.example.com
-PUBLIC_APP_NAME=My SvelteKit App
-PUBLIC_ANALYTICS_ID=G-XXXXXX
-
-// Available in client components:
-// src/routes/+page.svelte
-import { PUBLIC_API_URL, PUBLIC_APP_NAME } from '$env/static/public';
-
-// Available in server code too:
-// src/routes/+page.server.ts
-import { PUBLIC_API_URL } from '$env/static/public';
-
-// These values are inlined into the JavaScript bundle
-// so they are visible to anyone inspecting your code.
-// NEVER put secrets in PUBLIC_ variables!\`
-    },
-    {
-      name: '$env/dynamic/private',
-      prefix: 'Any (without PUBLIC_)',
-      timing: 'Runtime',
-      access: 'Server only',
-      description: 'Private values read at runtime on each access. Use when env vars change between deployments without rebuilding, like feature flags or runtime config.',
-      example: \`// src/routes/+page.server.ts
-import { env } from '$env/dynamic/private';
-
-export const load = async () => {
-  // Read at request time — not inlined at build
-  const featureFlag = env.ENABLE_NEW_FEATURE === 'true';
-  const maintenanceMode = env.MAINTENANCE_MODE === 'true';
-
-  return {
-    featureFlag,
-    maintenanceMode
-  };
-};
-
-// Great for:
-// - Feature flags that change without redeploying
-// - Database connection strings set by the platform
-// - API keys rotated at runtime\`
-    },
-    {
-      name: '$env/dynamic/public',
-      prefix: 'PUBLIC_',
-      timing: 'Runtime',
-      access: 'Server + Client',
-      description: 'Public values read at runtime. Available in both server and client code. Useful when public configuration changes between deployments.',
-      example: \`// src/routes/+page.svelte
-import { env } from '$env/dynamic/public';
-
-// Read at runtime
-const apiUrl = env.PUBLIC_API_URL;
-
-// Useful when the same build runs in multiple environments:
-// staging: PUBLIC_API_URL=https://staging-api.example.com
-// production: PUBLIC_API_URL=https://api.example.com
-
-// Comparison:
-// static = faster (inlined, tree-shaken, dead code eliminated)
-// dynamic = flexible (changes without rebuild)\`
-    }
-  ];
-
-  let activeModule = $state(0);
-
-  // Server-only boundary code
-  const serverOnlyCode = \`// Files inside $lib/server/ are server-only
-// Importing them in client code causes a build error
-
-// src/lib/server/db.ts
-import { DATABASE_URL } from '$env/static/private';
-export const db = createPool(DATABASE_URL);
-
-// src/lib/server/auth.ts
-import { JWT_SECRET } from '$env/static/private';
-export function verifyToken(token: string) {
-  return jwt.verify(token, JWT_SECRET);
-}
-
-// src/lib/server/email.ts
-import { SMTP_PASSWORD } from '$env/static/private';
-export async function sendEmail(to: string, subject: string, body: string) {
-  // Uses private SMTP credentials
-}
-
-// SAFE: Import in server files
-// src/routes/+page.server.ts
-import { db } from '$lib/server/db';           // OK
-import { verifyToken } from '$lib/server/auth'; // OK
-
-// ERROR: Import in client files
-// src/routes/+page.svelte
-// import { db } from '$lib/server/db';
-// ^ Cannot import $lib/server/db into client-side code\`;
-
-  // Transport hook code
-  const transportCode = \`// src/hooks.ts (shared hooks — runs on both server and client)
-import type { Transport } from '@sveltejs/kit';
-
-// Define how to serialize/deserialize custom types
-export const transport: Transport = {
-  Date: {
-    encode: (value) => value instanceof Date && value.toISOString(),
-    decode: (value) => new Date(value)
-  },
-
-  Set: {
-    encode: (value) => value instanceof Set && [...value],
-    decode: (value) => new Set(value)
-  },
-
-  Map: {
-    encode: (value) => value instanceof Map && [...value.entries()],
-    decode: (entries) => new Map(entries)
-  },
-
-  BigInt: {
-    encode: (value) => typeof value === 'bigint' && value.toString(),
-    decode: (value) => BigInt(value)
-  }
-};
-
-// Now load functions can return these types directly!
-// src/routes/+page.server.ts
-export const load = async () => {
-  return {
-    createdAt: new Date(),           // Arrives as Date, not string!
-    tags: new Set(['svelte', 'kit']),  // Arrives as Set, not array!
-    metadata: new Map([['key', 'value']]),
-    bigNumber: 9007199254740993n
-  };
-};
-
-// src/routes/+page.svelte
-// let { data } = $props();
-// data.createdAt instanceof Date  → true
-// data.tags instanceof Set        → true\`;
-
-  let activeTab = $state<'env' | 'server' | 'transport'>('env');
+// If client code tries to import this:
+// import &#123; getUsers &#125; from '$lib/server/db';
+// BUILD ERROR: Cannot import $lib/server/db into client-side code\`;
 </script>
 
-<main>
-  <h1>Environment, Server-Only & Transport</h1>
-  <p class="subtitle">$env modules, $lib/server/ boundaries, and custom serialization</p>
+<h1>Environment & Transport</h1>
 
-  <div class="main-tabs">
-    <button class:active={activeTab === 'env'} onclick={() => activeTab = 'env'}>$env Modules</button>
-    <button class:active={activeTab === 'server'} onclick={() => activeTab = 'server'}>$lib/server/</button>
-    <button class:active={activeTab === 'transport'} onclick={() => activeTab = 'transport'}>Transport</button>
-  </div>
+<div class="tabs">
+  <button class:active={activeTab === 'env'} onclick={() => activeTab = 'env'}>$env Modules</button>
+  <button class:active={activeTab === 'server'} onclick={() => activeTab = 'server'}>Server-Only</button>
+  <button class:active={activeTab === 'transport'} onclick={() => activeTab = 'transport'}>Transport</button>
+</div>
 
-  {#if activeTab === 'env'}
-    <section>
-      <h2>Environment Variable Modules</h2>
-      <div class="env-grid">
-        {#each envModules as mod, i}
-          <button
-            class={['env-card', activeModule === i && 'active']}
-            onclick={() => activeModule = i}
-          >
-            <code class="env-name">{mod.name}</code>
-            <div class="env-meta">
-              <span class="badge timing">{mod.timing}</span>
-              <span class="badge access">{mod.access}</span>
-            </div>
-          </button>
-        {/each}
-      </div>
+{#if activeTab === 'env'}
+  <section>
+    <h2>Environment Variables</h2>
 
-      <div class="env-detail">
-        <div class="env-header">
-          <code>{envModules[activeModule].name}</code>
-          <span class="prefix">Prefix: {envModules[activeModule].prefix}</span>
-        </div>
-        <p class="env-desc">{envModules[activeModule].description}</p>
-        <pre><code>{envModules[activeModule].example}</code></pre>
-      </div>
+    <label class="toggle">
+      <input type="checkbox" bind:checked={showSecrets} />
+      Show secret values (never do this in production!)
+    </label>
 
-      <div class="comparison-table">
-        <h3>Quick Comparison</h3>
-        <div class="table-row header">
-          <span>Module</span><span>Prefix</span><span>Timing</span><span>Access</span>
-        </div>
-        {#each envModules as mod}
-          <div class="table-row">
-            <code>{mod.name.split('/').slice(1).join('/')}</code>
-            <span>{mod.prefix}</span>
-            <span>{mod.timing}</span>
-            <span>{mod.access}</span>
+    <div class="env-grid">
+      <div class="env-group">
+        <h3>$env/static/private</h3>
+        <p class="env-desc">Build-time, server-only, tree-shakeable</p>
+        {#each envVars.staticPrivate as v}
+          <div class="env-row private">
+            <code class="env-key">{v.key}</code>
+            <code class="env-val">{showSecrets ? v.value : '••••••••'}</code>
+            <span class="env-badge private">PRIVATE</span>
           </div>
         {/each}
       </div>
-    </section>
 
-  {:else if activeTab === 'server'}
-    <section>
-      <h2>$lib/server/ — Server-Only Boundary</h2>
-      <div class="server-warning">
-        Any file inside <code>src/lib/server/</code> can only be imported in server-side code.
-        Importing it in a <code>.svelte</code> component or <code>+page.ts</code> causes a build error.
+      <div class="env-group">
+        <h3>$env/static/public</h3>
+        <p class="env-desc">Build-time, client-safe, tree-shakeable</p>
+        {#each envVars.staticPublic as v}
+          <div class="env-row public">
+            <code class="env-key">{v.key}</code>
+            <code class="env-val">{v.value}</code>
+            <span class="env-badge public">PUBLIC</span>
+          </div>
+        {/each}
       </div>
-      <pre><code>{serverOnlyCode}</code></pre>
-    </section>
 
-  {:else}
-    <section>
-      <h2>Transport Hook — Custom Serialization</h2>
-      <div class="transport-info">
-        By default, data crossing the server-client boundary must be JSON-serializable. The transport hook lets you define custom encode/decode functions for types like Date, Set, Map, and BigInt.
+      <div class="env-group">
+        <h3>$env/dynamic/private</h3>
+        <p class="env-desc">Runtime, server-only</p>
+        {#each envVars.dynamicPrivate as v}
+          <div class="env-row private">
+            <code class="env-key">{v.key}</code>
+            <code class="env-val">{showSecrets ? v.value : '••••••••'}</code>
+            <span class="env-badge private">PRIVATE</span>
+          </div>
+        {/each}
       </div>
-      <pre><code>{transportCode}</code></pre>
-    </section>
-  {/if}
-</main>
+
+      <div class="env-group">
+        <h3>$env/dynamic/public</h3>
+        <p class="env-desc">Runtime, client-safe</p>
+        {#each envVars.dynamicPublic as v}
+          <div class="env-row public">
+            <code class="env-key">{v.key}</code>
+            <code class="env-val">{v.value}</code>
+            <span class="env-badge public">PUBLIC</span>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <pre class="code"><code>// Server-only (hooks, load, actions, endpoints)
+import &#123; DATABASE_URL &#125; from '$env/static/private';
+import &#123; env &#125; from '$env/dynamic/private';
+
+// Anywhere (including client)
+import &#123; PUBLIC_API_URL &#125; from '$env/static/public';
+import &#123; env &#125; from '$env/dynamic/public';</code></pre>
+  </section>
+
+{:else if activeTab === 'server'}
+  <section>
+    <h2>$lib/server/ — Server-Only Modules</h2>
+
+    <div class="file-tree">
+      <div class="file-entry dir">src/lib/</div>
+      <div class="file-entry dir indent">server/</div>
+      <div class="file-entry file indent2 restricted">db.ts <span class="badge">server only</span></div>
+      <div class="file-entry file indent2 restricted">auth.ts <span class="badge">server only</span></div>
+      <div class="file-entry file indent2 restricted">email.ts <span class="badge">server only</span></div>
+      <div class="file-entry dir indent">components/</div>
+      <div class="file-entry file indent2">Button.svelte</div>
+      <div class="file-entry dir indent">utils/</div>
+      <div class="file-entry file indent2">format.ts</div>
+    </div>
+
+    <div class="rule-cards">
+      <div class="rule-card safe">
+        <h3>Allowed</h3>
+        <code>+page.server.ts -> $lib/server/db.ts</code>
+        <code>+server.ts -> $lib/server/auth.ts</code>
+        <code>hooks.server.ts -> $lib/server/email.ts</code>
+      </div>
+      <div class="rule-card blocked">
+        <h3>Build Error</h3>
+        <code>+page.svelte -> $lib/server/db.ts</code>
+        <code>$lib/utils/format.ts -> $lib/server/auth.ts</code>
+      </div>
+    </div>
+
+    <pre class="code"><code>{serverOnlyExample}</code></pre>
+  </section>
+
+{:else}
+  <section>
+    <h2>Transport Hook — Custom Serialization</h2>
+
+    <p>By default, SvelteKit can only pass JSON-serializable data from load functions to pages. The transport hook lets you register serializers for custom types.</p>
+
+    <div class="type-cards">
+      <div class="type-card">
+        <h3>Date</h3>
+        <p>Serialized as ISO string, deserialized back to Date object</p>
+        <code>new Date() -> "2026-03-19T..." -> new Date()</code>
+      </div>
+      <div class="type-card">
+        <h3>Map</h3>
+        <p>Serialized as array of entries, deserialized back to Map</p>
+        <code>new Map([...]) -> [[k,v],...] -> new Map([...])</code>
+      </div>
+      <div class="type-card">
+        <h3>Set</h3>
+        <p>Serialized as array, deserialized back to Set</p>
+        <code>new Set([...]) -> [...] -> new Set([...])</code>
+      </div>
+      <div class="type-card">
+        <h3>Custom Classes</h3>
+        <p>Register your own encode/decode for any type</p>
+        <code>new User({...}) -> &#123;...&#125; -> new User({...})</code>
+      </div>
+    </div>
+
+    <pre class="code"><code>{transportExample}</code></pre>
+
+    <pre class="code"><code>// +page.server.ts — return rich types
+export async function load() &#123;
+  return &#123;
+    createdAt: new Date(),           // Transported as Date
+    tags: new Set(['svelte', 'ts']), // Transported as Set
+    metadata: new Map([              // Transported as Map
+      ['version', '2.0'],
+      ['author', 'Alice'],
+    ]),
+  &#125;;
+&#125;
+
+// +page.svelte — receives actual Date, Set, Map objects
+// data.createdAt instanceof Date === true</code></pre>
+  </section>
+{/if}
 
 <style>
-  main { max-width: 900px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
-  h1 { text-align: center; color: #333; }
-  h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
-  h3 { color: #555; margin: 1.25rem 0 0.5rem; }
-  .subtitle { text-align: center; color: #666; }
-  section { margin: 2rem 0; }
-
-  .main-tabs { display: flex; gap: 0.5rem; margin: 2rem 0 1.5rem; }
-  .main-tabs button {
-    flex: 1; padding: 0.7rem; border: 2px solid #e0e0e0; border-radius: 8px;
-    background: #f8f9fa; cursor: pointer; font-weight: 600; font-size: 0.95rem;
+  h1 { color: #2d3436; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 0; }
+  .tabs button {
+    flex: 1; padding: 0.6rem; border: none; background: #dfe6e9;
+    cursor: pointer; font-weight: 600; border-radius: 4px 4px 0 0;
   }
-  .main-tabs button.active { border-color: #7b1fa2; background: #f3e5f5; color: #7b1fa2; }
-
-  .env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem; }
-  .env-card {
-    display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem;
-    border: 2px solid #e0e0e0; border-radius: 10px; background: #fafafa;
-    cursor: pointer; text-align: left;
+  .tabs button.active { background: #00b894; color: white; }
+  section { padding: 1rem; background: #f8f9fa; border-radius: 0 0 8px 8px; }
+  h2 { margin-top: 0; color: #00b894; font-size: 1.1rem; }
+  h3 { margin: 0 0 0.25rem; font-size: 0.95rem; }
+  .toggle {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.85rem; margin-bottom: 1rem;
   }
-  .env-card.active { border-color: #7b1fa2; background: #f3e5f5; }
-  .env-name { font-size: 0.82rem; font-weight: 600; color: #7b1fa2; }
-  .env-meta { display: flex; gap: 0.25rem; }
+  .env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .env-group {
+    padding: 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9;
+  }
+  .env-desc { font-size: 0.75rem; color: #636e72; margin: 0 0 0.5rem; }
+  .env-row {
+    display: flex; gap: 0.5rem; align-items: center;
+    padding: 0.3rem 0; font-size: 0.8rem; flex-wrap: wrap;
+  }
+  .env-key { font-weight: 600; }
+  .env-val { color: #636e72; word-break: break-all; }
+  .env-badge {
+    padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.65rem;
+    font-weight: 700;
+  }
+  .env-badge.private { background: #ff7675; color: white; }
+  .env-badge.public { background: #00b894; color: white; }
+  .file-tree {
+    padding: 0.75rem; background: #2d3436; border-radius: 6px;
+    margin-bottom: 1rem; font-family: monospace; font-size: 0.85rem;
+    color: #dfe6e9;
+  }
+  .file-entry { padding: 0.15rem 0; }
+  .dir { color: #74b9ff; }
+  .indent { padding-left: 1rem; }
+  .indent2 { padding-left: 2rem; }
+  .restricted { color: #ff7675; }
   .badge {
-    font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600;
+    font-size: 0.7rem; padding: 0.1rem 0.3rem; background: #ff7675;
+    border-radius: 3px; color: white; margin-left: 0.5rem;
   }
-  .badge.timing { background: #e3f2fd; color: #1976d2; }
-  .badge.access { background: #e8f5e9; color: #2e7d32; }
-
-  .env-detail { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
-  .env-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-  .env-header code { font-size: 1rem; font-weight: 700; color: #7b1fa2; background: #f3e5f5; padding: 0.3rem 0.6rem; border-radius: 6px; }
-  .prefix { font-size: 0.85rem; color: #666; }
-  .env-desc { color: #555; line-height: 1.6; }
-
-  .comparison-table { background: #f8f9fa; border-radius: 10px; overflow: hidden; border: 1px solid #e0e0e0; }
-  .table-row { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.82rem; align-items: center; }
-  .table-row.header { background: #e0e0e0; font-weight: 700; font-size: 0.85rem; }
-  .table-row:not(.header) { border-bottom: 1px solid #eee; }
-  .table-row code { font-size: 0.78rem; background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; }
-
-  .server-warning {
-    background: #fff3e0; border: 1px solid #ffcc80; border-radius: 10px;
-    padding: 1rem; color: #e65100; font-size: 0.9rem; margin-bottom: 1.5rem;
+  .rule-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .rule-card {
+    padding: 0.75rem; border-radius: 6px;
   }
-  .server-warning code { background: rgba(0,0,0,0.1); padding: 0.1rem 0.3rem; border-radius: 3px; }
-
-  .transport-info {
-    background: #e3f2fd; border: 1px solid #90caf9; border-radius: 10px;
-    padding: 1rem; color: #1565c0; font-size: 0.9rem; margin-bottom: 1.5rem;
+  .rule-card.safe { background: #e8f8f0; border: 1px solid #00b894; }
+  .rule-card.blocked { background: #fff5f5; border: 1px solid #ff7675; }
+  .rule-card h3 { font-size: 0.9rem; }
+  .rule-card.safe h3 { color: #00b894; }
+  .rule-card.blocked h3 { color: #d63031; }
+  .rule-card code {
+    display: block; font-size: 0.75rem; color: #2d3436;
+    padding: 0.2rem 0; background: transparent;
   }
-
-  pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; font-size: 0.76rem; overflow-x: auto; line-height: 1.5; }
-  code { font-family: 'Fira Code', monospace; }
+  .type-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+  .type-card {
+    padding: 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9;
+  }
+  .type-card p { font-size: 0.8rem; color: #636e72; margin: 0.2rem 0; }
+  .type-card code { font-size: 0.75rem; color: #00b894; display: block; background: transparent; }
+  button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #00b894; color: white; cursor: pointer; font-weight: 600;
+  }
+  .code, pre {
+    background: #2d3436; padding: 0.75rem; border-radius: 6px;
+    overflow-x: auto; margin: 0 0 0.75rem;
+  }
+  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
 </style>`,
 			language: 'svelte'
 		}

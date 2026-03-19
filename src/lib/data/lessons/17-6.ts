@@ -8,319 +8,260 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 6
 	},
-	description: `Shallow routing lets you update the URL and associate state with it without a full navigation. pushState() and replaceState() create history entries with custom state accessible via $page.state — perfect for modals, drawers, and tab views that should be URL-addressable and back-button friendly. Snapshots preserve ephemeral form state (scroll position, input values) when users navigate away and return using the browser's back button.
+	description: `Shallow routing lets you update the browser URL and store state in the history entry without triggering a full navigation. pushState() and replaceState() from $app/navigation add state to the browser history that you can access via page.state — perfect for opening modals, switching tabs, or showing detail views that should be linkable and support back-button navigation.
 
-Together these APIs let you build sophisticated navigation patterns where URL state and UI state stay perfectly synchronized.`,
+Snapshots preserve ephemeral UI state (like form input values, scroll positions, and unsaved text) across navigations. When a user navigates away and comes back, SvelteKit can restore the snapshot, preventing data loss without persisting to the server.`,
 	objectives: [
-		'Use pushState and replaceState to update URLs without full navigation',
-		'Access shallow state via page.state for modal and drawer patterns',
-		'Implement snapshot to preserve form data across back/forward navigation',
-		'Combine shallow routing with preloading for instant modal content'
+		'Use pushState and replaceState for URL updates without full navigation',
+		'Access shallow routing state through page.state in components',
+		'Implement snapshots to preserve form data across navigations',
+		'Build modal and detail-view patterns with browser history support'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Shallow Routing & Snapshots — interactive demo
+  // Simulating shallow routing and snapshot concepts
 
-  // Simulated shallow routing state
-  let currentUrl = $state('/gallery');
-  let shallowState = $state<Record<string, unknown>>({});
-  let historyStack = $state<{ url: string; state: Record<string, unknown> }[]>([
-    { url: '/gallery', state: {} }
+  interface HistoryEntry {
+    url: string;
+    state: Record<string, unknown>;
+    timestamp: string;
+  }
+
+  let historyStack: HistoryEntry[] = $state([
+    { url: '/gallery', state: {}, timestamp: new Date().toLocaleTimeString() },
   ]);
-  let historyIndex = $state(0);
 
-  // Simulated gallery items
-  const items = [
-    { id: 1, title: 'Mountain Sunset', author: 'Alice', description: 'A beautiful sunset over the mountains.' },
-    { id: 2, title: 'Ocean Waves', author: 'Bob', description: 'Crashing waves on a rocky coastline.' },
-    { id: 3, title: 'City Lights', author: 'Carol', description: 'Downtown skyline at night.' },
-    { id: 4, title: 'Forest Trail', author: 'Dave', description: 'A winding path through ancient woods.' }
+  let currentState: Record<string, unknown> = $state({});
+  let currentUrl: string = $state('/gallery');
+
+  // Simulate pushState
+  function pushState(url: string, state: Record<string, unknown>): void {
+    historyStack = [...historyStack, {
+      url,
+      state,
+      timestamp: new Date().toLocaleTimeString(),
+    }];
+    currentUrl = url;
+    currentState = state;
+  }
+
+  // Simulate replaceState
+  function replaceState(url: string, state: Record<string, unknown>): void {
+    historyStack = [
+      ...historyStack.slice(0, -1),
+      { url, state, timestamp: new Date().toLocaleTimeString() },
+    ];
+    currentUrl = url;
+    currentState = state;
+  }
+
+  // Simulate back
+  function goBack(): void {
+    if (historyStack.length > 1) {
+      historyStack = historyStack.slice(0, -1);
+      const prev = historyStack[historyStack.length - 1];
+      currentUrl = prev.url;
+      currentState = prev.state;
+    }
+  }
+
+  // Gallery items for modal demo
+  const images = [
+    { id: 1, title: 'Mountain Sunrise', color: '#e17055' },
+    { id: 2, title: 'Ocean Waves', color: '#0984e3' },
+    { id: 3, title: 'Forest Path', color: '#00b894' },
+    { id: 4, title: 'City Lights', color: '#6c5ce7' },
+    { id: 5, title: 'Desert Dunes', color: '#fdcb6e' },
+    { id: 6, title: 'Snowy Peaks', color: '#74b9ff' },
   ];
 
-  let selectedItem = $derived(
-    shallowState.selectedId
-      ? items.find(i => i.id === shallowState.selectedId)
+  let selectedImage = $derived(
+    currentState['imageId']
+      ? images.find((img) => img.id === currentState['imageId'])
       : null
   );
 
-  function simulatePushState(url: string, state: Record<string, unknown>) {
-    historyStack = [...historyStack.slice(0, historyIndex + 1), { url, state }];
-    historyIndex = historyStack.length - 1;
-    currentUrl = url;
-    shallowState = state;
+  function openImage(id: number): void {
+    pushState(\`/gallery/\${id}\`, { imageId: id, showModal: true });
   }
 
-  function simulateBack() {
-    if (historyIndex > 0) {
-      historyIndex--;
-      currentUrl = historyStack[historyIndex].url;
-      shallowState = historyStack[historyIndex].state;
-    }
+  function closeModal(): void {
+    goBack();
   }
 
-  function simulateForward() {
-    if (historyIndex < historyStack.length - 1) {
-      historyIndex++;
-      currentUrl = historyStack[historyIndex].url;
-      shallowState = historyStack[historyIndex].state;
-    }
+  // Snapshot simulation
+  let formDraft: string = $state('');
+  let savedSnapshot: { formDraft: string; scrollY: number } | null = $state(null);
+
+  function saveSnapshot(): void {
+    savedSnapshot = { formDraft, scrollY: 0 };
   }
 
-  function openItem(id: number) {
-    simulatePushState(\`/gallery/\${id}\`, { selectedId: id });
-  }
-
-  function closeModal() {
-    simulatePushState('/gallery', {});
-  }
-
-  // Code examples
-  const pushStateCode = \`import { pushState } from '$app/navigation';
-import { page } from '$app/state';
-
-// Open a modal and update the URL
-function openPhoto(photo) {
-  pushState(\\\`/gallery/\\\${photo.id}\\\`, {
-    selectedPhoto: photo
-  });
-}
-
-// In the template:
-// {#if page.state.selectedPhoto}
-//   <Modal onclose={() => history.back()}>
-//     <PhotoDetail photo={page.state.selectedPhoto} />
-//   </Modal>
-// {/if}\`;
-
-  const replaceStateCode = \`import { replaceState } from '$app/navigation';
-
-// Update state without adding a history entry
-// Great for tabs, filters, sort order
-function selectTab(tab: string) {
-  replaceState(\\\`?tab=\\\${tab}\\\`, { activeTab: tab });
-}
-
-// Replace is better than push when you don't want
-// the user to go "back" through every tab change\`;
-
-  const snapshotCode = \`<!-- +page.svelte -->
-<script lang="ts">
-  import type { Snapshot } from './$types';
-
-  let formData = $state({ name: '', email: '', message: '' });
-  let scrollY = $state(0);
-
-  // Capture state when user navigates away
-  export const snapshot: Snapshot<{
-    formData: typeof formData;
-    scrollY: number;
-  }> = {
-    capture: () => ({
-      formData: { ...formData },
-      scrollY: window.scrollY
-    }),
-    restore: (value) => {
-      formData = value.formData;
-      // Restore scroll after DOM updates
-      requestAnimationFrame(() => {
-        window.scrollTo(0, value.scrollY);
-      });
-    }
-  };
-<\\/script>
-
-<form>
-  <input bind:value={formData.name} placeholder="Name" />
-  <input bind:value={formData.email} placeholder="Email" />
-  <textarea bind:value={formData.message}></textarea>
-</form>
-
-<!-- User types in form → navigates away → presses Back →
-     Form is restored with all their data! -->\`;
-
-  let activeTab = $state<'push' | 'replace' | 'snapshot'>('push');
-
-  // Snapshot demo state
-  let demoName = $state('');
-  let demoEmail = $state('');
-  let snapshotSaved = $state(false);
-  let snapshotData = $state<{ name: string; email: string } | null>(null);
-
-  function captureSnapshot() {
-    snapshotData = { name: demoName, email: demoEmail };
-    snapshotSaved = true;
-    demoName = '';
-    demoEmail = '';
-  }
-
-  function restoreSnapshot() {
-    if (snapshotData) {
-      demoName = snapshotData.name;
-      demoEmail = snapshotData.email;
-      snapshotSaved = false;
+  function restoreSnapshot(): void {
+    if (savedSnapshot) {
+      formDraft = savedSnapshot.formDraft;
     }
   }
 </script>
 
-<main>
-  <h1>Shallow Routing & Snapshots</h1>
-  <p class="subtitle">URL-addressable modals, back-button-friendly state, form persistence</p>
+<h1>Shallow Routing & Snapshots</h1>
 
-  <!-- Interactive shallow routing demo -->
-  <section>
-    <h2>Shallow Routing Demo</h2>
-    <div class="browser-chrome">
-      <div class="browser-bar">
-        <button class="nav-btn" onclick={simulateBack} disabled={historyIndex <= 0}>&larr;</button>
-        <button class="nav-btn" onclick={simulateForward} disabled={historyIndex >= historyStack.length - 1}>&rarr;</button>
-        <div class="url-bar">{currentUrl}</div>
-      </div>
-      <div class="browser-content">
-        <div class="gallery-grid">
-          {#each items as item}
-            <button class="gallery-item" onclick={() => openItem(item.id)}>
-              <div class="item-thumb">{item.title[0]}</div>
-              <span>{item.title}</span>
-            </button>
-          {/each}
+<p class="url-bar">
+  <span class="url-icon">&#127760;</span>
+  <code>{currentUrl}</code>
+</p>
+
+<section>
+  <h2>Shallow Routing — Gallery Modal</h2>
+  <p>Click an image to open it with pushState — the URL updates and back works!</p>
+
+  <div class="gallery">
+    {#each images as image (image.id)}
+      <button
+        class="gallery-item"
+        style="background: {image.color}"
+        onclick={() => openImage(image.id)}
+      >
+        <span class="img-title">{image.title}</span>
+      </button>
+    {/each}
+  </div>
+
+  {#if selectedImage && currentState['showModal']}
+    <div class="modal-overlay" onclick={closeModal}>
+      <div class="modal" onclick={(e) => e.stopPropagation()}>
+        <div class="modal-image" style="background: {selectedImage.color}">
+          {selectedImage.title}
         </div>
+        <div class="modal-info">
+          <h3>{selectedImage.title}</h3>
+          <p>Image #{selectedImage.id}</p>
+          <p class="hint">URL: /gallery/{selectedImage.id}</p>
+          <button onclick={closeModal}>Close (or press Back)</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
-        {#if selectedItem}
-          <div class="modal-overlay" onclick={closeModal}>
-            <div class="modal" onclick={(e) => e.stopPropagation()}>
-              <button class="modal-close" onclick={closeModal}>&times;</button>
-              <div class="modal-thumb">{selectedItem.title[0]}</div>
-              <h3>{selectedItem.title}</h3>
-              <p class="modal-author">by {selectedItem.author}</p>
-              <p>{selectedItem.description}</p>
-              <p class="modal-note">URL updated via pushState — press Back to close</p>
-            </div>
-          </div>
+  <pre class="code"><code>import &#123; pushState &#125; from '$app/navigation';
+import &#123; page &#125; from '$app/state';
+
+function openPhoto(id: number) &#123;
+  pushState(\`/gallery/\$&#123;id&#125;\`, &#123; imageId: id &#125;);
+&#125;
+
+// Access state:
+// page.state.imageId</code></pre>
+</section>
+
+<section>
+  <h2>History Stack</h2>
+  <div class="history">
+    {#each historyStack as entry, i}
+      <div class="history-entry" class:current={i === historyStack.length - 1}>
+        <span class="time">{entry.timestamp}</span>
+        <code>{entry.url}</code>
+        {#if Object.keys(entry.state).length > 0}
+          <span class="state-badge">state: {JSON.stringify(entry.state)}</span>
         {/if}
       </div>
-    </div>
-    <p class="demo-hint">Click an item to open a modal. Use the back button to close it.</p>
-  </section>
+    {/each}
+  </div>
+  <button onclick={goBack} disabled={historyStack.length <= 1}>Back</button>
+</section>
 
-  <!-- Snapshot demo -->
-  <section>
-    <h2>Snapshot Demo</h2>
-    <div class="snapshot-demo">
-      <div class="snapshot-form">
-        <input type="text" bind:value={demoName} placeholder="Type your name..." />
-        <input type="email" bind:value={demoEmail} placeholder="Type your email..." />
-        <div class="snapshot-actions">
-          <button onclick={captureSnapshot} disabled={!demoName && !demoEmail}>
-            Simulate Navigate Away (capture)
-          </button>
-          {#if snapshotSaved}
-            <button class="restore-btn" onclick={restoreSnapshot}>
-              Simulate Back Button (restore)
-            </button>
-          {/if}
-        </div>
-      </div>
-      {#if snapshotSaved && snapshotData}
-        <div class="snapshot-saved">
-          Snapshot saved: {snapshotData.name}, {snapshotData.email}
-        </div>
-      {/if}
+<section>
+  <h2>Snapshots — Preserve Form State</h2>
+  <p>Type in the field, save a snapshot, clear it, then restore.</p>
+  <div class="snapshot-demo">
+    <textarea bind:value={formDraft} placeholder="Type your draft here..."></textarea>
+    <div class="snapshot-controls">
+      <button onclick={saveSnapshot}>Save Snapshot</button>
+      <button onclick={() => formDraft = ''}>Clear Field</button>
+      <button onclick={restoreSnapshot} disabled={!savedSnapshot}>Restore Snapshot</button>
     </div>
-  </section>
+    {#if savedSnapshot}
+      <p class="saved">Snapshot saved: "{savedSnapshot.formDraft.slice(0, 40)}..."</p>
+    {/if}
+  </div>
 
-  <!-- API Reference -->
-  <section>
-    <h2>API Reference</h2>
-    <div class="tabs">
-      <button class:active={activeTab === 'push'} onclick={() => activeTab = 'push'}>pushState</button>
-      <button class:active={activeTab === 'replace'} onclick={() => activeTab = 'replace'}>replaceState</button>
-      <button class:active={activeTab === 'snapshot'} onclick={() => activeTab = 'snapshot'}>snapshot</button>
-    </div>
-    <pre><code>{activeTab === 'push' ? pushStateCode : activeTab === 'replace' ? replaceStateCode : snapshotCode}</code></pre>
-  </section>
-</main>
+  <pre class="code"><code>// +page.svelte
+export const snapshot = &#123;
+  capture: () => &#123;
+    return &#123; formDraft, scrollPosition &#125;;
+  &#125;,
+  restore: (data) => &#123;
+    formDraft = data.formDraft;
+    window.scrollTo(0, data.scrollPosition);
+  &#125;,
+&#125;;</code></pre>
+</section>
 
 <style>
-  main { max-width: 850px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
-  h1 { text-align: center; color: #333; }
-  h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
-  .subtitle { text-align: center; color: #666; }
-  section { margin: 2rem 0; }
-
-  .browser-chrome { border: 2px solid #ccc; border-radius: 10px; overflow: hidden; }
-  .browser-bar {
-    display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem;
-    background: #f0f0f0; border-bottom: 1px solid #ccc;
-  }
-  .nav-btn { border: 1px solid #ccc; border-radius: 4px; background: white; padding: 0.2rem 0.5rem; cursor: pointer; }
-  .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  h1 { color: #2d3436; }
   .url-bar {
-    flex: 1; padding: 0.3rem 0.6rem; background: white; border: 1px solid #ddd;
-    border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.85rem; color: #333;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.75rem; background: #2d3436; border-radius: 20px;
+    margin-bottom: 1.5rem;
   }
-  .browser-content { padding: 1rem; background: white; position: relative; min-height: 200px; }
-
-  .gallery-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+  .url-icon { font-size: 1.1rem; }
+  .url-bar code { color: #74b9ff; font-size: 0.9rem; }
+  section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #6c5ce7; font-size: 1.1rem; }
+  .gallery {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
   .gallery-item {
-    display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
-    padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;
-    cursor: pointer; border: none;
+    aspect-ratio: 1; border: none; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: flex-end; padding: 0.5rem;
+    transition: transform 0.2s;
   }
-  .gallery-item:hover { background: #e3f2fd; }
-  .item-thumb {
-    width: 50px; height: 50px; border-radius: 8px; background: #1976d2; color: white;
-    display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 700;
-  }
-  .gallery-item span { font-size: 0.8rem; color: #555; }
-
+  .gallery-item:hover { transform: scale(1.05); }
+  .img-title { color: white; font-weight: 600; font-size: 0.8rem; }
   .modal-overlay {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex;
-    align-items: center; justify-content: center; z-index: 10;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
   }
   .modal {
-    background: white; border-radius: 12px; padding: 1.5rem; max-width: 300px; width: 100%;
-    position: relative; text-align: center;
+    background: white; border-radius: 12px; overflow: hidden;
+    max-width: 400px; width: 90%;
   }
-  .modal-close { position: absolute; top: 0.5rem; right: 0.75rem; border: none; background: none; font-size: 1.5rem; cursor: pointer; color: #666; }
-  .modal-thumb {
-    width: 80px; height: 80px; border-radius: 12px; background: #1976d2; color: white;
-    display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700;
-    margin: 0 auto 1rem;
+  .modal-image {
+    height: 200px; display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 1.5rem; font-weight: 700;
   }
-  .modal h3 { margin: 0 0 0.25rem; }
-  .modal-author { color: #888; font-size: 0.85rem; margin: 0 0 0.5rem; }
-  .modal-note { font-size: 0.75rem; color: #1976d2; font-style: italic; margin-top: 1rem; }
-
-  .demo-hint { font-size: 0.85rem; color: #888; text-align: center; margin-top: 0.5rem; }
-
-  .snapshot-demo { background: #f8f9fa; padding: 1.5rem; border-radius: 10px; }
-  .snapshot-form { display: flex; flex-direction: column; gap: 0.5rem; }
-  .snapshot-form input {
-    padding: 0.5rem 0.75rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem;
+  .modal-info { padding: 1rem; }
+  .modal-info h3 { margin-top: 0; }
+  button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #6c5ce7; color: white; cursor: pointer; font-weight: 600;
   }
-  .snapshot-actions { display: flex; gap: 0.5rem; }
-  .snapshot-actions button {
-    padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
-    background: #1976d2; color: white;
+  button:disabled { background: #b2bec3; cursor: not-allowed; }
+  .history { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
+  .history-entry {
+    display: flex; gap: 0.5rem; align-items: center; padding: 0.4rem 0.5rem;
+    background: white; border-radius: 4px; font-size: 0.85rem;
   }
-  .snapshot-actions button:disabled { background: #ccc; cursor: not-allowed; }
-  .restore-btn { background: #388e3c !important; }
-  .snapshot-saved {
-    margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: #e8f5e9;
-    border-radius: 6px; font-size: 0.85rem; color: #2e7d32;
+  .history-entry.current { border-left: 3px solid #6c5ce7; }
+  .time { color: #b2bec3; font-size: 0.75rem; }
+  .state-badge {
+    font-family: monospace; font-size: 0.75rem; padding: 0.1rem 0.4rem;
+    background: #dfe6e9; border-radius: 3px;
   }
-
-  .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
-  .tabs button {
-    padding: 0.5rem 1rem; border: 1px solid #ddd; border-radius: 20px;
-    background: white; cursor: pointer; font-size: 0.85rem;
+  .snapshot-demo { margin-bottom: 0.75rem; }
+  textarea {
+    width: 100%; height: 80px; padding: 0.5rem; border: 1px solid #ddd;
+    border-radius: 4px; margin-bottom: 0.5rem; resize: vertical;
+    box-sizing: border-box;
   }
-  .tabs button.active { background: #1976d2; color: white; border-color: #1976d2; }
-
-  pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; }
-  code { font-family: 'Fira Code', monospace; }
+  .snapshot-controls { display: flex; gap: 0.5rem; }
+  .saved { font-size: 0.85rem; color: #00b894; }
+  .hint { font-size: 0.85rem; color: #636e72; }
+  .code, pre { background: #2d3436; padding: 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0; }
+  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
 </style>`,
 			language: 'svelte'
 		}

@@ -8,271 +8,233 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 7
 	},
-	description: `SvelteKit's data invalidation system lets you surgically re-run load functions when data changes. depends('app:data') declares that a load function depends on a custom identifier, and invalidate('app:data') triggers re-execution of all load functions that declared that dependency. invalidateAll() re-runs every load function on the page. These patterns enable cross-route data synchronization, real-time updates, and efficient cache management.
+	description: `SvelteKit's data loading system lets you precisely control when data is refetched using invalidation. Load functions can declare dependencies with depends('app:key'), and you invalidate specific keys with invalidate('app:key') to re-run only the load functions that depend on that key.
 
-Understanding invalidation is key to building apps where data stays fresh without unnecessary re-fetching.`,
+invalidateAll() re-runs every load function on the current page. For cross-route invalidation, URL-based dependencies with depends(url) let you invalidate data from any route. These patterns ensure your app shows fresh data without unnecessary refetching, keeping the UI responsive and efficient.`,
 	objectives: [
-		'Declare custom dependencies with depends() in load functions',
-		'Trigger selective re-fetching with invalidate() for specific data',
+		'Declare load function dependencies with depends() for targeted invalidation',
+		'Trigger selective data refetching with invalidate() and custom keys',
 		'Use invalidateAll() to refresh all page data at once',
-		'Build cross-route data synchronization patterns'
+		'Implement cross-route invalidation for shared data dependencies'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Data Invalidation Patterns — interactive reference
+  // Simulating SvelteKit's invalidation system
 
-  type InvalidationPattern = {
+  interface LoadFunction {
     name: string;
-    description: string;
-    code: string;
-    flow: string[];
-  };
+    dependencies: string[];
+    lastRun: string | null;
+    data: string;
+    runCount: number;
+  }
 
-  const patterns: InvalidationPattern[] = [
+  let loadFunctions: LoadFunction[] = $state([
     {
-      name: 'depends + invalidate',
-      description: 'Declare a custom dependency in your load function, then trigger it from anywhere. Only load functions with that dependency re-run.',
-      code: \`// +layout.server.ts
-export const load = async ({ depends, locals }) => {
-  depends('app:notifications');  // Declare dependency
-
-  const notifications = await db.getNotifications(locals.user.id);
-  return { notifications };
-};
-
-// +page.svelte — after marking notification as read
-import { invalidate } from '$app/navigation';
-
-async function markRead(id: string) {
-  await fetch(\\\`/api/notifications/\\\${id}\\\`, { method: 'PATCH' });
-
-  // Only re-runs load functions with depends('app:notifications')
-  await invalidate('app:notifications');
-}\`,
-      flow: [
-        'Load function calls depends("app:notifications")',
-        'User marks notification as read',
-        'Component calls invalidate("app:notifications")',
-        'SvelteKit re-runs ONLY load functions with that dependency',
-        'UI updates with fresh data'
-      ]
+      name: 'Layout load (root)',
+      dependencies: ['app:user', 'app:notifications'],
+      lastRun: null, data: 'User: Alice | Notifications: 3', runCount: 0,
     },
     {
-      name: 'URL-based invalidation',
-      description: 'invalidate() also accepts URLs. Load functions that fetch from a matching URL will re-run automatically.',
-      code: \`// +page.server.ts
-export const load = async ({ fetch }) => {
-  // SvelteKit tracks this URL as a dependency automatically
-  const res = await fetch('/api/todos');
-  const todos = await res.json();
-  return { todos };
-};
+      name: 'Page load (dashboard)',
+      dependencies: ['app:dashboard', 'app:user'],
+      lastRun: null, data: 'Dashboard stats loaded', runCount: 0,
+    },
+    {
+      name: 'Page load (posts)',
+      dependencies: ['app:posts', '/api/posts'],
+      lastRun: null, data: 'Posts: 15 items', runCount: 0,
+    },
+    {
+      name: 'Page load (comments)',
+      dependencies: ['app:comments', 'app:posts'],
+      lastRun: null, data: 'Comments: 42 items', runCount: 0,
+    },
+  ]);
 
-// +page.svelte — after adding a todo
-import { invalidate } from '$app/navigation';
+  let invalidationLog: string[] = $state([]);
 
-async function addTodo(text: string) {
-  await fetch('/api/todos', {
-    method: 'POST',
-    body: JSON.stringify({ text }),
-    headers: { 'Content-Type': 'application/json' }
+  function runLoad(fn: LoadFunction): LoadFunction {
+    return {
+      ...fn,
+      lastRun: new Date().toLocaleTimeString(),
+      runCount: fn.runCount + 1,
+      data: \`\${fn.data.split(' |')[0]} (refreshed #\${fn.runCount + 1})\`,
+    };
+  }
+
+  // Simulate invalidate(key)
+  function invalidate(key: string): void {
+    const affected: string[] = [];
+    loadFunctions = loadFunctions.map((fn) => {
+      if (fn.dependencies.includes(key)) {
+        affected.push(fn.name);
+        return runLoad(fn);
+      }
+      return fn;
+    });
+    invalidationLog = [
+      \`invalidate('\${key}') -> re-ran: \${affected.join(', ') || 'none'}\`,
+      ...invalidationLog,
+    ].slice(0, 8);
+  }
+
+  // Simulate invalidateAll()
+  function invalidateAll(): void {
+    loadFunctions = loadFunctions.map(runLoad);
+    invalidationLog = [
+      \`invalidateAll() -> re-ran all \${loadFunctions.length} load functions\`,
+      ...invalidationLog,
+    ].slice(0, 8);
+  }
+
+  // Initial run
+  function initializeData(): void {
+    loadFunctions = loadFunctions.map(runLoad);
+    invalidationLog = ['Initial page load — all load functions executed', ...invalidationLog];
+  }
+
+  // Run on mount
+  $effect(() => {
+    initializeData();
   });
 
-  // Re-runs any load function that fetched from /api/todos
-  await invalidate('/api/todos');
-}\`,
-      flow: [
-        'Load function fetches /api/todos — SvelteKit auto-tracks this',
-        'User adds a new todo via POST',
-        'Component calls invalidate("/api/todos")',
-        'Load functions that fetched that URL re-run',
-        'Page shows the new todo'
-      ]
-    },
-    {
-      name: 'invalidateAll',
-      description: 'Re-runs every load function on the current page. Use it when multiple data sources may have changed, or after a global action like login/logout.',
-      code: \`// After logging out — everything needs refreshing
-import { invalidateAll } from '$app/navigation';
-import { goto } from '$app/navigation';
-
-async function logout() {
-  await fetch('/api/auth/logout', { method: 'POST' });
-
-  // Re-run ALL load functions (layout + page)
-  await invalidateAll();
-
-  // Then navigate
-  goto('/login');
-}
-
-// After bulk operations
-async function deleteAllCompleted() {
-  await fetch('/api/todos/completed', { method: 'DELETE' });
-
-  // Everything might be affected
-  await invalidateAll();
-}\`,
-      flow: [
-        'User logs out or performs a bulk action',
-        'Component calls invalidateAll()',
-        'ALL load functions re-run (layout + page)',
-        'Entire page state is refreshed',
-        'UI reflects the new state'
-      ]
-    },
-    {
-      name: 'Cross-Route Sync',
-      description: 'Custom dependencies work across routes. A sidebar and main content can stay in sync because they share a dependency identifier.',
-      code: \`// src/routes/+layout.server.ts
-export const load = async ({ depends, locals }) => {
-  depends('app:cart');
-  const cartCount = await db.getCartCount(locals.user.id);
-  return { cartCount };  // Shown in header/nav
-};
-
-// src/routes/products/[id]/+page.svelte
-import { invalidate } from '$app/navigation';
-
-async function addToCart(productId: string) {
-  await fetch('/api/cart', {
-    method: 'POST',
-    body: JSON.stringify({ productId })
-  });
-
-  // Layout's load re-runs → header cart count updates!
-  await invalidate('app:cart');
-}
-
-// src/routes/cart/+page.server.ts
-export const load = async ({ depends, locals }) => {
-  depends('app:cart');  // Same dependency
-  const items = await db.getCartItems(locals.user.id);
-  return { items };
-};
-// Both the layout AND cart page re-run when cart changes\`,
-      flow: [
-        'Layout + cart page both depend on "app:cart"',
-        'User adds item on product page',
-        'invalidate("app:cart") fires',
-        'Layout load re-runs → nav cart badge updates',
-        'If on /cart, cart page load also re-runs'
-      ]
-    }
-  ];
-
-  let activePattern = $state(0);
+  const availableKeys = ['app:user', 'app:notifications', 'app:dashboard', 'app:posts', 'app:comments', '/api/posts'];
 </script>
 
-<main>
-  <h1>Data Invalidation Patterns</h1>
-  <p class="subtitle">depends, invalidate, invalidateAll — surgical data re-fetching</p>
+<h1>Data Invalidation Patterns</h1>
 
-  <div class="pattern-tabs">
-    {#each patterns as pattern, i}
-      <button
-        class={['tab', activePattern === i && 'active']}
-        onclick={() => activePattern = i}
-      >
-        {pattern.name}
-      </button>
+<section>
+  <h2>Load Functions & Dependencies</h2>
+  <div class="load-functions">
+    {#each loadFunctions as fn}
+      <div class="load-card">
+        <h3>{fn.name}</h3>
+        <div class="deps">
+          {#each fn.dependencies as dep}
+            <span class="dep-tag">{dep}</span>
+          {/each}
+        </div>
+        <div class="load-info">
+          <span>Runs: {fn.runCount}</span>
+          {#if fn.lastRun}
+            <span>Last: {fn.lastRun}</span>
+          {/if}
+        </div>
+        <p class="load-data">{fn.data}</p>
+      </div>
+    {/each}
+  </div>
+</section>
+
+<section>
+  <h2>invalidate(key) — Selective Refetch</h2>
+  <p>Click a key to re-run only the load functions that depend on it:</p>
+  <div class="key-buttons">
+    {#each availableKeys as key}
+      <button onclick={() => invalidate(key)}>{key}</button>
     {/each}
   </div>
 
-  <div class="pattern-detail">
-    <h2>{patterns[activePattern].name}</h2>
-    <p class="pattern-desc">{patterns[activePattern].description}</p>
+  <pre class="code"><code>// In +page.ts load function
+export async function load(&#123; depends &#125;) &#123;
+  depends('app:posts');  // Register dependency
 
-    <h3>Data Flow</h3>
-    <div class="flow">
-      {#each patterns[activePattern].flow as step, i}
-        <div class="flow-step">
-          <span class="flow-num">{i + 1}</span>
-          <span>{step}</span>
-        </div>
-        {#if i < patterns[activePattern].flow.length - 1}
-          <div class="flow-arrow">&darr;</div>
-        {/if}
-      {/each}
-    </div>
+  const posts = await fetchPosts();
+  return &#123; posts &#125;;
+&#125;
 
-    <h3>Code</h3>
-    <pre><code>{patterns[activePattern].code}</code></pre>
+// Anywhere in client code
+import &#123; invalidate &#125; from '$app/navigation';
+await invalidate('app:posts');  // Re-runs this load</code></pre>
+</section>
+
+<section>
+  <h2>invalidateAll() — Refresh Everything</h2>
+  <button onclick={invalidateAll}>invalidateAll()</button>
+  <p class="hint">Re-runs every load function on the page, regardless of dependencies.</p>
+</section>
+
+<section>
+  <h2>Invalidation Log</h2>
+  <div class="log">
+    {#each invalidationLog as entry}
+      <div class="log-entry">{entry}</div>
+    {/each}
+    {#if invalidationLog.length === 0}
+      <p class="empty">No invalidations yet.</p>
+    {/if}
   </div>
+</section>
 
-  <section class="comparison">
-    <h2>When to Use What</h2>
-    <div class="compare-grid">
-      <div class="compare-card">
-        <h4>invalidate('app:...')</h4>
-        <p>Surgical. Re-runs only matching load functions. Best for targeted updates.</p>
-        <code class="use-when">After a specific data mutation</code>
-      </div>
-      <div class="compare-card">
-        <h4>invalidate('/api/...')</h4>
-        <p>URL-based. Re-runs loads that fetched from that URL. Great with REST APIs.</p>
-        <code class="use-when">After mutating a specific API resource</code>
-      </div>
-      <div class="compare-card">
-        <h4>invalidateAll()</h4>
-        <p>Nuclear option. Re-runs everything. Use sparingly for global state changes.</p>
-        <code class="use-when">After login/logout, bulk operations</code>
-      </div>
-      <div class="compare-card">
-        <h4>goto() with invalidateAll</h4>
-        <p>Navigate and refresh. Use the invalidateAll option on goto for combined navigation.</p>
-        <code class="use-when">After form submission with redirect</code>
-      </div>
+<section>
+  <h2>Common Patterns</h2>
+  <div class="patterns">
+    <div class="pattern">
+      <h3>After form submission</h3>
+      <code>await invalidate('app:posts');</code>
     </div>
-  </section>
-</main>
+    <div class="pattern">
+      <h3>Polling for updates</h3>
+      <code>setInterval(() => invalidate('app:notifications'), 30000);</code>
+    </div>
+    <div class="pattern">
+      <h3>After user action</h3>
+      <code>await deletePost(id); await invalidate('app:posts');</code>
+    </div>
+    <div class="pattern">
+      <h3>URL-based dependency</h3>
+      <code>depends('/api/posts'); // invalidate('/api/posts')</code>
+    </div>
+  </div>
+</section>
 
 <style>
-  main { max-width: 850px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
-  h1 { text-align: center; color: #333; }
-  h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
-  h3 { color: #555; margin: 1.25rem 0 0.5rem; }
-  h4 { margin: 0 0 0.5rem; }
-  .subtitle { text-align: center; color: #666; }
-  section { margin: 2rem 0; }
-
-  .pattern-tabs { display: flex; gap: 0.5rem; margin: 2rem 0 1.5rem; flex-wrap: wrap; }
-  .tab {
-    flex: 1; min-width: 140px; padding: 0.6rem 0.75rem; border: 2px solid #e0e0e0;
-    border-radius: 8px; background: #f8f9fa; cursor: pointer; font-size: 0.85rem; font-weight: 500;
+  h1 { color: #2d3436; }
+  section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #0984e3; font-size: 1.1rem; }
+  h3 { margin: 0 0 0.25rem; font-size: 0.95rem; }
+  .load-functions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .load-card {
+    padding: 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9;
   }
-  .tab.active { border-color: #1976d2; background: #e3f2fd; color: #1976d2; }
-
-  .pattern-detail { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; }
-  .pattern-desc { color: #555; line-height: 1.6; }
-
-  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
-  .flow-step {
-    display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 1.25rem;
-    border: 2px solid #e0e0e0; border-radius: 8px; background: white;
-    width: 100%; max-width: 500px; font-size: 0.88rem;
+  .deps { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .dep-tag {
+    padding: 0.15rem 0.4rem; background: #74b9ff; color: white;
+    border-radius: 8px; font-size: 0.7rem; font-family: monospace;
   }
-  .flow-num {
-    width: 24px; height: 24px; border-radius: 50%; background: #1976d2; color: white;
-    display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;
-    flex-shrink: 0;
+  .load-info { display: flex; gap: 1rem; font-size: 0.75rem; color: #636e72; }
+  .load-data {
+    font-family: monospace; font-size: 0.8rem; color: #2d3436;
+    margin: 0.4rem 0 0; padding: 0.3rem; background: #f0f0f0;
+    border-radius: 3px;
   }
-  .flow-arrow { color: #1976d2; font-size: 1rem; }
-
-  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .compare-card {
-    background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 1rem;
+  .key-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #0984e3; color: white; cursor: pointer; font-weight: 600;
+    font-size: 0.85rem;
   }
-  .compare-card p { font-size: 0.85rem; color: #555; margin: 0 0 0.5rem; }
-  .use-when {
-    display: block; font-size: 0.8rem; background: #e8f5e9; color: #2e7d32;
-    padding: 0.25rem 0.5rem; border-radius: 4px;
+  button:hover { opacity: 0.9; }
+  .log { max-height: 200px; overflow-y: auto; }
+  .log-entry {
+    font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid #eee; color: #636e72;
   }
-
-  pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; line-height: 1.5; }
-  code { font-family: 'Fira Code', monospace; }
+  .empty { color: #b2bec3; }
+  .hint { font-size: 0.85rem; color: #636e72; margin-top: 0.5rem; }
+  .patterns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .pattern {
+    padding: 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9;
+  }
+  .pattern h3 { font-size: 0.85rem; color: #636e72; }
+  .pattern code { font-size: 0.8rem; color: #0984e3; }
+  .code, pre { background: #2d3436; padding: 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0; }
+  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
 </style>`,
 			language: 'svelte'
 		}
