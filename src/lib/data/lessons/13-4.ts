@@ -21,8 +21,8 @@ This is progressive enhancement in action: the form works without JavaScript, bu
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  let submitting: boolean = $state(false);
-  let formResult: string = $state('');
+  // This lesson demonstrates use:enhance patterns via code examples.
+  // In a real SvelteKit app, these forms would submit to server actions.
 </script>
 
 <main>
