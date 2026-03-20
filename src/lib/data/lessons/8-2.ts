@@ -42,12 +42,7 @@ Interfaces can extend other interfaces, building up complex types from simple bu
     address: Address;
   }
 
-  // Interface for component-like props
-  interface CardProps {
-    title: string;
-    subtitle?: string;
-    variant?: 'default' | 'outlined' | 'elevated';
-  }
+  import ProfileCard from './ProfileCard.svelte';
 
   // Using interfaces with $state
   let users: User[] = $state([
@@ -66,12 +61,6 @@ Interfaces can extend other interfaces, building up complex types from simple bu
       state: 'OR',
       zip: '97201'
     }
-  });
-
-  let cardConfig: CardProps = $state({
-    title: 'My Card',
-    subtitle: 'A subtitle',
-    variant: 'default'
   });
 
   // New user form
@@ -157,33 +146,19 @@ interface UserWithAddress extends User {'{'}
 </section>
 
 <section>
-  <h2>Interface for Component Config</h2>
+  <h2>Interfaces for $props()</h2>
+  <p>The real power: type your component props so parents get autocomplete and error-checking.</p>
   <pre class="code">
-interface CardProps {'{'}
-  title: string;
-  subtitle?: string;
-  variant?: 'default' | 'outlined' | 'elevated';
-{'}'}</pre>
+// In ProfileCard.svelte:
+interface Props {'{'}
+  user: User;
+  showEmail?: boolean;  // optional
+{'}'}
+let {'{'} user, showEmail = true {'}'} = $props&lt;Props&gt;();</pre>
 
-  <div class="controls">
-    <label>Title: <input bind:value={cardConfig.title} /></label>
-    <label>Subtitle: <input bind:value={cardConfig.subtitle} /></label>
-    <label>
-      Variant:
-      <select bind:value={cardConfig.variant}>
-        <option value="default">default</option>
-        <option value="outlined">outlined</option>
-        <option value="elevated">elevated</option>
-      </select>
-    </label>
-  </div>
-
-  <div class="preview-card {cardConfig.variant}">
-    <h3>{cardConfig.title}</h3>
-    {#if cardConfig.subtitle}
-      <p>{cardConfig.subtitle}</p>
-    {/if}
-  </div>
+  {#each users as user}
+    <ProfileCard {user} />
+  {/each}
 </section>
 
 <style>
@@ -252,19 +227,65 @@ interface CardProps {'{'}
     border-radius: 8px;
   }
   .address { color: #666; font-size: 0.9rem; }
-  .controls { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-  .controls label { display: flex; align-items: center; gap: 0.5rem; }
-  .controls input, .controls select { padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; }
-  .preview-card {
-    padding: 1rem;
-    border-radius: 8px;
-    transition: all 0.2s;
+</style>`,
+			language: 'svelte'
+		}
+		{
+			filename: 'ProfileCard.svelte',
+			content: `<script lang="ts">
+  // Define the shape this component expects
+  interface User {
+    name: string;
+    email: string;
+    age: number;
+    avatar?: string;
   }
-  .preview-card h3 { margin: 0 0 0.25rem; }
-  .preview-card p { margin: 0; color: #666; }
-  .preview-card.default { background: white; border: 1px solid #e0e0e0; }
-  .preview-card.outlined { background: transparent; border: 2px solid #4f46e5; }
-  .preview-card.elevated { background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+  interface Props {
+    user: User;
+    showEmail?: boolean;
+  }
+
+  // Type $props() with your interface
+  let { user, showEmail = true }: Props = $props();
+</script>
+
+<div class="profile">
+  <div class="avatar">{user.avatar || user.name[0]}</div>
+  <div>
+    <strong>{user.name}</strong>
+    {#if showEmail}
+      <span class="email">{user.email}</span>
+    {/if}
+    <span class="age">Age: {user.age}</span>
+  </div>
+</div>
+
+<style>
+  .profile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #4f46e5;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+  .email { display: block; font-size: 0.85rem; color: #666; }
+  .age { display: block; font-size: 0.8rem; color: #888; }
 </style>`,
 			language: 'svelte'
 		}
