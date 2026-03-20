@@ -21,7 +21,11 @@ This is especially useful because native Map, Set, Date, and URL objects use met
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  import { SvelteMap, SvelteSet, SvelteDate, SvelteURL, SvelteURLSearchParams } from 'svelte/reactivity';
+  import { SvelteMap, SvelteSet, SvelteDate, SvelteURL, SvelteURLSearchParams, MediaQuery } from 'svelte/reactivity';
+
+  // MediaQuery — reactive media query matching
+  const isMobile = new MediaQuery('max-width: 768px');
+  const prefersDark = new MediaQuery('prefers-color-scheme: dark');
 
   // SvelteMap — reactive key-value store
   const userScores = new SvelteMap<string, number>([
@@ -123,6 +127,26 @@ This is especially useful because native Map, Set, Date, and URL objects use met
 </section>
 
 <section>
+  <h2>MediaQuery</h2>
+  <p>Reactive media query matching — updates automatically when viewport or preferences change.</p>
+  <div class="mq-status">
+    <div class="mq-row">
+      <span>Mobile viewport (max-width: 768px):</span>
+      <strong class:active={isMobile.current} class:inactive={!isMobile.current}>
+        {isMobile.current ? 'YES' : 'NO'}
+      </strong>
+    </div>
+    <div class="mq-row">
+      <span>Prefers dark mode:</span>
+      <strong class:active={prefersDark.current} class:inactive={!prefersDark.current}>
+        {prefersDark.current ? 'YES' : 'NO'}
+      </strong>
+    </div>
+  </div>
+  <p class="meta">Resize the browser or toggle system dark mode to see changes.</p>
+</section>
+
+<section>
   <h2>SvelteURL</h2>
   <div class="url-display">
     <code>{url.href}</code>
@@ -189,6 +213,11 @@ This is especially useful because native Map, Set, Date, and URL objects use met
     padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;
   }
   .param-row { font-family: monospace; font-size: 0.85rem; padding: 0.2rem 0; }
+  .mq-status { display: flex; flex-direction: column; gap: 0.5rem; }
+  .mq-row { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; }
+  .mq-row span { color: #636e72; }
+  .active { color: #00b894; }
+  .inactive { color: #d63031; }
 </style>`,
 			language: 'svelte'
 		}

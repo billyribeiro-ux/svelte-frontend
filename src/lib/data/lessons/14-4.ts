@@ -21,13 +21,14 @@ By default, props flow one way (parent to child). When a child declares a prop w
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
+  import TextInput from './TextInput.svelte';
+  import Slider from './Slider.svelte';
+  import Toggle from './Toggle.svelte';
+
   // Parent state that will be bound to child components
   let username: string = $state('');
   let volume: number = $state(50);
   let agreed: boolean = $state(false);
-
-  // This object is passed without binding — mutations cause ownership warnings
-  let config = $state({ theme: 'light', fontSize: 16 });
 </script>
 
 <h1>Two-Way Binding with $bindable</h1>
@@ -52,6 +53,7 @@ By default, props flow one way (parent to child). When a child declares a prop w
 
 <section>
   <h2>Reset from Parent</h2>
+  <p>Changing parent state updates the child — two-way flow!</p>
   <button onclick={() => { username = ''; volume = 50; agreed = false; }}>
     Reset All Values
   </button>
@@ -70,38 +72,85 @@ By default, props flow one way (parent to child). When a child declares a prop w
     background: #e17055; color: white; cursor: pointer; font-weight: 600;
   }
   button:hover { background: #d35d47; }
-</style>
-
-<!-- Inline child components using {#snippet} won't work for $bindable demo,
-     so we define them as script-level components below. In a real project,
-     these would be separate .svelte files. For this lesson, the key concepts
-     are shown in the template patterns above. -->
-
-<!-- TextInput would be: -->
-<!-- <script lang="ts">
+</style>`,
+			language: 'svelte'
+		},
+		{
+			filename: 'TextInput.svelte',
+			content: `<script lang="ts">
+  // $bindable() makes this prop two-way bindable
   let { value = $bindable(''), label, placeholder = '' }: {
-    value: string; label: string; placeholder?: string;
+    value: string;
+    label: string;
+    placeholder?: string;
   } = $props();
 </script>
-<label>{label}</label>
-<input type="text" bind:value {placeholder} /> -->
 
-<!-- Slider would be: -->
-<!-- <script lang="ts">
+<label class="field">
+  <span>{label}</span>
+  <input type="text" bind:value {placeholder} />
+</label>
+
+<style>
+  .field { display: flex; flex-direction: column; gap: 0.25rem; }
+  span { font-size: 0.85rem; font-weight: 600; color: #2d3436; }
+  input {
+    padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;
+    font-size: 0.95rem;
+  }
+  input:focus { outline: 2px solid #e17055; border-color: transparent; }
+</style>`,
+			language: 'svelte'
+		},
+		{
+			filename: 'Slider.svelte',
+			content: `<script lang="ts">
+  // $bindable(50) provides a default fallback value
   let { value = $bindable(50), min = 0, max = 100, label }: {
-    value: number; min?: number; max?: number; label: string;
+    value: number;
+    min?: number;
+    max?: number;
+    label: string;
   } = $props();
 </script>
-<label>{label}: {value}</label>
-<input type="range" bind:value {min} {max} /> -->
 
-<!-- Toggle would be: -->
-<!-- <script lang="ts">
+<label class="slider-field">
+  <span>{label}: <strong>{value}</strong></span>
+  <input type="range" bind:value {min} {max} />
+</label>
+
+<style>
+  .slider-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  span { font-size: 0.85rem; font-weight: 600; color: #2d3436; }
+  strong { color: #e17055; }
+  input[type="range"] { width: 100%; accent-color: #e17055; }
+</style>`,
+			language: 'svelte'
+		},
+		{
+			filename: 'Toggle.svelte',
+			content: `<script lang="ts">
+  // $bindable(false) — bindable boolean prop
   let { checked = $bindable(false), label }: {
-    checked: boolean; label: string;
+    checked: boolean;
+    label: string;
   } = $props();
 </script>
-<label><input type="checkbox" bind:checked /> {label}</label> -->`,
+
+<label class="toggle-field">
+  <input type="checkbox" bind:checked />
+  <span>{label}</span>
+</label>
+
+<style>
+  .toggle-field {
+    display: flex; align-items: center; gap: 0.5rem;
+    cursor: pointer; font-size: 0.95rem; color: #2d3436;
+  }
+  input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: #e17055;
+  }
+</style>`,
 			language: 'svelte'
 		}
 	]
