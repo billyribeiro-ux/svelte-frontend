@@ -21,7 +21,7 @@ Svelte files support JavaScript comments in the script block and HTML comments i
 	files: [
 		{
 			filename: 'App.svelte',
-			content: `<script lang="ts">
+			content: `<script>
   // This is a single-line comment
   let name = $state('Svelte Learner');
   let lessonNumber = $state(3);
@@ -36,12 +36,20 @@ Svelte files support JavaScript comments in the script block and HTML comments i
   console.log('Lesson:', lessonNumber);
   console.log('Type of name:', typeof name);
   console.log('Type of lessonNumber:', typeof lessonNumber);
+
+  // You can group data into an object to inspect it
+  let student = $state({ name: 'Ada', lesson: 3, active: true });
+  console.log('Student object:', student);
 </script>
 
 <!-- This is an HTML comment - it won't appear on screen -->
 <h1>Hello, {name}!</h1>
 <p>You are on lesson {lessonNumber}.</p>
 <p>Open the browser console to see the logged values.</p>
+
+<h2>Inspecting Objects in Markup</h2>
+<p>Use JSON.stringify to see an object's data right on the page:</p>
+<pre>{JSON.stringify(student, null, 2)}</pre>
 
 <style>
   h1 {

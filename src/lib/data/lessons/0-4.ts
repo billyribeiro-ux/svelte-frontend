@@ -19,11 +19,11 @@ In this lesson, you'll write functions and wire them up to onclick handlers in S
 	files: [
 		{
 			filename: 'App.svelte',
-			content: `<script lang="ts">
+			content: `<script>
   let greeting = $state('Click a button below!');
   let clickCount = $state(0);
 
-  function sayHello(name: string) {
+  function sayHello(name) {
     greeting = \`Hello, \${name}! Nice to meet you.\`;
     clickCount++;
   }
@@ -33,7 +33,7 @@ In this lesson, you'll write functions and wire them up to onclick handlers in S
     clickCount = 0;
   }
 
-  function getEmoji(count: number): string {
+  function getEmoji(count) {
     if (count === 0) return '';
     if (count < 3) return '👋';
     if (count < 6) return '🎉';

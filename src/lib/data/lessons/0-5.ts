@@ -19,10 +19,10 @@ In this lesson, you'll explore all three types, see how they behave differently,
 	files: [
 		{
 			filename: 'App.svelte',
-			content: `<script lang="ts">
+			content: `<script>
   // Strings - text data
   let name = $state('Svelte');
-  let language = $state('TypeScript');
+  let language = $state('JavaScript');
 
   // Numbers - numeric data
   let version = $state(5);
@@ -125,16 +125,16 @@ In this lesson, you'll explore all three types, see how they behave differently,
 			language: 'svelte'
 		},
 		{
-			filename: 'utils.ts',
+			filename: 'utils.js',
 			content: `// Helper to check the type of a value
-export function describeType(value: unknown): string {
+export function describeType(value) {
   if (typeof value === 'string') return \`"\${value}" is a string with \${value.length} characters\`;
   if (typeof value === 'number') return \`\${value} is a number (\${Number.isInteger(value) ? 'integer' : 'float'})\`;
   if (typeof value === 'boolean') return \`\${value} is a boolean\`;
   return \`\${value} is \${typeof value}\`;
 }
 `,
-			language: 'typescript'
+			language: 'javascript'
 		}
 	]
 };

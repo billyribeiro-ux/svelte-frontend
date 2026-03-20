@@ -21,7 +21,7 @@ You'll build a simple counter to see reactivity in action. Click the button and 
 	files: [
 		{
 			filename: 'App.svelte',
-			content: `<script lang="ts">
+			content: `<script>
   let count = $state(0);
 
   function increment() {

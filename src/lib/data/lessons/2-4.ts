@@ -98,6 +98,16 @@ This lesson covers basic iteration, keyed each, the {:else} fallback for empty l
 </section>
 
 <section>
+  <h2>Fixed-Length Iteration</h2>
+  <p>Need to repeat something N times without an array? Use <code>{'{#each {length: N}, i}'}</code>:</p>
+  <div class="stars">
+    {#each {length: 5}, i}
+      <span class="star">{i + 1}</span>
+    {/each}
+  </div>
+</section>
+
+<section>
   <h2>Why Keys Matter</h2>
   <p>Keys like <code>(task.id)</code> tell Svelte which DOM elements correspond to which data items. Without keys, reordering or removing items can cause visual glitches.</p>
 </section>
@@ -130,6 +140,8 @@ This lesson covers basic iteration, keyed each, the {:else} fallback for empty l
   button:hover { background: #ff3e00; color: white; }
   .danger { border-color: #f44747; color: #f44747; }
   .danger:hover { background: #f44747; color: white; }
+  .stars { display: flex; gap: 8px; margin-top: 8px; }
+  .star { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #ff3e00; color: white; border-radius: 50%; font-size: 14px; font-weight: 600; }
 </style>`,
 			language: 'svelte'
 		}
