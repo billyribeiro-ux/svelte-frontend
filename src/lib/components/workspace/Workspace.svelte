@@ -1,9 +1,12 @@
 <script lang="ts">
 	import type { Lesson } from '$types/lesson';
-	import type { LessonProgress } from '$types/user';
+	import type { ConsoleEntry, DOMMutation } from '$types/editor';
 	import { workspace } from '$stores/workspace.svelte';
 	import { editor } from '$stores/editor.svelte';
 	import { lessonState } from '$stores/lesson.svelte';
+	import { compileSvelte } from '$engine/compiler/svelte-compiler';
+	import { validateCheckpoint } from '$engine/analysis/checkpoint-validator';
+	import { debounce } from '$utils/debounce';
 	import PanelResizer from './PanelResizer.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import KeyboardShortcuts from './KeyboardShortcuts.svelte';
@@ -13,33 +16,75 @@
 	import EditorToolbar from '$components/editor/EditorToolbar.svelte';
 	import Preview from '$components/preview/Preview.svelte';
 	import Console from '$components/preview/Console.svelte';
+	import XRayPanel from '$components/xray/XRayPanel.svelte';
+	import TutorPanel from '$components/tutor/TutorPanel.svelte';
 
 	interface Props {
 		lesson: Lesson;
-		progress?: LessonProgress | null;
+		progress?: { status: string; checkpointsCompleted: string[]; codeSnapshots: Record<string, string>; timeSpentSeconds: number } | null;
 	}
 
 	let { lesson, progress = null }: Props = $props();
 
-	let consoleEntries = $state<import('$types/editor').ConsoleEntry[]>([]);
+	let consoleEntries = $state<ConsoleEntry[]>([]);
+	let domMutations = $state<DOMMutation[]>([]);
+	let previewContainer = $state<HTMLDivElement | null>(null);
 
 	$effect(() => {
 		lessonState.setLesson(lesson);
 		editor.setFiles(lesson.starterFiles);
 	});
 
+	// Auto-compile on file changes (debounced)
+	const compileDebounced = debounce(() => {
+		compileCurrentFile();
+	}, 300);
+
+	function compileCurrentFile() {
+		const file = editor.activeFile;
+		if (!file) return;
+
+		editor.isCompiling = true;
+		const result = compileSvelte(file.content, file.name);
+		editor.setCompilationResult(result);
+	}
+
 	function handleCodeChange(content: string) {
 		editor.updateActiveFileContent(content);
+		compileDebounced();
 	}
 
 	function handleRun() {
-		// Compilation will be wired in integration step
 		consoleEntries = [];
+		compileCurrentFile();
 	}
 
 	function handleReset() {
 		editor.resetToStarter(lesson.starterFiles);
 		consoleEntries = [];
+		domMutations = [];
+	}
+
+	function handleValidateCheckpoint(checkpointId: string) {
+		const checkpoint = lesson.checkpoints.find((cp) => cp.id === checkpointId);
+		if (!checkpoint) return;
+
+		const code = editor.activeFile?.content ?? '';
+		const result = validateCheckpoint(checkpoint, code, editor.compilationResult);
+
+		if (result.passed) {
+			lessonState.completeCheckpoint(checkpointId);
+		}
+
+		return result;
+	}
+
+	function handleConsoleEntry(entry: ConsoleEntry) {
+		consoleEntries = [...consoleEntries, entry];
+	}
+
+	function handleDOMMutation(mutation: DOMMutation) {
+		domMutations = [...domMutations, mutation];
 	}
 </script>
 
@@ -49,7 +94,7 @@
 	<!-- Lesson Panel -->
 	{#if !workspace.layout.lesson.collapsed}
 		<aside class="panel lesson-panel" style="inline-size: {workspace.layout.lesson.width ?? 320}px">
-			<LessonPanel {lesson} />
+			<LessonPanel {lesson} onvalidate={handleValidateCheckpoint} />
 		</aside>
 		<PanelResizer
 			direction="horizontal"
@@ -91,7 +136,11 @@
 					class="panel preview-panel"
 					style="inline-size: {workspace.layout.preview.width ?? 400}px"
 				>
-					<Preview compilationResult={editor.compilationResult} />
+					<Preview
+						compilationResult={editor.compilationResult}
+						onConsole={handleConsoleEntry}
+						onDOMMutation={handleDOMMutation}
+					/>
 				</aside>
 			{/if}
 		</div>
@@ -114,6 +163,9 @@
 						onclick={() => workspace.setBottomTab('console')}
 					>
 						Console
+						{#if consoleEntries.length > 0}
+							<span class="tab-badge">{consoleEntries.length}</span>
+						{/if}
 					</button>
 					<button
 						class="bottom-tab"
@@ -132,11 +184,19 @@
 				</div>
 				<div class="bottom-content">
 					{#if workspace.layout.bottom.activeTab === 'console'}
-						<Console entries={consoleEntries} />
+						<Console entries={consoleEntries} onclear={() => consoleEntries = []} />
 					{:else if workspace.layout.bottom.activeTab === 'xray'}
-						<div class="placeholder">X-Ray mode coming in Phase 2</div>
+						<XRayPanel
+							compilationResult={editor.compilationResult}
+							sourceCode={editor.activeFile?.content ?? ''}
+							{domMutations}
+						/>
 					{:else if workspace.layout.bottom.activeTab === 'tutor'}
-						<div class="placeholder">AI Tutor coming in Phase 2</div>
+						<TutorPanel
+							lessonTitle={lesson.title}
+							currentCode={editor.activeFile?.content ?? ''}
+							errors={editor.compilationResult?.errors.map(e => e.message) ?? []}
+						/>
 					{/if}
 				</div>
 			</div>
@@ -207,6 +267,9 @@
 	}
 
 	.bottom-tab {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-1);
 		padding: var(--sf-space-2) var(--sf-space-4);
 		font-size: var(--sf-font-size-sm);
 		color: var(--sf-text-2);
@@ -224,17 +287,18 @@
 		}
 	}
 
+	.tab-badge {
+		font-size: var(--sf-font-size-xs);
+		background: var(--sf-accent);
+		color: var(--sf-accent-text);
+		padding: 0 6px;
+		border-radius: var(--sf-radius-full);
+		line-height: 1.5;
+	}
+
 	.bottom-content {
 		flex: 1;
 		overflow: auto;
 	}
 
-	.placeholder {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		block-size: 100%;
-		color: var(--sf-text-3);
-		font-size: var(--sf-font-size-sm);
-	}
 </style>

@@ -6,11 +6,21 @@
 		passed: boolean;
 		hints: string[];
 		onrevealhint: () => void;
+		onvalidate?: () => void;
 	}
 
-	let { checkpoint, passed, hints, onrevealhint }: Props = $props();
+	let { checkpoint, passed, hints, onrevealhint, onvalidate }: Props = $props();
 
 	let canRevealMore = $derived(hints.length < checkpoint.hints.length);
+	let validating = $state(false);
+	let lastResult = $state<string | null>(null);
+
+	function handleValidate() {
+		validating = true;
+		lastResult = null;
+		onvalidate?.();
+		validating = false;
+	}
 </script>
 
 <div class="checkpoint" class:passed>
@@ -36,10 +46,17 @@
 		</div>
 	{/if}
 
-	{#if !passed && canRevealMore}
-		<button class="hint-button" onclick={onrevealhint}>
-			Show hint ({hints.length + 1}/{checkpoint.hints.length})
-		</button>
+	{#if !passed}
+		<div class="checkpoint-actions">
+			<button class="validate-button" onclick={handleValidate} disabled={validating}>
+				{validating ? 'Checking...' : 'Check'}
+			</button>
+			{#if canRevealMore}
+				<button class="hint-button" onclick={onrevealhint}>
+					Hint ({hints.length + 1}/{checkpoint.hints.length})
+				</button>
+			{/if}
+		</div>
 	{/if}
 </div>
 
@@ -106,9 +123,32 @@
 		color: var(--sf-text-2);
 	}
 
-	.hint-button {
-		margin-block-start: var(--sf-space-2);
+	.checkpoint-actions {
+		display: flex;
+		gap: var(--sf-space-2);
+		margin-block-start: var(--sf-space-3);
 		margin-inline-start: var(--sf-space-5);
+	}
+
+	.validate-button {
+		padding: var(--sf-space-1) var(--sf-space-4);
+		font-size: var(--sf-font-size-xs);
+		font-weight: 600;
+		color: var(--sf-accent-text);
+		background: var(--sf-accent);
+		border-radius: var(--sf-radius-sm);
+		transition: background var(--sf-transition-fast);
+
+		&:hover:not(:disabled) {
+			background: var(--sf-accent-hover);
+		}
+
+		&:disabled {
+			opacity: 0.6;
+		}
+	}
+
+	.hint-button {
 		padding: var(--sf-space-1) var(--sf-space-3);
 		font-size: var(--sf-font-size-xs);
 		color: var(--sf-accent);

@@ -1,67 +1,65 @@
 <script lang="ts">
-	import Icon from '$components/ui/Icon.svelte';
+	import ConceptGraph from '$components/graph/ConceptGraph.svelte';
+	import ConceptNode from '$components/graph/ConceptNode.svelte';
+	import { graphState } from '$lib/stores/graph.svelte';
+	import { initialNodes, initialEdges } from '$lib/engine/graph/concept-data';
+
+	$effect(() => {
+		if (graphState.nodes.length === 0) {
+			graphState.setGraph(initialNodes, initialEdges);
+		}
+	});
 </script>
 
 <svelte:head>
 	<title>Concept Graph — SvelteForge</title>
 </svelte:head>
 
-<div class="graph-page">
-	<div class="graph-placeholder">
-		<div class="graph-icon">
-			<Icon icon="ph:graph" size={64} />
-		</div>
-		<h1 class="graph-title">Concept Graph</h1>
-		<p class="graph-message">
-			Interactive concept graph visualization coming soon.
-		</p>
-		<p class="graph-submessage">
-			Explore how Svelte concepts connect and track your mastery across the knowledge map.
-		</p>
+<div class="graph-page" class:has-sidebar={graphState.selectedNode !== null}>
+	<div class="graph-main">
+		<ConceptGraph />
 	</div>
+
+	{#if graphState.selectedNode}
+		<div class="graph-sidebar">
+			<ConceptNode node={graphState.selectedNode} />
+		</div>
+	{/if}
 </div>
 
 <style>
 	.graph-page {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-block-size: 60dvh;
+		display: grid;
+		grid-template-columns: 1fr;
+		block-size: calc(100dvh - var(--sf-space-16, 64px));
+		gap: var(--sf-space-4);
+		padding: var(--sf-space-4);
+
+		&.has-sidebar {
+			grid-template-columns: 1fr 320px;
+		}
 	}
 
-	.graph-placeholder {
+	.graph-main {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: var(--sf-space-4);
-		text-align: center;
-		padding: var(--sf-space-8);
+		min-block-size: 0;
+		overflow: hidden;
 	}
 
-	.graph-icon {
-		color: var(--sf-text-3);
+	.graph-sidebar {
+		min-block-size: 0;
+		overflow: hidden;
 	}
 
-	.graph-title {
-		font-family: var(--sf-font-sans);
-		font-size: var(--sf-font-size-2xl);
-		font-weight: 700;
-		color: var(--sf-text-0);
-		margin: 0;
-	}
+	@media (max-width: 768px) {
+		.graph-page.has-sidebar {
+			grid-template-columns: 1fr;
+			grid-template-rows: 1fr auto;
+		}
 
-	.graph-message {
-		font-family: var(--sf-font-sans);
-		font-size: var(--sf-font-size-md);
-		color: var(--sf-text-1);
-		margin: 0;
-	}
-
-	.graph-submessage {
-		font-family: var(--sf-font-sans);
-		font-size: var(--sf-font-size-sm);
-		color: var(--sf-text-3);
-		margin: 0;
-		max-inline-size: 400px;
+		.graph-sidebar {
+			max-block-size: 40dvh;
+		}
 	}
 </style>

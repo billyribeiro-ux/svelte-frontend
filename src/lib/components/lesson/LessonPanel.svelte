@@ -9,9 +9,10 @@
 
 	interface Props {
 		lesson: Lesson;
+		onvalidate?: (checkpointId: string) => { passed: boolean; message: string } | undefined;
 	}
 
-	let { lesson }: Props = $props();
+	let { lesson, onvalidate }: Props = $props();
 </script>
 
 <div class="lesson-panel">
@@ -40,6 +41,7 @@
 						passed={lessonState.checkpointsCompleted.has(checkpoint.id)}
 						hints={lessonState.getRevealedHints(checkpoint.id)}
 						onrevealhint={() => lessonState.revealNextHint(checkpoint.id)}
+						onvalidate={() => onvalidate?.(checkpoint.id)}
 					/>
 				{/if}
 			{:else if block.type === 'concept-callout'}

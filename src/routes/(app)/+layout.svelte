@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Icon from '$components/ui/Icon.svelte';
+	import CommandPalette from '$components/workspace/CommandPalette.svelte';
 	import { userState } from '$stores/user.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -101,6 +102,8 @@
 		</main>
 	</div>
 </div>
+
+<CommandPalette />
 
 <style>
 	.app-shell {
