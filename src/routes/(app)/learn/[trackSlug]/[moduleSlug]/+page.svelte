@@ -1,11 +1,18 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import Icon from '$components/ui/Icon.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
 	import { buildBreadcrumbSchema } from '$utils/seo';
 
-	const trackSlug = $derived(page.params.trackSlug ?? '');
-	const moduleSlug = $derived(page.params.moduleSlug ?? '');
+	interface Props {
+		data: {
+			trackSlug: string;
+			moduleSlug: string;
+		};
+	}
+
+	let { data }: Props = $props();
+	const trackSlug = $derived(data.trackSlug);
+	const moduleSlug = $derived(data.moduleSlug);
 
 	// Placeholder data
 	const module_ = $derived({

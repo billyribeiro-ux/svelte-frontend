@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import { initLessons } from '$lessons/init';
 	import { getAllTracks } from '$lessons/registry';
 	import Button from '$components/ui/Button.svelte';
@@ -9,7 +8,18 @@
 	import RecentActivity from '$components/dashboard/RecentActivity.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
 
-	const data = $derived(page.data);
+	interface Props {
+		data: {
+			user: {
+				id: string;
+				email: string;
+				displayName: string;
+				avatarUrl: string | null;
+			};
+		};
+	}
+
+	let { data }: Props = $props();
 	const user = $derived(data.user);
 
 	// Initialize lesson registry

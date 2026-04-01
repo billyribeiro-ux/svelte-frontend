@@ -1,13 +1,21 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import Workspace from '$components/workspace/Workspace.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
 	import { buildLearningResourceSchema, buildBreadcrumbSchema } from '$utils/seo';
 
-	const data = $derived(page.data);
+	interface Props {
+		data: {
+			lesson: any;
+			trackSlug: string;
+			moduleSlug: string;
+			progress: any;
+		};
+	}
+
+	let { data }: Props = $props();
 	const lesson = $derived(data.lesson);
-	const trackSlug = $derived(page.params.trackSlug ?? '');
-	const moduleSlug = $derived(page.params.moduleSlug ?? '');
+	const trackSlug = $derived(data.trackSlug);
+	const moduleSlug = $derived(data.moduleSlug);
 
 	function formatSlug(slug: string): string {
 		return slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');

@@ -1,10 +1,16 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import Icon from '$components/ui/Icon.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
 	import { buildCourseSchema, buildBreadcrumbSchema } from '$utils/seo';
 
-	const trackSlug = $derived(page.params.trackSlug ?? '');
+	interface Props {
+		data: {
+			trackSlug: string;
+		};
+	}
+
+	let { data }: Props = $props();
+	const trackSlug = $derived(data.trackSlug);
 
 	// Placeholder data
 	const track = $derived({

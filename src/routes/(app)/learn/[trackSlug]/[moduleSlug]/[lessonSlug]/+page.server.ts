@@ -16,6 +16,8 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	return {
 		lesson,
+		trackSlug,
+		moduleSlug,
 		progress: {
 			status: 'not_started' as const,
 			checkpointsCompleted: [] as string[],
