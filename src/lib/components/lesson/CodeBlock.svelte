@@ -5,14 +5,53 @@
 	}
 
 	let { code, language = 'svelte' }: Props = $props();
+
+	let highlighted = $derived(highlightCode(code.trim(), language));
 </script>
 
 <div class="code-block">
 	<div class="code-header">
 		<span class="code-language">{language}</span>
 	</div>
-	<pre><code>{code.trim()}</code></pre>
+	<pre><code>{@html highlighted}</code></pre>
 </div>
+
+<script lang="ts" module>
+	function escapeHtml(text: string): string {
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;');
+	}
+
+	function highlightCode(code: string, language: string): string {
+		let escaped = escapeHtml(code);
+
+		// Keywords
+		const jsKeywords = /\b(const|let|var|function|return|if|else|for|while|import|from|export|default|class|new|this|typeof|instanceof|async|await|try|catch|throw|switch|case|break|continue)\b/g;
+		escaped = escaped.replace(jsKeywords, '<span class="hl-keyword">$1</span>');
+
+		// Svelte runes
+		escaped = escaped.replace(/(\$state|\$derived|\$effect|\$props|\$bindable|\$inspect)(?:\.(?:raw|by|pre|root|snapshot))?/g, '<span class="hl-rune">$&</span>');
+
+		// Strings
+		escaped = escaped.replace(/(&#39;[^&#]*?&#39;|&quot;[^&]*?&quot;|`[^`]*?`)/g, '<span class="hl-string">$1</span>');
+
+		// Comments
+		escaped = escaped.replace(/(\/\/.*$)/gm, '<span class="hl-comment">$1</span>');
+
+		// Numbers
+		escaped = escaped.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="hl-number">$1</span>');
+
+		// Svelte template syntax
+		if (language === 'svelte' || language === 'html') {
+			escaped = escaped.replace(/(\{#\w+|\{:\w+|\{\/\w+|\{@\w+)/g, '<span class="hl-keyword">$1</span>');
+			escaped = escaped.replace(/(&lt;\/?[\w-]+)/g, '<span class="hl-tag">$1</span>');
+		}
+
+		return escaped;
+	}
+</script>
 
 <style>
 	.code-block {
@@ -48,4 +87,11 @@
 		color: var(--sf-text-0);
 		line-height: 1.6;
 	}
+
+	:global(.hl-keyword) { color: var(--sf-syntax-keyword); }
+	:global(.hl-rune) { color: var(--sf-syntax-rune); font-weight: 600; }
+	:global(.hl-string) { color: var(--sf-syntax-string); }
+	:global(.hl-comment) { color: var(--sf-syntax-comment); font-style: italic; }
+	:global(.hl-number) { color: var(--sf-syntax-number); }
+	:global(.hl-tag) { color: var(--sf-syntax-tag); }
 </style>

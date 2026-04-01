@@ -216,7 +216,7 @@ In Svelte 5, you can pass content between a component's opening and closing tags
 				config: {
 					patterns: [
 						{ type: 'contains', value: "import Card from './Card.svelte'" },
-						{ type: 'regex', value: '<Card[\\s/>]' }
+						{ type: 'contains', value: '<Card' }
 					]
 				}
 			},
@@ -235,7 +235,8 @@ In Svelte 5, you can pass content between a component's opening and closing tags
 				config: {
 					patterns: [
 						{ type: 'contains', value: '@render children()' },
-						{ type: 'regex', value: '<Card[^/]*>.*</Card>' }
+						{ type: 'contains', value: '<Card' },
+						{ type: 'contains', value: '</Card>' }
 					]
 				}
 			},

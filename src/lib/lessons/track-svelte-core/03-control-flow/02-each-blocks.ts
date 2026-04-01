@@ -231,7 +231,7 @@ You also get the index as a second parameter: \`{#each items as item, i}\`
 				type: 'code-pattern',
 				config: {
 					patterns: [
-						{ type: 'regex', value: '\\{#each\\s+todos\\s+as\\s+\\S+[^(]*\\(\\s*\\S*id' }
+						{ type: 'regex', value: '\\(\\s*\\w+\\.id\\s*\\)' }
 					]
 				}
 			},

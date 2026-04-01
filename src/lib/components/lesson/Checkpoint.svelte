@@ -1,24 +1,32 @@
 <script lang="ts">
 	import type { Checkpoint as CheckpointType } from '$types/lesson';
 
+	interface ValidationResult {
+		passed: boolean;
+		message: string;
+	}
+
 	interface Props {
 		checkpoint: CheckpointType;
 		passed: boolean;
 		hints: string[];
 		onrevealhint: () => void;
-		onvalidate?: () => void;
+		onvalidate?: () => ValidationResult | undefined;
 	}
 
 	let { checkpoint, passed, hints, onrevealhint, onvalidate }: Props = $props();
 
 	let canRevealMore = $derived(hints.length < checkpoint.hints.length);
 	let validating = $state(false);
-	let lastResult = $state<string | null>(null);
+	let lastResult = $state<ValidationResult | null>(null);
 
 	function handleValidate() {
 		validating = true;
 		lastResult = null;
-		onvalidate?.();
+		const result = onvalidate?.();
+		if (result) {
+			lastResult = result;
+		}
 		validating = false;
 	}
 </script>
@@ -34,6 +42,13 @@
 		</span>
 		<span class="checkpoint-description">{checkpoint.description}</span>
 	</div>
+
+	{#if !passed && lastResult}
+		<div class="validation-result" class:result-passed={lastResult.passed} class:result-failed={!lastResult.passed}>
+			<span class="result-icon">{lastResult.passed ? '✓' : '✗'}</span>
+			<span class="result-message">{lastResult.message}</span>
+		</div>
+	{/if}
 
 	{#if !passed && hints.length > 0}
 		<div class="hints">
@@ -94,6 +109,31 @@
 		font-size: var(--sf-font-size-sm);
 		color: var(--sf-text-0);
 		font-weight: 500;
+	}
+
+	.validation-result {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-2);
+		margin-block-start: var(--sf-space-2);
+		margin-inline-start: var(--sf-space-5);
+		padding: var(--sf-space-2) var(--sf-space-3);
+		font-size: var(--sf-font-size-xs);
+		border-radius: var(--sf-radius-sm);
+
+		&.result-passed {
+			color: var(--sf-success);
+			background: oklch(0.72 0.19 155 / 0.08);
+		}
+
+		&.result-failed {
+			color: var(--sf-error);
+			background: oklch(0.65 0.22 25 / 0.08);
+		}
+	}
+
+	.result-icon {
+		font-weight: 700;
 	}
 
 	.hints {

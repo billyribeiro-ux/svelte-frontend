@@ -59,6 +59,16 @@
 		compileCurrentFile();
 	}
 
+	function handleFormat() {
+		const file = editor.activeFile;
+		if (!file) return;
+		const formatted = file.content
+			.split('\n')
+			.map((line) => line.trimEnd())
+			.join('\n');
+		editor.updateActiveFileContent(formatted);
+	}
+
 	function handleReset() {
 		editor.resetToStarter(lesson.starterFiles);
 		consoleEntries = [];
@@ -94,7 +104,7 @@
 	<!-- Lesson Panel -->
 	{#if !workspace.layout.lesson.collapsed}
 		<aside class="panel lesson-panel" style="inline-size: {workspace.layout.lesson.width ?? 320}px">
-			<LessonPanel {lesson} onvalidate={handleValidateCheckpoint} />
+			<LessonPanel {lesson} onvalidate={handleValidateCheckpoint} trackSlug={lesson.trackId} moduleSlug={lesson.moduleId} />
 		</aside>
 		<PanelResizer
 			direction="horizontal"
@@ -112,7 +122,7 @@
 					activeIndex={editor.activeFileIndex}
 					onselect={(i) => editor.setActiveFile(i)}
 				/>
-				<EditorToolbar onrun={handleRun} onformat={() => {}} onreset={handleReset} isCompiling={editor.isCompiling} />
+				<EditorToolbar onrun={handleRun} onformat={handleFormat} onreset={handleReset} isCompiling={editor.isCompiling} />
 				{#if editor.activeFile}
 					<div class="editor-content">
 						<Editor

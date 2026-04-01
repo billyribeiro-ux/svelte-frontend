@@ -9,7 +9,7 @@
 
 	const isUser = $derived(message.role === 'user');
 
-	const relativeTime = $derived(() => {
+	const relativeTime = $derived.by(() => {
 		const diff = Date.now() - message.timestamp;
 		const seconds = Math.floor(diff / 1000);
 		if (seconds < 60) return 'just now';
@@ -48,7 +48,7 @@
 	<div class="tutor-message__bubble">
 		{@html rendered}
 	</div>
-	<span class="tutor-message__time">{relativeTime()}</span>
+	<span class="tutor-message__time">{relativeTime}</span>
 </div>
 
 <style>

@@ -176,7 +176,8 @@ let doubled = $derived(count * 2);
 				type: 'code-pattern',
 				config: {
 					patterns: [
-						{ type: 'regex', value: '\\$effect\\(\\(\\)\\s*=>\\s*\\{[^}]*console\\.log' }
+						{ type: 'contains', value: '$effect' },
+						{ type: 'contains', value: 'console.log' }
 					]
 				}
 			},

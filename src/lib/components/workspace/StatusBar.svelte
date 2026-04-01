@@ -7,6 +7,14 @@
 	let language = $derived(editor.activeFile?.language ?? 'svelte');
 	let progress = $derived(lessonState.progress);
 	let conceptCount = $derived(lessonState.current?.concepts.length ?? 0);
+
+	let isMac = $state(false);
+
+	$effect(() => {
+		isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform);
+	});
+
+	let shortcutKey = $derived(isMac ? 'Cmd' : 'Ctrl');
 </script>
 
 <footer class="status-bar">
@@ -29,7 +37,7 @@
 		{#if workspace.xrayEnabled}
 			<span class="status-item xray">X-Ray</span>
 		{/if}
-		<span class="status-item shortcut">Cmd+K: Commands</span>
+		<span class="status-item shortcut">{shortcutKey}+K: Commands</span>
 	</div>
 </footer>
 

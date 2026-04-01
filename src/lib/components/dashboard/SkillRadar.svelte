@@ -61,6 +61,9 @@
 			ctx.stroke();
 		}
 
+		// Compute primary color from first skill for the polygon
+		const primaryColor = skills[0]!.color;
+
 		// Data polygon
 		ctx.beginPath();
 		for (let i = 0; i <= n; i++) {
@@ -72,9 +75,9 @@
 			i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
 		}
 		ctx.closePath();
-		ctx.fillStyle = 'rgba(99, 102, 241, 0.15)';
+		ctx.fillStyle = primaryColor + '26'; // ~15% opacity
 		ctx.fill();
-		ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+		ctx.strokeStyle = primaryColor + 'cc'; // ~80% opacity
 		ctx.lineWidth = 2;
 		ctx.stroke();
 
@@ -87,7 +90,7 @@
 
 			ctx.beginPath();
 			ctx.arc(x, y, 4, 0, Math.PI * 2);
-			ctx.fillStyle = 'rgba(99, 102, 241, 1)';
+			ctx.fillStyle = skills[i]!.color;
 			ctx.fill();
 		}
 
