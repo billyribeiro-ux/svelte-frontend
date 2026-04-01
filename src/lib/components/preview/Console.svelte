@@ -66,6 +66,7 @@
 		gap: var(--sf-space-2);
 		padding: var(--sf-space-1) var(--sf-space-2);
 		border-block-end: 1px solid var(--sf-bg-2);
+		animation: sf-fade-in 200ms var(--sf-ease-out);
 
 		&.error {
 			color: var(--sf-error);

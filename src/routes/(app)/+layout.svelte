@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Icon from '$components/ui/Icon.svelte';
 	import CommandPalette from '$components/workspace/CommandPalette.svelte';
+	import Toast from '$components/ui/Toast.svelte';
 	import { userState } from '$stores/user.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -43,6 +44,7 @@
 </script>
 
 <div class="app-shell" class:sidebar-collapsed={sidebarCollapsed}>
+	<a href="#main-content" class="skip-link">Skip to content</a>
 	<aside class="sidebar">
 		<div class="sidebar-header">
 			<a href="/" class="sidebar-brand">
@@ -87,7 +89,7 @@
 				<span class="user-name">{data.user.displayName}</span>
 				<div class="user-avatar" aria-hidden="true">
 					{#if data.user.avatarUrl}
-						<img src={data.user.avatarUrl} alt="" class="avatar-img" />
+						<img src={data.user.avatarUrl} alt="{data.user.displayName}" class="avatar-img" />
 					{:else}
 						<span class="avatar-fallback">
 							{data.user.displayName.charAt(0).toUpperCase()}
@@ -97,13 +99,14 @@
 			</div>
 		</header>
 
-		<main class="content">
+		<main class="content" id="main-content">
 			{@render children()}
 		</main>
 	</div>
 </div>
 
 <CommandPalette />
+<Toast />
 
 <style>
 	.app-shell {
@@ -208,6 +211,11 @@
 	.nav-label {
 		overflow: hidden;
 		text-overflow: ellipsis;
+		transition: opacity var(--sf-transition-base);
+
+		.sidebar-collapsed & {
+			opacity: 0;
+		}
 	}
 
 	.main-area {
@@ -272,5 +280,21 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--sf-space-5);
+	}
+
+	.skip-link {
+		position: absolute;
+		inset-inline-start: -9999px;
+		z-index: 999;
+		padding: var(--sf-space-2) var(--sf-space-4);
+		background: var(--sf-accent);
+		color: var(--sf-accent-text);
+		border-radius: var(--sf-radius-md);
+		font-size: var(--sf-font-size-sm);
+		font-weight: 600;
+	}
+	.skip-link:focus {
+		inset-inline-start: var(--sf-space-4);
+		inset-block-start: var(--sf-space-4);
 	}
 </style>

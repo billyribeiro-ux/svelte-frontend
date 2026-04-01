@@ -7,6 +7,7 @@
 	import ProgressCard from '$components/dashboard/ProgressCard.svelte';
 	import SkillRadar from '$components/dashboard/SkillRadar.svelte';
 	import RecentActivity from '$components/dashboard/RecentActivity.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
 
 	const data = $derived(page.data);
 	const user = $derived(data.user);
@@ -58,9 +59,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Dashboard — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{ title: 'Dashboard', description: 'Track your learning progress across Svelte 5, SvelteKit, and web development fundamentals.' }} />
 
 <div class="dashboard">
 	<h1 class="dashboard-greeting">Welcome back, {user.displayName}</h1>
@@ -156,6 +155,7 @@
 		background: var(--sf-accent-subtle);
 		border: 1px solid var(--sf-accent);
 		border-radius: var(--sf-radius-lg);
+		animation: sf-slide-in-left 400ms var(--sf-ease-out);
 	}
 
 	.continue-info {
@@ -189,6 +189,11 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 		gap: var(--sf-space-4);
+
+		:global(> :nth-child(1)) { animation: sf-slide-up 400ms var(--sf-ease-out) 0ms backwards; }
+		:global(> :nth-child(2)) { animation: sf-slide-up 400ms var(--sf-ease-out) 80ms backwards; }
+		:global(> :nth-child(3)) { animation: sf-slide-up 400ms var(--sf-ease-out) 160ms backwards; }
+		:global(> :nth-child(4)) { animation: sf-slide-up 400ms var(--sf-ease-out) 240ms backwards; }
 	}
 
 	.bottom-row {
@@ -215,6 +220,7 @@
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
 		gap: var(--sf-space-4);
+		animation: sf-fade-in 500ms var(--sf-ease-out) 200ms backwards;
 	}
 
 	.stat-card {

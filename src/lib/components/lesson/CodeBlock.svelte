@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '$components/ui/Icon.svelte';
+
 	interface Props {
 		code: string;
 		language?: string;
@@ -7,11 +9,29 @@
 	let { code, language = 'svelte' }: Props = $props();
 
 	let highlighted = $derived(highlightCode(code.trim(), language));
+	let copied = $state(false);
+
+	async function handleCopy() {
+		try {
+			await navigator.clipboard.writeText(code.trim());
+			copied = true;
+			setTimeout(() => copied = false, 1500);
+		} catch {
+			// Clipboard API may fail in some contexts
+		}
+	}
 </script>
 
 <div class="code-block">
 	<div class="code-header">
 		<span class="code-language">{language}</span>
+		<button class="copy-btn" onclick={handleCopy} aria-label="Copy code">
+			{#if copied}
+				<Icon icon="ph:check" size={14} />
+			{:else}
+				<Icon icon="ph:copy" size={14} />
+			{/if}
+		</button>
 	</div>
 	<pre><code>{@html highlighted}</code></pre>
 </div>
@@ -55,6 +75,7 @@
 
 <style>
 	.code-block {
+		position: relative;
 		margin-block: var(--sf-space-3);
 		border-radius: var(--sf-radius-md);
 		overflow: hidden;
@@ -62,9 +83,35 @@
 	}
 
 	.code-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		padding: var(--sf-space-2) var(--sf-space-3);
 		background: var(--sf-bg-2);
 		border-block-end: 1px solid var(--sf-bg-3);
+	}
+
+	.copy-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--sf-space-1);
+		background: none;
+		border: none;
+		border-radius: var(--sf-radius-sm);
+		color: var(--sf-text-3);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity var(--sf-transition-fast), color var(--sf-transition-fast), background var(--sf-transition-fast);
+
+		.code-block:hover & {
+			opacity: 1;
+		}
+
+		&:hover {
+			color: var(--sf-text-0);
+			background: var(--sf-bg-3);
+		}
 	}
 
 	.code-language {

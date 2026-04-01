@@ -15,7 +15,7 @@
 <span
 	class={cn('sf-tooltip', `sf-tooltip--${position}`, className)}
 	data-tooltip={text}
-	role="group"
+	aria-label={text}
 >
 	{@render children()}
 </span>

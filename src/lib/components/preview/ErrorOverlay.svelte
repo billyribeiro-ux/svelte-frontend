@@ -30,6 +30,7 @@
 		padding: var(--sf-space-5);
 		background: oklch(0.15 0.02 25 / 0.95);
 		overflow-y: auto;
+		animation: sf-slide-up 300ms var(--sf-ease-out);
 	}
 
 	.error-header {

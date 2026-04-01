@@ -139,6 +139,8 @@
 		display: flex;
 		justify-content: center;
 		padding-block-start: 15vh;
+		animation: sf-fade-in 200ms var(--sf-ease-out);
+		backdrop-filter: blur(4px);
 	}
 
 	.palette {
@@ -151,6 +153,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		animation: sf-scale-in 250ms var(--sf-ease-out);
 	}
 
 	.palette-input-wrap {

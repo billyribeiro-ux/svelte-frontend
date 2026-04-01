@@ -48,6 +48,11 @@
 		user-select: none;
 		line-height: 1;
 
+		&:active:not(:disabled) {
+			transform: scale(0.97);
+			transition-duration: 50ms;
+		}
+
 		&:focus-visible {
 			outline: 2px solid var(--sf-accent);
 			outline-offset: 2px;

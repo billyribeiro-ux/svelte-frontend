@@ -11,7 +11,7 @@
 	let { onrun, onformat, onreset, isCompiling = false }: Props = $props();
 </script>
 
-<div class="toolbar">
+<div class="toolbar" aria-busy={isCompiling}>
 	<div class="toolbar-group">
 		<button
 			class="toolbar-btn toolbar-btn--primary"

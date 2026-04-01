@@ -11,10 +11,45 @@
 		font-size: 16px;
 		color: var(--sf-text-0);
 		background: var(--sf-bg-0);
+		scroll-behavior: smooth;
 	}
 
 	body {
 		font-size: var(--sf-font-size-base);
 		line-height: 1.6;
+	}
+
+	/* Auto-detect system color scheme */
+	@media (prefers-color-scheme: light) {
+		html:not([data-theme]) {
+			--sf-bg-0: oklch(0.98 0.005 260);
+			--sf-bg-1: oklch(0.96 0.006 260);
+			--sf-bg-2: oklch(0.93 0.008 260);
+			--sf-bg-3: oklch(0.89 0.01 260);
+			--sf-bg-4: oklch(0.85 0.012 260);
+			--sf-text-0: oklch(0.15 0.01 260);
+			--sf-text-1: oklch(0.35 0.015 260);
+			--sf-text-2: oklch(0.5 0.02 260);
+			--sf-text-3: oklch(0.65 0.015 260);
+			--sf-accent: oklch(0.55 0.25 275);
+			--sf-accent-hover: oklch(0.5 0.27 275);
+			--sf-accent-subtle: oklch(0.92 0.06 275);
+			--sf-accent-text: oklch(0.98 0.005 275);
+			--sf-editor-bg: oklch(0.99 0.003 260);
+			--sf-editor-gutter: oklch(0.96 0.005 260);
+			--sf-editor-line-active: oklch(0.97 0.004 260);
+			--sf-editor-selection: oklch(0.88 0.06 275);
+			--sf-editor-cursor: oklch(0.35 0.20 275);
+			--sf-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.06);
+			--sf-shadow-md: 0 4px 12px oklch(0 0 0 / 0.08);
+			--sf-shadow-lg: 0 8px 24px oklch(0 0 0 / 0.12);
+		}
+	}
+
+	/* Respect reduced motion for scroll */
+	@media (prefers-reduced-motion: reduce) {
+		html {
+			scroll-behavior: auto;
+		}
 	}
 }

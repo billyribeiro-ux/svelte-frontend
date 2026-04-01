@@ -57,7 +57,7 @@
 		flex-direction: column;
 		gap: var(--sf-space-1);
 		max-inline-size: 85%;
-		animation: sf-fade-in var(--sf-transition-base);
+		animation: sf-slide-up 300ms var(--sf-ease-out);
 
 		&.tutor-message--user {
 			align-self: flex-end;

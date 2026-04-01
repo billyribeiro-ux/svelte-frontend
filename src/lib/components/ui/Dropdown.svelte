@@ -12,11 +12,13 @@
 	let { open = $bindable(false), children, items, class: className }: Props = $props();
 
 	let dropdownEl: HTMLDivElement | undefined = $state();
+	let triggerEl: HTMLButtonElement | undefined = $state();
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			open = false;
+			triggerEl?.focus();
 		}
 
 		if (!open) return;
@@ -49,6 +51,11 @@
 	$effect(() => {
 		if (open) {
 			document.addEventListener('click', handleClickOutside, true);
+			// Assign role="menuitem" to all interactive children in the menu
+			if (dropdownEl) {
+				const items = dropdownEl.querySelectorAll('.sf-dropdown-menu button, .sf-dropdown-menu a');
+				items.forEach((el) => el.setAttribute('role', 'menuitem'));
+			}
 		}
 		return () => {
 			document.removeEventListener('click', handleClickOutside, true);
@@ -68,11 +75,13 @@
 		aria-haspopup="true"
 		aria-expanded={open}
 		onclick={() => (open = !open)}
+		bind:this={triggerEl}
 	>
 		{@render children()}
 	</button>
 	{#if open}
 		<div class="sf-dropdown-menu" role="menu" tabindex="-1">
+			<!-- items should use role="menuitem" -->
 			{@render items()}
 		</div>
 	{/if}

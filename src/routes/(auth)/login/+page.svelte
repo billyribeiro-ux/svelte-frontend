@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Input from '$components/ui/Input.svelte';
 	import Button from '$components/ui/Button.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
 
 	let email = $state('');
 	let password = $state('');
@@ -12,9 +13,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Login — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{ title: 'Log In', description: 'Log in to your SvelteForge account to continue learning.', noindex: true }} />
 
 <div class="auth-page">
 	<div class="auth-card">

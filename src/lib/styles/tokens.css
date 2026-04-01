@@ -80,10 +80,13 @@
 		--sf-shadow-md: 0 4px 12px oklch(0 0 0 / 0.4);
 		--sf-shadow-lg: 0 8px 24px oklch(0 0 0 / 0.5);
 
-		/* Transitions */
-		--sf-transition-fast: 100ms ease;
-		--sf-transition-base: 200ms ease;
-		--sf-transition-slow: 300ms ease;
+		/* Transitions — spring curves for Apple-quality motion */
+		--sf-transition-fast: 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+		--sf-transition-base: 250ms cubic-bezier(0.22, 1, 0.36, 1);
+		--sf-transition-slow: 400ms cubic-bezier(0.22, 1, 0.36, 1);
+		--sf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+		--sf-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--sf-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
 		/* Z-index scale */
 		--sf-z-base: 0;

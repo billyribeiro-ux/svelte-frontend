@@ -3,6 +3,7 @@
 	import { preferences } from '$stores/preferences.svelte';
 	import Switch from '$components/ui/Switch.svelte';
 	import Input from '$components/ui/Input.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
 
 	let isDark = $state(userState.preferences.theme === 'dark');
 
@@ -34,9 +35,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Settings — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{ title: 'Settings', description: 'Customize your SvelteForge learning experience — theme, editor preferences, and more.' }} />
 
 <div class="settings-page">
 	<h1 class="page-title">Settings</h1>

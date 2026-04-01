@@ -3,6 +3,7 @@
 	import ConceptNode from '$components/graph/ConceptNode.svelte';
 	import { graphState } from '$lib/stores/graph.svelte';
 	import { initialNodes, initialEdges } from '$lib/engine/graph/concept-data';
+	import SEOHead from '$components/seo/SEOHead.svelte';
 
 	$effect(() => {
 		if (graphState.nodes.length === 0) {
@@ -11,9 +12,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Concept Graph — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{ title: 'Concept Graph', description: 'Explore the interactive concept dependency graph showing how Svelte 5 concepts connect.' }} />
 
 <div class="graph-page" class:has-sidebar={graphState.selectedNode !== null}>
 	<div class="graph-main">

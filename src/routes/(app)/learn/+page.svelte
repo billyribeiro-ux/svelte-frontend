@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$components/ui/Icon.svelte';
 	import Progress from '$components/ui/Progress.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
 
 	const tracks = [
 		{
@@ -38,9 +39,7 @@
 	];
 </script>
 
-<svelte:head>
-	<title>Learning Tracks — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{ title: 'Learning Tracks', description: 'Browse interactive learning tracks for Svelte 5, SvelteKit, HTML, CSS, and TypeScript.' }} />
 
 <div class="tracks-page">
 	<h1 class="page-title">Learning Tracks</h1>

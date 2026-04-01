@@ -1,17 +1,43 @@
 <script lang="ts">
 	import Button from '$components/ui/Button.svelte';
 	import Icon from '$components/ui/Icon.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
+
+	const seo = {
+		title: 'Master Svelte 5 & SvelteKit',
+		description: 'SvelteForge is an interactive learning platform for Svelte 5, SvelteKit, TypeScript, and modern web development. Learn by building real applications with the DiCenso Method.',
+		og: {
+			title: 'SvelteForge — Master Svelte 5 & SvelteKit',
+			description: 'Interactive learning platform for Svelte 5 and SvelteKit. Learn by building real applications.',
+			type: 'website' as const,
+			siteName: 'SvelteForge'
+		},
+		twitter: {
+			card: 'summary_large_image' as const,
+			title: 'SvelteForge — Master Svelte 5 & SvelteKit',
+			description: 'Interactive learning platform for Svelte 5 and SvelteKit.'
+		},
+		jsonLd: [
+			{
+				'@context': 'https://schema.org',
+				'@type': 'WebSite',
+				name: 'SvelteForge',
+				description: 'Interactive learning platform for Svelte 5 and SvelteKit',
+				url: 'https://svelteforge.dev'
+			},
+			{
+				'@context': 'https://schema.org',
+				'@type': 'Organization',
+				name: 'SvelteForge',
+				url: 'https://svelteforge.dev'
+			}
+		]
+	};
 </script>
 
-<svelte:head>
-	<title>SvelteForge — Master Svelte 5 & SvelteKit</title>
-	<meta
-		name="description"
-		content="Master Svelte 5, SvelteKit & modern web development with interactive lessons, a live code editor, AI tutor, and concept graph."
-	/>
-</svelte:head>
+<SEOHead {seo} />
 
-<div class="landing">
+<main class="landing">
 	<section class="hero">
 		<div class="hero-content">
 			<h1 class="hero-title">
@@ -71,10 +97,10 @@
 			</div>
 		</div>
 	</section>
-</div>
+</main>
 
 <style>
-	.landing {
+	main.landing {
 		min-block-size: 100dvh;
 		display: flex;
 		flex-direction: column;

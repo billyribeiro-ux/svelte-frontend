@@ -104,7 +104,8 @@
 
 		&::backdrop {
 			background: oklch(0 0 0 / 0.6);
-			backdrop-filter: blur(4px);
+			backdrop-filter: blur(8px);
+			animation: sf-fade-in 200ms var(--sf-ease-out);
 		}
 
 		&[open] {

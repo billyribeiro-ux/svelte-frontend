@@ -86,6 +86,7 @@
 		&.passed {
 			border-inline-start-color: var(--sf-success);
 			background: oklch(0.72 0.19 155 / 0.05);
+			transition: border-inline-start-color var(--sf-transition-base) var(--sf-ease-out), background var(--sf-transition-base) var(--sf-ease-out);
 		}
 	}
 
@@ -102,6 +103,7 @@
 
 		.passed & {
 			color: var(--sf-success);
+			animation: sf-celebration 500ms var(--sf-ease-spring);
 		}
 	}
 
@@ -120,6 +122,7 @@
 		padding: var(--sf-space-2) var(--sf-space-3);
 		font-size: var(--sf-font-size-xs);
 		border-radius: var(--sf-radius-sm);
+		animation: sf-slide-in-right 300ms var(--sf-ease-out);
 
 		&.result-passed {
 			color: var(--sf-success);
