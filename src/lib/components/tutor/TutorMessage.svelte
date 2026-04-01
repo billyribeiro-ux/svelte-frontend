@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { TutorMessage } from '$types/tutor';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		message: TutorMessage;
@@ -44,7 +45,7 @@
 	const rendered = $derived(renderContent(message.content));
 </script>
 
-<div class="tutor-message" class:tutor-message--user={isUser} class:tutor-message--assistant={!isUser}>
+<div class="tutor-message" class:tutor-message--user={isUser} class:tutor-message--assistant={!isUser} in:fly={{ y: 8, duration: 200 }}>
 	<div class="tutor-message__bubble">
 		{@html rendered}
 	</div>
@@ -57,8 +58,6 @@
 		flex-direction: column;
 		gap: var(--sf-space-1);
 		max-inline-size: 85%;
-		animation: sf-slide-up 300ms var(--sf-ease-out);
-
 		&.tutor-message--user {
 			align-self: flex-end;
 			align-items: flex-end;

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Icon from '$components/ui/Icon.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
+	import { buildCourseSchema, buildBreadcrumbSchema } from '$utils/seo';
 
 	const trackSlug = $derived(page.params.trackSlug ?? '');
 
@@ -38,9 +40,18 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{track.title} — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{
+	title: track.title,
+	description: track.description,
+	jsonLd: [
+		buildCourseSchema(`/learn/${trackSlug}`, track.title, track.description),
+		buildBreadcrumbSchema([
+			{ name: 'Home', url: '/' },
+			{ name: 'Learn', url: '/learn' },
+			{ name: track.title, url: `/learn/${trackSlug}` }
+		])
+	]
+}} />
 
 <div class="track-page">
 	<header class="track-header">

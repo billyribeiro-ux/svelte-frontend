@@ -36,6 +36,7 @@
 		"@lezer/highlight": "^1.0.0",
 		"bits-ui": "^2.0.0",
 		"runed": "^0.28.0",
-		"svelte-sonner": "^1.0.0"
+		"svelte-sonner": "^1.0.0",
+		"valibot": "^1.3.1"
 	}
 }

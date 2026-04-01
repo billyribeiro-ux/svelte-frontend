@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { TutorSuggestion } from '$types/tutor';
 	import { tutorState } from '$stores/tutor.svelte';
+	import { askTutor } from '$lib/tutor.remote';
 	import TutorMessage from './TutorMessage.svelte';
 	import TutorInput from './TutorInput.svelte';
 	import TutorSuggestions from './TutorSuggestions.svelte';
@@ -34,27 +35,20 @@
 		tutorState.setSuggestions([]);
 
 		try {
-			const res = await fetch('/api/tutor', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					message: content,
-					context: {
-						lessonTitle,
-						currentCode,
-						errors,
-						concepts: []
-					}
-				})
+			const result = await askTutor({
+				message: content,
+				context: {
+					lessonTitle,
+					currentCode,
+					errors,
+					concepts: []
+				}
 			});
 
-			if (!res.ok) throw new Error('Tutor request failed');
+			tutorState.addAssistantMessage(result.response);
 
-			const data = await res.json();
-			tutorState.addAssistantMessage(data.response);
-
-			if (data.suggestions) {
-				tutorState.setSuggestions(data.suggestions);
+			if (result.suggestions) {
+				tutorState.setSuggestions(result.suggestions);
 			}
 		} catch {
 			tutorState.addAssistantMessage(

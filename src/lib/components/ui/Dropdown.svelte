@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { cn } from '$utils/cn';
 	import type { Snippet } from 'svelte';
+	import { scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
 		open?: boolean;
@@ -80,7 +82,7 @@
 		{@render children()}
 	</button>
 	{#if open}
-		<div class="sf-dropdown-menu" role="menu" tabindex="-1">
+		<div class="sf-dropdown-menu" role="menu" tabindex="-1" transition:scale={{ duration: 150, start: 0.95, easing: cubicOut }}>
 			<!-- items should use role="menuitem" -->
 			{@render items()}
 		</div>
@@ -108,7 +110,6 @@
 		border-radius: var(--sf-radius-md);
 		box-shadow: var(--sf-shadow-lg);
 		padding-block: var(--sf-space-1);
-		animation: sf-scale-in var(--sf-transition-fast);
 		outline: none;
 
 		& :global(button),

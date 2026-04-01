@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
+
 	interface Props {
 		text: string;
 	}
@@ -10,7 +12,7 @@
 
 <div class="hint-wrapper">
 	{#if revealed}
-		<div class="hint-content">
+		<div class="hint-content" transition:slide={{ duration: 200 }}>
 			{@html text.replace(/`(.+?)`/g, '<code>$1</code>')}
 		</div>
 	{:else}
@@ -47,8 +49,6 @@
 		border-radius: var(--sf-radius-md);
 		font-size: var(--sf-font-size-sm);
 		color: var(--sf-text-1);
-		animation: sf-fade-in var(--sf-transition-base);
-
 		:global(code) {
 			font-family: var(--sf-font-mono);
 			background: var(--sf-bg-3);

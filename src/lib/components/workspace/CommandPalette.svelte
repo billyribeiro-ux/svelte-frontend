@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { workspace } from '$stores/workspace.svelte';
 	import Icon from '$components/ui/Icon.svelte';
 
@@ -89,9 +91,9 @@
 
 {#if open}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="palette-backdrop" onclick={() => open = false} role="presentation">
+	<div class="palette-backdrop" transition:fade={{ duration: 200 }} onclick={() => open = false} role="presentation">
 		<!-- svelte-ignore a11y_interactive_supports_focus -->
-		<div class="palette" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Command palette">
+		<div class="palette" transition:scale={{ duration: 250, start: 0.95, easing: cubicOut }} onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Command palette">
 			<div class="palette-input-wrap">
 				<Icon icon="ph:magnifying-glass" size={16} />
 				<input

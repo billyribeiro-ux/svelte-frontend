@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Checkpoint as CheckpointType } from '$types/lesson';
+	import { fly } from 'svelte/transition';
 
 	interface ValidationResult {
 		passed: boolean;
@@ -44,7 +45,7 @@
 	</div>
 
 	{#if !passed && lastResult}
-		<div class="validation-result" class:result-passed={lastResult.passed} class:result-failed={!lastResult.passed}>
+		<div class="validation-result" class:result-passed={lastResult.passed} class:result-failed={!lastResult.passed} transition:fly={{ x: 20, duration: 200 }}>
 			<span class="result-icon">{lastResult.passed ? '✓' : '✗'}</span>
 			<span class="result-message">{lastResult.message}</span>
 		</div>
@@ -122,8 +123,6 @@
 		padding: var(--sf-space-2) var(--sf-space-3);
 		font-size: var(--sf-font-size-xs);
 		border-radius: var(--sf-radius-sm);
-		animation: sf-slide-in-right 300ms var(--sf-ease-out);
-
 		&.result-passed {
 			color: var(--sf-success);
 			background: oklch(0.72 0.19 155 / 0.08);

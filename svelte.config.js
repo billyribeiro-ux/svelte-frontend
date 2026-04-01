@@ -16,6 +16,9 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+		experimental: {
+			remoteFunctions: true
+		},
 		alias: {
 			$components: 'src/lib/components',
 			$stores: 'src/lib/stores',
