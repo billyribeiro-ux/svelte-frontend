@@ -1,8 +1,9 @@
 import type { Lesson, Checkpoint } from '$types/lesson';
+import { SvelteSet } from 'svelte/reactivity';
 
 class LessonState {
 	current = $state<Lesson | null>(null);
-	checkpointsCompleted = $state<Set<string>>(new Set());
+	checkpointsCompleted = new SvelteSet<string>();
 	hintsRevealed = $state<Record<string, number>>({});
 	timeStarted = $state<number | null>(null);
 
@@ -27,13 +28,13 @@ class LessonState {
 
 	setLesson(lesson: Lesson) {
 		this.current = lesson;
-		this.checkpointsCompleted = new Set();
+		this.checkpointsCompleted.clear();
 		this.hintsRevealed = {};
 		this.timeStarted = Date.now();
 	}
 
 	completeCheckpoint(checkpointId: string) {
-		this.checkpointsCompleted = new Set([...this.checkpointsCompleted, checkpointId]);
+		this.checkpointsCompleted.add(checkpointId);
 	}
 
 	revealNextHint(checkpointId: string): string | null {
