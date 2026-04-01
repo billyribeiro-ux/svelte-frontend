@@ -84,7 +84,7 @@ function validateCodePattern(
 			}
 			case 'regex': {
 				try {
-					const regex = new RegExp(pattern.value);
+					const regex = new RegExp(pattern.value, 's');
 					if (!regex.test(code)) {
 						return {
 							passed: false,
