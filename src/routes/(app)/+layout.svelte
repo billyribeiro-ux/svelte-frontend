@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import Icon from '$components/ui/Icon.svelte';
 	import CommandPalette from '$components/workspace/CommandPalette.svelte';
 	import Toast from '$components/ui/Toast.svelte';
@@ -15,6 +14,7 @@
 				displayName: string;
 				avatarUrl: string | null;
 			};
+			pathname: string;
 		};
 	}
 
@@ -29,11 +29,9 @@
 		{ href: '/settings', label: 'Settings', icon: 'ph:gear' }
 	];
 
-	const currentPath = $derived(page.url.pathname);
-
 	function isActive(href: string): boolean {
-		if (href === '/dashboard') return currentPath === '/dashboard';
-		return currentPath.startsWith(href);
+		if (href === '/dashboard') return data.pathname === '/dashboard';
+		return data.pathname.startsWith(href);
 	}
 
 	$effect(() => {
