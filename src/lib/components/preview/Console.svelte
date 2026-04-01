@@ -3,12 +3,18 @@
 
 	interface Props {
 		entries: ConsoleEntry[];
+		onclear?: () => void;
 	}
 
-	let { entries }: Props = $props();
+	let { entries, onclear }: Props = $props();
 </script>
 
 <div class="console">
+	{#if onclear && entries.length > 0}
+		<div class="console-toolbar">
+			<button class="clear-btn" onclick={onclear}>Clear</button>
+		</div>
+	{/if}
 	{#if entries.length === 0}
 		<div class="empty">Console output will appear here...</div>
 	{:else}
@@ -30,6 +36,25 @@
 		overflow-y: auto;
 	}
 
+	.console-toolbar {
+		display: flex;
+		justify-content: flex-end;
+		padding: var(--sf-space-1) var(--sf-space-2);
+		border-block-end: 1px solid var(--sf-bg-3);
+	}
+
+	.clear-btn {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-2);
+		padding: var(--sf-space-1) var(--sf-space-2);
+		border-radius: var(--sf-radius-sm);
+
+		&:hover {
+			color: var(--sf-text-0);
+			background: var(--sf-bg-3);
+		}
+	}
+
 	.empty {
 		color: var(--sf-text-3);
 		padding: var(--sf-space-4);
@@ -41,6 +66,7 @@
 		gap: var(--sf-space-2);
 		padding: var(--sf-space-1) var(--sf-space-2);
 		border-block-end: 1px solid var(--sf-bg-2);
+		animation: sf-fade-in 200ms var(--sf-ease-out);
 
 		&.error {
 			color: var(--sf-error);

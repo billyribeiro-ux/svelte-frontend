@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Input from '$components/ui/Input.svelte';
 	import Button from '$components/ui/Button.svelte';
+	import SEOHead from '$components/seo/SEOHead.svelte';
 
 	let name = $state('');
 	let email = $state('');
@@ -13,9 +14,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Register — SvelteForge</title>
-</svelte:head>
+<SEOHead seo={{ title: 'Create Account', description: 'Create a SvelteForge account to start your interactive Svelte 5 learning journey.', noindex: true }} />
 
 <div class="auth-page">
 	<div class="auth-card">

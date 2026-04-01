@@ -9,9 +9,12 @@
 
 	interface Props {
 		lesson: Lesson;
+		onvalidate?: (checkpointId: string) => { passed: boolean; message: string } | undefined;
+		trackSlug?: string;
+		moduleSlug?: string;
 	}
 
-	let { lesson }: Props = $props();
+	let { lesson, onvalidate, trackSlug, moduleSlug }: Props = $props();
 </script>
 
 <div class="lesson-panel">
@@ -40,6 +43,7 @@
 						passed={lessonState.checkpointsCompleted.has(checkpoint.id)}
 						hints={lessonState.getRevealedHints(checkpoint.id)}
 						onrevealhint={() => lessonState.revealNextHint(checkpoint.id)}
+						onvalidate={() => onvalidate?.(checkpoint.id)}
 					/>
 				{/if}
 			{:else if block.type === 'concept-callout'}
@@ -55,24 +59,105 @@
 		{/each}
 	</div>
 
-	<LessonNav {lesson} />
+	<LessonNav {lesson} {trackSlug} {moduleSlug} />
 </div>
 
 <script lang="ts" module>
-	function renderMarkdown(text: string): string {
-		// Simple markdown rendering — handles basic formatting
+	function escapeHtml(text: string): string {
 		return text
-			.replace(/^### (.+)$/gm, '<h4>$1</h4>')
-			.replace(/^## (.+)$/gm, '<h3>$1</h3>')
-			.replace(/^# (.+)$/gm, '<h2>$1</h2>')
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;');
+	}
+
+	function renderMarkdown(text: string): string {
+		const lines = text.split('\n');
+		const result: string[] = [];
+		let inCodeBlock = false;
+		let codeBlockLang = '';
+		let codeLines: string[] = [];
+		let inList = false;
+
+		for (const line of lines) {
+			// Code blocks
+			if (line.trim().startsWith('```')) {
+				if (inCodeBlock) {
+					result.push(`<pre class="md-code-block"><code class="lang-${escapeHtml(codeBlockLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+					codeLines = [];
+					inCodeBlock = false;
+					codeBlockLang = '';
+				} else {
+					if (inList) { result.push('</ul>'); inList = false; }
+					inCodeBlock = true;
+					codeBlockLang = line.trim().slice(3).trim() || 'text';
+				}
+				continue;
+			}
+
+			if (inCodeBlock) {
+				codeLines.push(line);
+				continue;
+			}
+
+			const trimmed = line.trim();
+
+			// Empty line
+			if (!trimmed) {
+				if (inList) { result.push('</ul>'); inList = false; }
+				continue;
+			}
+
+			// Headings
+			if (trimmed.startsWith('### ')) {
+				if (inList) { result.push('</ul>'); inList = false; }
+				result.push(`<h4>${inlineFormat(trimmed.slice(4))}</h4>`);
+				continue;
+			}
+			if (trimmed.startsWith('## ')) {
+				if (inList) { result.push('</ul>'); inList = false; }
+				result.push(`<h3>${inlineFormat(trimmed.slice(3))}</h3>`);
+				continue;
+			}
+			if (trimmed.startsWith('# ')) {
+				if (inList) { result.push('</ul>'); inList = false; }
+				result.push(`<h2>${inlineFormat(trimmed.slice(2))}</h2>`);
+				continue;
+			}
+
+			// List items
+			if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+				if (!inList) { result.push('<ul>'); inList = true; }
+				result.push(`<li>${inlineFormat(trimmed.slice(2))}</li>`);
+				continue;
+			}
+
+			// Numbered list
+			const numMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+			if (numMatch) {
+				if (!inList) { result.push('<ol>'); inList = true; }
+				result.push(`<li>${inlineFormat(numMatch[2]!)}</li>`);
+				continue;
+			}
+
+			// Paragraph
+			if (inList) { result.push('</ul>'); inList = false; }
+			result.push(`<p>${inlineFormat(trimmed)}</p>`);
+		}
+
+		if (inList) result.push('</ul>');
+		if (inCodeBlock) {
+			result.push(`<pre class="md-code-block"><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+		}
+
+		return result.join('\n');
+	}
+
+	function inlineFormat(text: string): string {
+		return text
 			.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-			.replace(/`(.+?)`/g, '<code>$1</code>')
-			.replace(/\n\n/g, '</p><p>')
-			.replace(/^(.+)$/gm, (match) => {
-				if (match.startsWith('<')) return match;
-				return match;
-			})
-			.trim();
+			.replace(/\*(.+?)\*/g, '<em>$1</em>')
+			.replace(/`(.+?)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`)
+			.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 	}
 </script>
 

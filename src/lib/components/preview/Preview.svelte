@@ -1,16 +1,19 @@
 <script lang="ts">
-	import type { CompilationResult } from '$types/editor';
+	import type { CompilationResult, ConsoleEntry, DOMMutation } from '$types/editor';
+	import { SvelteSandbox } from '$engine/compiler/sandbox';
 	import PreviewToolbar from './PreviewToolbar.svelte';
 	import ErrorOverlay from './ErrorOverlay.svelte';
 
 	interface Props {
 		compilationResult: CompilationResult | null;
+		onConsole?: (entry: ConsoleEntry) => void;
+		onDOMMutation?: (mutation: DOMMutation) => void;
 	}
 
-	let { compilationResult }: Props = $props();
+	let { compilationResult, onConsole, onDOMMutation }: Props = $props();
 
 	let iframeContainer = $state<HTMLDivElement | null>(null);
-	let iframe = $state<HTMLIFrameElement | null>(null);
+	let sandbox = $state<SvelteSandbox | null>(null);
 	let viewport = $state<'mobile' | 'tablet' | 'desktop'>('desktop');
 
 	let hasErrors = $derived(
@@ -23,45 +26,29 @@
 		viewport === 'mobile' ? '375px' : viewport === 'tablet' ? '768px' : '100%'
 	);
 
+	// Initialize sandbox when container is available
 	$effect(() => {
 		if (!iframeContainer) return;
 
-		const el = document.createElement('iframe');
-		el.sandbox.add('allow-scripts');
-		el.style.cssText = `width:${viewportWidth};height:100%;border:none;background:white;`;
-		iframeContainer.innerHTML = '';
-		iframeContainer.appendChild(el);
-		iframe = el;
+		const s = new SvelteSandbox(
+			iframeContainer,
+			(entry) => onConsole?.(entry),
+			() => {},
+			(mutation) => onDOMMutation?.(mutation)
+		);
+		sandbox = s;
 
 		return () => {
-			iframe = null;
+			s.destroy();
+			sandbox = null;
 		};
 	});
 
+	// Execute compiled code when compilation result changes
 	$effect(() => {
-		if (!iframe || !compilationResult?.success) return;
-
-		const html = buildPreviewHTML(compilationResult.js ?? '', compilationResult.css);
-		iframe.srcdoc = html;
+		if (!sandbox || !compilationResult?.success || !compilationResult.js) return;
+		sandbox.execute(compilationResult.js, compilationResult.css);
 	});
-
-	function buildPreviewHTML(js: string, css: string | null): string {
-		return `<!DOCTYPE html>
-<html>
-<head>
-<style>
-body { margin: 0; font-family: system-ui, sans-serif; }
-${css ?? ''}
-</style>
-</head>
-<body>
-<div id="app"></div>
-<script type="module">
-${js}
-<\/script>
-</body>
-</html>`;
-	}
 </script>
 
 <div class="preview">
@@ -71,7 +58,11 @@ ${js}
 		{#if hasErrors && compilationResult}
 			<ErrorOverlay errors={compilationResult.errors} />
 		{/if}
-		<div class="iframe-container" bind:this={iframeContainer}></div>
+		<div
+			class="iframe-container"
+			bind:this={iframeContainer}
+			style="max-inline-size: {viewportWidth}"
+		></div>
 	</div>
 </div>
 
@@ -99,5 +90,6 @@ ${js}
 		display: flex;
 		justify-content: center;
 		block-size: 100%;
+		margin-inline: auto;
 	}
 </style>

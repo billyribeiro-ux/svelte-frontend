@@ -1,6 +1,7 @@
 import type { Track } from '$types/lesson';
 import { svelteBasicsModule } from './01-svelte-basics/_module';
 import { runesReactivityModule } from './02-runes-reactivity/_module';
+import { controlFlowModule } from './03-control-flow/_module';
 
 export const svelteCoreTrack: Track = {
 	id: 'svelte-core',
@@ -9,5 +10,5 @@ export const svelteCoreTrack: Track = {
 	description:
 		'Master Svelte 5 from the ground up — components, runes, reactivity, composition, and advanced patterns.',
 	order: 1,
-	modules: [svelteBasicsModule, runesReactivityModule]
+	modules: [svelteBasicsModule, runesReactivityModule, controlFlowModule]
 };

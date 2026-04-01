@@ -21,6 +21,7 @@
 
 	let container: HTMLDivElement | undefined = $state();
 	let view: EditorView | undefined = $state();
+	let updatingFromProp = false;
 
 	function getLanguageExtension(lang: string) {
 		switch (lang) {
@@ -43,9 +44,8 @@
 		const languageExtension = getLanguageExtension(language);
 
 		const updateListener = EditorView.updateListener.of((update) => {
-			if (update.docChanged) {
-				const newValue = update.state.doc.toString();
-				onchange?.(newValue);
+			if (update.docChanged && !updatingFromProp) {
+				onchange?.(update.state.doc.toString());
 			}
 		});
 
@@ -79,6 +79,7 @@
 
 	$effect(() => {
 		if (view && value !== view.state.doc.toString()) {
+			updatingFromProp = true;
 			view.dispatch({
 				changes: {
 					from: 0,
@@ -86,6 +87,7 @@
 					insert: value
 				}
 			});
+			updatingFromProp = false;
 		}
 	});
 </script>
