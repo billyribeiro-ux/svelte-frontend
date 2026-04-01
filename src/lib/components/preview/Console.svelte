@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ConsoleEntry } from '$types/editor';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		entries: ConsoleEntry[];
@@ -19,7 +20,7 @@
 		<div class="empty">Console output will appear here...</div>
 	{:else}
 		{#each entries as entry (entry.id)}
-			<div class="entry {entry.method}">
+			<div class="entry {entry.method}" in:fade={{ duration: 150 }}>
 				<span class="method">{entry.method}</span>
 				<span class="args">{entry.args.join(' ')}</span>
 			</div>
@@ -66,8 +67,6 @@
 		gap: var(--sf-space-2);
 		padding: var(--sf-space-1) var(--sf-space-2);
 		border-block-end: 1px solid var(--sf-bg-2);
-		animation: sf-fade-in 200ms var(--sf-ease-out);
-
 		&.error {
 			color: var(--sf-error);
 			background: oklch(0.65 0.22 25 / 0.08);

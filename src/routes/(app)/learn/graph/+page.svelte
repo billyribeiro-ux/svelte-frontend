@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
 	import ConceptGraph from '$components/graph/ConceptGraph.svelte';
 	import ConceptNode from '$components/graph/ConceptNode.svelte';
 	import { graphState } from '$lib/stores/graph.svelte';
@@ -20,7 +21,7 @@
 	</div>
 
 	{#if graphState.selectedNode}
-		<div class="graph-sidebar">
+		<div class="graph-sidebar" transition:fly={{ x: 300, duration: 300 }}>
 			<ConceptNode node={graphState.selectedNode} />
 		</div>
 	{/if}
