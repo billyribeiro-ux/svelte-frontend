@@ -28,7 +28,45 @@ Tailwind uses a **mobile-first** approach to responsive design. You write base s
 | \`xl:\` | 1280px | Desktops |
 | \`2xl:\` | 1536px | Large monitors |
 
-The key insight: unprefixed utilities apply to **all** screen sizes, while prefixed utilities apply at that breakpoint **and above**.`
+The key insight: unprefixed utilities apply to **all** screen sizes, while prefixed utilities apply at that breakpoint **and above**.
+
+## WHY: Mobile-First vs Desktop-First Strategy
+
+There are two philosophies for responsive design:
+
+**Mobile-first (Tailwind's approach):** Write styles for the smallest screen, then add complexity at larger breakpoints. This means your base CSS is the simplest, and you progressively enhance for larger screens.
+
+**Desktop-first (the old way):** Write styles for desktop, then override with \`max-width\` media queries for smaller screens. This leads to bloated base styles and lots of overrides.
+
+**Why mobile-first wins:**
+1. **Performance** — Mobile devices are the weakest. By making the simplest styles the default, mobile users download and parse less CSS.
+2. **Progressive enhancement** — You start with the essential layout and add sophistication. This is more robust than starting complex and trying to simplify.
+3. **Statistics** — Over 60% of web traffic is mobile. Designing for the majority first is pragmatic.
+4. **Cognitive simplicity** — It is easier to think "add a second column when there's room" than "collapse the second column when there isn't room."
+
+## WHY: min-width Media Queries
+
+Tailwind's breakpoints use \`min-width\` because they compose naturally with mobile-first thinking:
+
+\`\`\`css
+/* What sm:grid-cols-2 generates */
+@media (min-width: 640px) {
+  .sm\\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+}
+\`\`\`
+
+With \`min-width\`, each breakpoint adds to the previous one. You never need to "undo" styles — you only add new ones. With \`max-width\` (desktop-first), you constantly override what came before, leading to specificity conflicts and forgotten overrides.
+
+**Decision framework for reading responsive Tailwind:**
+- Read left to right: base styles first, then breakpoints in ascending order
+- \`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3\` reads as: "1 column by default, 2 columns at 640px+, 3 columns at 1024px+"
+- If a breakpoint prefix is missing, the previous value carries through
+
+## Breakpoint Selection Philosophy
+
+Tailwind's default breakpoints (640, 768, 1024, 1280, 1536) are not magic numbers. They are pragmatic ranges that cover the most common device widths. But you should think about breakpoints differently:
+
+**Do not design for specific devices.** The iPhone 15 is 393px wide. The Galaxy S24 is 360px. If you target exact device widths, you are playing a losing game. Instead, **let the content tell you where to break.** If your layout looks cramped at 500px but fine at 600px, \`sm:\` (640px) is a good breakpoint. If it needs to change at 900px, \`md:\` (768px) is close enough, or you can customize the breakpoints in your config.`
 		},
 		{
 			type: 'concept-callout',
@@ -51,6 +89,8 @@ Notice how:
 - \`sm:grid-cols-2\` kicks in at 640px — two columns
 - \`lg:grid-cols-3\` kicks in at 1024px — three columns
 
+This is the most common responsive pattern in web development, and it requires exactly one line of Tailwind classes. In traditional CSS, this would require the grid declaration plus two media query blocks.
+
 **Task:** The starter code has a grid locked to 3 columns. Make it responsive so it starts at 1 column on mobile and expands at larger breakpoints.`
 		},
 		{
@@ -71,7 +111,24 @@ You can also adjust text sizes across breakpoints:
 
 This makes headings smaller on mobile and progressively larger on wider screens — keeping things readable at every size.
 
-**Task:** Make the page heading and card text responsive using breakpoint prefixes.`
+**Why responsive typography matters:** A 3rem (48px) heading looks great on a desktop monitor with 1200px of content width. On a 375px phone screen, that same heading takes up 3 lines and pushes the content below the fold. By starting with \`text-2xl\` (1.5rem) and scaling up at breakpoints, your typography adapts to the available space.
+
+The alternative is fluid typography with \`clamp()\`, which you will learn in the CSS Layout module. Both approaches are valid — breakpoint-based is simpler and more predictable, while fluid scaling is smoother.
+
+**Task:** Make the page heading and card text responsive using breakpoint prefixes.
+
+## Realistic Exercise: Responsive Audit
+
+After completing the checkpoints, think about a real project scenario:
+
+You receive a design with three mockups: mobile (375px), tablet (768px), and desktop (1440px). Your approach should be:
+
+1. **Start with the mobile mockup.** Write all base (unprefixed) styles to match it exactly.
+2. **Compare mobile to tablet.** For every difference, add the appropriate \`sm:\` or \`md:\` prefix. Common changes: column count, font sizes, spacing, element visibility.
+3. **Compare tablet to desktop.** Add \`lg:\` or \`xl:\` prefixes for remaining differences.
+4. **Test the in-between.** Resize from 320px to 1920px and check for awkward breakpoints where the layout looks bad. Adjust if needed.
+
+This workflow ensures you never write contradictory styles and every breakpoint builds cleanly on the previous one.`
 		},
 		{
 			type: 'checkpoint',
@@ -79,7 +136,7 @@ This makes headings smaller on mobile and progressively larger on wider screens 
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Resize the preview panel to see how breakpoint prefixes activate at different widths. X-Ray mode highlights which responsive utilities are currently active.'
+			content: 'Resize the preview panel to see how breakpoint prefixes activate at different widths. X-Ray mode highlights which responsive utilities are currently active. Notice the moment each breakpoint triggers — the change is instant because min-width media queries have a single threshold, not a range.'
 		}
 	],
 
