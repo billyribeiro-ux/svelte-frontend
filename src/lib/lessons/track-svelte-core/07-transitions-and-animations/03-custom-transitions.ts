@@ -18,9 +18,74 @@ export const customTransitions: Lesson = {
 			type: 'text',
 			content: `# Custom Transitions
 
-Svelte's built-in transitions cover many cases, but sometimes you need full control. A custom transition is simply a function that returns an object describing how to animate an element.
+## WHY You Need Custom Transitions
 
-There are two approaches: **CSS transitions** (performant, runs on the compositor) and **tick functions** (JavaScript-driven, more flexible).`
+Svelte's built-in transitions (\`fade\`, \`fly\`, \`slide\`, \`scale\`, \`blur\`, \`draw\`) cover the most common animation patterns, but they represent a small fraction of what is possible. Custom transitions let you animate *anything* -- 3D rotations, color shifts, clip paths, text reveals, particle effects, SVG morphing, and more.
+
+A custom transition is just a function with a specific signature. The function receives the DOM node and optional parameters, and returns an object describing how to animate the element. There is no magic -- the same machinery that powers the built-in transitions powers yours.
+
+### The Transition Function Signature
+
+Every transition function follows this contract:
+
+\`\`\`typescript
+function myTransition(
+  node: Element,
+  params: MyParams
+): TransitionConfig {
+  return {
+    delay?: number,      // ms before animation starts (default: 0)
+    duration?: number,    // ms total animation time (default: 400)
+    easing?: (t: number) => number,  // easing function (default: cubicOut for in, cubicIn for out)
+    css?: (t: number, u: number) => string,  // CSS string generator
+    tick?: (t: number, u: number) => void     // JS callback per frame
+  };
+}
+\`\`\`
+
+The \`TransitionConfig\` type is imported from \`svelte/transition\`. You must return **either** \`css\` or \`tick\` (not both). The \`t\` parameter goes from 0 to 1 during intro and from 1 to 0 during outro. \`u\` is always \`1 - t\`, provided as a convenience.
+
+### CSS vs. Tick: A Deep Comparison
+
+**CSS-based transitions (\`css\` function)**
+
+When you return a \`css\` function, Svelte calls it once at the start of the transition with many sample values of \`t\`, generates a complete \`@keyframes\` rule, injects it into a \`<style>\` element, and applies it to the node via \`animation-name\`. The browser then handles all interpolation on the compositor thread.
+
+Advantages:
+- Runs on the GPU compositor thread (60fps even during heavy main-thread work)
+- No per-frame JavaScript execution
+- Automatically handles interruption (CSS animations can be reversed mid-flight)
+
+Constraints:
+- Can only animate CSS properties (not text content, attribute values, or DOM structure)
+- The CSS string is sampled at discrete points, not continuously (Svelte generates ~60 keyframe steps)
+- Cannot access the DOM during animation (the function runs before the animation starts)
+
+**Tick-based transitions (\`tick\` function)**
+
+When you return a \`tick\` function, Svelte calls it on every animation frame with the current \`t\` value. This runs in JavaScript on the main thread.
+
+Advantages:
+- Can manipulate anything: text content, SVG attributes, canvas drawing, scroll position
+- Continuous interpolation (no keyframe sampling artifacts)
+- Can read DOM measurements during animation
+
+Constraints:
+- Runs on the main thread (can cause jank if callback is expensive)
+- No GPU acceleration
+- More work for the garbage collector if creating objects per frame
+
+### Decision Framework: When to Use Which
+
+| Animation Target | Use \`css\` | Use \`tick\` |
+|---|---|---|
+| transform, opacity, filter | Yes | Avoid |
+| width, height, margin | Possible but costly | Better (Svelte's \`slide\` uses this approach internally) |
+| text content (typewriter) | Impossible | Required |
+| SVG path morphing | Possible with \`d\` attribute via CSS | Easier and more precise |
+| Scroll position | Impossible | Required |
+| Canvas / WebGL | Impossible | Required |
+| Counter / number interpolation | Impossible | Required |`
 		},
 		{
 			type: 'concept-callout',
@@ -30,7 +95,7 @@ There are two approaches: **CSS transitions** (performant, runs on the composito
 			type: 'text',
 			content: `## CSS-based Custom Transitions
 
-Return a \`css\` function that receives \`t\` (0 to 1) and returns a CSS string.
+Return a \`css\` function that receives \`t\` (0 to 1) and \`u\` (1 to 0) and returns a CSS string. Svelte samples this function at many points, builds a \`@keyframes\` rule, and applies it.
 
 \`\`\`svelte
 <script lang="ts">
@@ -52,7 +117,38 @@ Return a \`css\` function that receives \`t\` (0 to 1) and returns a CSS string.
 {/if}
 \`\`\`
 
-**Your task:** Create a custom \`spin\` transition that rotates and scales the element.`
+### Building a Spin Transition from Scratch
+
+Let us trace through what happens when this transition runs:
+
+1. **Intro starts:** \`t\` goes from 0 to 1. At \`t=0\`: rotate(0deg), scale(0), opacity(0) -- invisible. At \`t=0.5\`: rotate(180deg), scale(0.5), opacity(0.5) -- half-visible, rotated halfway. At \`t=1\`: rotate(360deg), scale(1), opacity(1) -- fully visible, completed full rotation.
+
+2. **Svelte samples** the \`css\` function at ~60 evenly-spaced \`t\` values and generates:
+   \`\`\`css
+   @keyframes svelte_spin_123 {
+     0% { transform: rotate(0deg) scale(0); opacity: 0; }
+     1.67% { transform: rotate(6deg) scale(0.017); opacity: 0.017; }
+     /* ... 58 more keyframes ... */
+     100% { transform: rotate(360deg) scale(1); opacity: 1; }
+   }
+   \`\`\`
+
+3. **The animation runs** entirely on the compositor -- no JavaScript per frame.
+
+### Combining Multiple CSS Properties
+
+You can animate any combination of CSS properties. Just return a single string with all properties:
+
+\`\`\`typescript
+css: (t) => \`
+  transform: translateX(\${(1 - t) * 100}px) rotate(\${t * 360}deg);
+  opacity: \${t};
+  filter: blur(\${(1 - t) * 4}px);
+  clip-path: circle(\${t * 100}% at 50% 50%);
+\`
+\`\`\`
+
+**Your task:** Create a custom \`spin\` transition that rotates and scales the element. Experiment with the interpolation values to get a feel for how \`t\` maps to visual properties.`
 		},
 		{
 			type: 'checkpoint',
@@ -60,9 +156,9 @@ Return a \`css\` function that receives \`t\` (0 to 1) and returns a CSS string.
 		},
 		{
 			type: 'text',
-			content: `## Tick-based Custom Transitions
+			content: `## Tick-based Custom Transitions: The Typewriter Effect
 
-For transitions that need to manipulate the DOM directly (like typewriter effects), use the \`tick\` function instead of \`css\`.
+For transitions that need to manipulate the DOM directly, use the \`tick\` function. The typewriter effect is the classic example -- it reveals text character by character, which requires changing \`textContent\` on every frame.
 
 \`\`\`svelte
 function typewriter(node: Element, { speed = 30 }): TransitionConfig {
@@ -78,7 +174,32 @@ function typewriter(node: Element, { speed = 30 }): TransitionConfig {
 }
 \`\`\`
 
-**Task:** Create a typewriter transition that reveals text character by character.`
+### Building the Typewriter from Scratch
+
+Let us trace the logic:
+
+1. **Capture the original text** before the animation starts. This is critical -- we read \`node.textContent\` in the outer function (which runs once), not in \`tick\` (which runs per frame).
+
+2. **Calculate duration** from text length. A 40-character string at 30ms per character = 1200ms total. This makes the animation duration proportional to content length, which feels natural.
+
+3. **On each frame**, compute how many characters should be visible: \`Math.floor(text.length * t)\`. At \`t=0\`, zero characters (empty). At \`t=0.5\`, half the characters. At \`t=1\`, all characters.
+
+4. **Set textContent** to the slice. This is a direct DOM mutation -- something CSS animations cannot do.
+
+### Performance Considerations for Tick Functions
+
+The \`tick\` function runs on every \`requestAnimationFrame\` (typically 60 times per second). For the typewriter example, the work per frame is trivial: one multiplication, one \`Math.floor\`, one \`String.slice\`, one property assignment. This will never cause jank.
+
+But if your tick function does something expensive -- measuring layout, creating DOM nodes, performing complex calculations -- it can drop frames. Profile with the browser's Performance tab if you see jank.
+
+### Beyond Typewriter: Other Tick Patterns
+
+- **Counter animation:** Interpolate a number from 0 to its final value
+- **Canvas drawing:** Progressively reveal a canvas illustration
+- **Scramble text:** Show random characters that resolve into the final text
+- **Progress bar:** Animate a width alongside text content showing the percentage
+
+**Task:** Create a typewriter transition that reveals text character by character. Consider the interplay between \`speed\` (per-character delay) and \`duration\` (total animation time). They are linked: \`duration = text.length * speed\`.`
 		},
 		{
 			type: 'checkpoint',
@@ -270,7 +391,7 @@ function typewriter(node: Element, { speed = 30 }): TransitionConfig {
 			},
 			hints: [
 				'Define a function that takes `(node, params)` and returns an object with `duration` and `css`.',
-				'The `css` function receives `t` (0 to 1) — use it for transform and opacity.',
+				'The `css` function receives `t` (0 to 1) -- use it for transform and opacity.',
 				'Create `function spin(node, { duration = 500 }) { return { duration, css: (t) => `transform: rotate(${t * 360}deg) scale(${t}); opacity: ${t}` }; }`'
 			],
 			conceptsTested: ['svelte5.transitions.custom', 'svelte5.transitions.css-fn']
@@ -289,7 +410,7 @@ function typewriter(node: Element, { speed = 30 }): TransitionConfig {
 				}
 			},
 			hints: [
-				'Use `tick` instead of `css` — it receives `t` and lets you manipulate the DOM.',
+				'Use `tick` instead of `css` -- it receives `t` and lets you manipulate the DOM.',
 				'Get the text content, calculate duration, and slice the text based on `t`.',
 				'`tick: (t) => { const i = Math.floor(text.length * t); node.textContent = text.slice(0, i); }`'
 			],

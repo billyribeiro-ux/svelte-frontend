@@ -17,9 +17,86 @@ export const layouts: Lesson = {
 			type: 'text',
 			content: `# Shared Layouts with +layout.svelte
 
-Most apps have UI that should appear on every page — a navigation bar, a footer, or a sidebar. In SvelteKit, you define shared UI in \`+layout.svelte\` files.
+## Why Layouts Exist
 
-A layout wraps all pages in its directory (and subdirectories). The page content is rendered where the \`{@render children()}\` snippet appears.`
+Every non-trivial application has UI that persists across page navigations -- a navigation bar, a sidebar, a footer, a notification area. Without layouts, you would duplicate this UI in every page component, creating a maintenance nightmare where a single change to the navigation requires editing dozens of files.
+
+But layouts in SvelteKit solve a deeper problem than mere code reuse. They are **architectural boundaries** in your rendering tree. When you navigate from \`/dashboard/analytics\` to \`/dashboard/settings\`, SvelteKit does not destroy and recreate the dashboard layout. It keeps the layout mounted and only swaps the page content inside it. This means layout state -- scroll positions, open dropdowns, WebSocket connections, animated sidebars -- survives navigation. This is not an optimization; it is a fundamental aspect of how SvelteKit handles the component lifecycle during routing.
+
+## The Layout Hierarchy and How Rendering Works
+
+SvelteKit constructs a **component tree** based on the layout hierarchy:
+
+\`\`\`
+Root Layout (+layout.svelte)
+  --> Page (+page.svelte)
+
+Root Layout (+layout.svelte)
+  --> Dashboard Layout (dashboard/+layout.svelte)
+    --> Dashboard Page (dashboard/+page.svelte)
+\`\`\`
+
+A layout wraps all pages in its directory and all subdirectories. The page content renders where the \`{@render children()}\` snippet appears. This is Svelte 5's snippet-based composition -- the layout receives \`children\` as a prop, and you decide exactly where in the layout's markup the page content should appear.
+
+During SSR, the entire tree is rendered top-down: root layout first, then nested layouts, then the page. The resulting HTML is a single string sent to the browser. During hydration, Svelte walks the same tree and attaches reactivity to each component. On client-side navigation, only the components that change are swapped -- layouts above the changing route segment remain mounted.
+
+## Data Inheritance in Layouts
+
+Every layout can have its own load function (\`+layout.server.ts\` or \`+layout.ts\`). The data returned from a layout's load function is available to the layout itself AND to every child page. This creates a natural data inheritance model:
+
+- Root layout loads user session data --> available everywhere
+- Dashboard layout loads dashboard-specific config --> available to all dashboard pages
+- Individual pages load their specific data
+
+Child pages receive the merged data from all ancestor layouts plus their own load function. If a layout returns \`{ user }\` and a page returns \`{ posts }\`, the page component receives \`{ user, posts }\` in its \`data\` prop.
+
+This inheritance follows the layout nesting, not arbitrary dependency graphs. This constraint is intentional -- it makes data flow predictable and debuggable.
+
+## Layout Groups: Different Layouts Without URL Segments
+
+Sometimes you want different sections of your app to have completely different layouts without that distinction appearing in the URL. A marketing site and an authenticated app might coexist under the same domain:
+
+- \`/\` -- marketing homepage (minimal layout)
+- \`/pricing\` -- marketing pricing page (same minimal layout)
+- \`/dashboard\` -- authenticated app (sidebar + header layout)
+- \`/settings\` -- authenticated app (same sidebar + header layout)
+
+Layout groups solve this with parenthesized directory names:
+
+\`\`\`
+src/routes/
+  (marketing)/
+    +layout.svelte     --> minimal marketing layout
+    +page.svelte       --> / (home)
+    pricing/
+      +page.svelte     --> /pricing
+  (app)/
+    +layout.svelte     --> full app layout with sidebar
+    dashboard/
+      +page.svelte     --> /dashboard
+    settings/
+      +page.svelte     --> /settings
+\`\`\`
+
+The group names \`(marketing)\` and \`(app)\` do NOT appear in the URL. They exist solely to organize layout boundaries. This is a powerful architectural tool -- it lets you have completely independent layout trees without polluting your URL structure.
+
+## Breaking Out of Layouts with +page@.svelte
+
+Occasionally a page needs to escape its parent layout. A login page under \`(app)/login\` should not show the authenticated sidebar. SvelteKit handles this with the \`@\` suffix:
+
+- \`+page@.svelte\` -- resets to the root layout (no parent layouts)
+- \`+page@(app).svelte\` -- resets to the (app) group layout
+- \`+page@dashboard.svelte\` -- resets to the dashboard layout
+
+Use this sparingly. If you find yourself breaking out of layouts frequently, your layout hierarchy probably does not match your actual UI structure.
+
+## Decision Framework: Designing Your Layout Hierarchy
+
+1. **Start with what persists.** List the UI elements that should survive page navigation. Group pages that share the same persistent UI under the same layout.
+2. **Think about state.** If a sidebar's open/closed state should persist across page changes, those pages need a shared layout.
+3. **Consider data loading.** If multiple pages need the same data (user session, team info), load it in a shared layout rather than duplicating the fetch in each page.
+4. **Use groups for divergent UIs.** When two sections of your app look completely different but share a URL prefix (or lack one), use layout groups.
+5. **Keep it shallow.** Three levels of layout nesting is usually the practical maximum. Beyond that, the component tree becomes hard to reason about and load waterfalls become problematic.`
 		},
 		{
 			type: 'concept-callout',
@@ -251,7 +328,7 @@ Routes inside \`src/routes/(auth)/login\` will be at \`/login\`, not \`/(auth)/l
 			},
 			hints: [
 				'Layout groups use parentheses in the directory name, like `(auth)`.',
-				'The group name does not appear in the URL — `(auth)/login` maps to `/login`.',
+				'The group name does not appear in the URL -- `(auth)/login` maps to `/login`.',
 				'This lets you have different layouts for different sections without extra URL segments.'
 			],
 			conceptsTested: ['sveltekit.routing.layouts']

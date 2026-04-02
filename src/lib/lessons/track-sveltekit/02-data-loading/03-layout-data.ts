@@ -17,9 +17,104 @@ export const layoutData: Lesson = {
 			type: 'text',
 			content: `# Layout Data Loading
 
-Just like pages, layouts can have load functions. A \`+layout.server.ts\` file provides data to the layout **and** all its child pages.
+## Why Layout Data Is Structurally Different from Page Data
 
-This is perfect for data that multiple pages need — like user info, navigation items, or global settings.`
+Layout load functions (\`+layout.server.ts\` or \`+layout.ts\`) seem similar to page load functions, but they serve a fundamentally different purpose and follow different lifecycle rules. Understanding these differences is critical for building performant applications.
+
+A page load function runs when you navigate TO that page. A layout load function runs when you navigate to ANY page within that layout's scope. The root layout's load function runs on every single navigation. A dashboard layout's load function runs whenever you navigate to any \`/dashboard/*\` page.
+
+This difference has profound performance implications. If your root layout load function makes a database query, that query runs on every page navigation in your entire app. If it takes 200ms, you have added 200ms to every navigation. Choose carefully what you load at each layout level.
+
+## The Data Merge Model
+
+SvelteKit merges data from layout load functions with page load function data. The merge follows the component hierarchy:
+
+\`\`\`
+Root Layout data: { user: { name: 'Alice' } }
+  +
+Dashboard Layout data: { team: { name: 'Engineering' } }
+  +
+Analytics Page data: { metrics: [...] }
+  =
+Page receives: { user, team, metrics }
+\`\`\`
+
+The page component (and every component in the tree) receives the merged result via its \`data\` prop. If there are key collisions, child data overwrites parent data. If both the layout and page return \`{ title: '...' }\`, the page's title wins.
+
+**Important architectural rule:** Avoid key collisions between layout and page data. Use distinct, descriptive property names. A layout returning \`{ user }\` and a page returning \`{ pageUser }\` is much clearer than both returning \`{ data }\`.
+
+## Waterfalls: The parent() Problem
+
+Page load functions can access parent layout data using \`await parent()\`. This creates a **data loading waterfall** -- the page load function must wait for the layout load function to complete before it can start:
+
+\`\`\`typescript
+// +layout.server.ts -- takes 200ms
+export const load = async () => {
+  const user = await fetchUser(); // 200ms
+  return { user };
+};
+
+// +page.server.ts -- takes 300ms, but WAITS for layout first
+export const load = async ({ parent }) => {
+  const { user } = await parent(); // blocks until layout finishes
+  const posts = await fetchUserPosts(user.id); // 300ms
+  return { posts };
+};
+// Total time: 200ms + 300ms = 500ms (sequential)
+\`\`\`
+
+Without \`parent()\`, both load functions run in parallel:
+
+\`\`\`typescript
+// +page.server.ts -- runs in PARALLEL with layout
+export const load = async ({ locals }) => {
+  // Use locals.user (set by hooks) instead of parent()
+  const posts = await fetchUserPosts(locals.user.id); // 300ms
+  return { posts };
+};
+// Total time: max(200ms, 300ms) = 300ms (parallel)
+\`\`\`
+
+**SvelteKit runs all load functions for a navigation in parallel by default.** The waterfall only occurs when you explicitly call \`parent()\`. This is why hooks are often better for shared data like user sessions -- setting \`event.locals.user\` in the handle hook makes user data available to all load functions without waterfalls.
+
+## The depends() Mechanism for Layout Data
+
+Layout load functions can declare dependencies using \`depends()\`, just like page load functions. When you call \`invalidate()\` with a matching URL, only the load functions that declared that dependency re-run:
+
+\`\`\`typescript
+// +layout.server.ts
+export const load = async ({ depends }) => {
+  depends('app:user');
+  const user = await fetchCurrentUser();
+  return { user };
+};
+\`\`\`
+
+Calling \`invalidate('app:user')\` from any page within this layout will re-run just this layout load function and re-render the layout with fresh user data. Pages that did not change their own data will receive the new layout data automatically.
+
+This is the correct way to handle scenarios like "user updates their profile name" -- invalidate the layout data that contains the user, and the nav bar updates everywhere.
+
+## Parallel Loading Strategy
+
+The most performant SvelteKit applications minimize waterfalls by following these rules:
+
+1. **Use hooks for auth/session data.** Set \`event.locals.user\` in \`handle()\` so every load function can access user data without \`parent()\`.
+2. **Keep layout loads lightweight.** Layout loads run on every child navigation. Fetch only what the layout UI actually needs.
+3. **Prefer independent data fetching.** If a page needs user data AND posts, fetch both independently rather than fetching the user first and then using the user ID to fetch posts.
+4. **Use \`depends()\` for targeted invalidation.** Instead of \`invalidateAll()\` (which re-runs everything), declare specific dependencies and invalidate only what changed.
+
+## When Layout Data Re-runs
+
+Layout load functions do NOT re-run on every navigation within their scope -- they are cached. A layout load re-runs when:
+
+1. A navigation changes a parameter that the layout's route uses
+2. A parent layout's load function re-ran
+3. \`invalidate()\` is called with a matching URL
+4. \`invalidateAll()\` is called
+5. The load function calls \`fetch(url)\` and \`invalidate(url)\` is later called with that URL
+6. The load function calls \`depends(url)\` and \`invalidate(url)\` is later called
+
+This caching is essential for performance. If you have a root layout that loads user data, it does not re-fetch the user on every page change -- only when explicitly invalidated.`
 		},
 		{
 			type: 'concept-callout',
@@ -39,7 +134,7 @@ This is perfect for data that multiple pages need — like user info, navigation
 			type: 'text',
 			content: `## Accessing Parent Data in Pages
 
-Page load functions can access data from parent layouts using \`await parent()\`. However, be cautious — this creates a **waterfall** where the page must wait for the layout data.
+Page load functions can access data from parent layouts using \`await parent()\`. However, be cautious -- this creates a **waterfall** where the page must wait for the layout data.
 
 **Task:** Access the layout data from a child page's load function using \`parent()\`.`
 		},

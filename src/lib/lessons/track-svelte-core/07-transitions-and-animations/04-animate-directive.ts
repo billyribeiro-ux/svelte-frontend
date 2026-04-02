@@ -18,9 +18,54 @@ export const animateDirective: Lesson = {
 			type: 'text',
 			content: `# The Animate Directive
 
-When items in a keyed \`{#each}\` block change order, Svelte can smoothly animate the movement using the \`animate:\` directive. The most common animation is \`flip\` (First, Last, Invert, Play).
+## WHY Reordering Animation is Hard
 
-The \`animate:\` directive only works inside a **keyed** each block — \`{#each items as item (item.id)}\`.`
+When items in a list change order, the naive DOM approach is to re-render: remove elements from old positions, insert at new positions. The result is an instant jump -- items teleport to their new locations. This is disorienting for users because they lose track of which item went where.
+
+Animating reordering is one of the hardest problems in web animation because it requires:
+
+1. **Measuring the old position** of every item before the reorder
+2. **Applying the reorder** to the DOM (moving elements to their final positions)
+3. **Measuring the new position** of every item after the reorder
+4. **Calculating the delta** between old and new positions
+5. **Applying a temporary transform** to snap each element back to its old visual position
+6. **Animating the transform to zero** so elements smoothly move to their new positions
+
+This sequence is called the **FLIP technique** (First, Last, Invert, Play), coined by Paul Lewis at Google. It is elegant in theory but tedious to implement manually because you need to coordinate with the framework's DOM reconciliation cycle -- you must measure *before* the DOM update and animate *after*.
+
+Svelte's \`animate:\` directive automates the entire FLIP sequence. You import \`flip\` from \`svelte/animate\`, apply \`animate:flip\` to elements inside a keyed \`{#each}\` block, and Svelte handles everything.
+
+### How FLIP Works Under the Hood
+
+Let us trace through a concrete example. You have items [A, B, C] displayed vertically. The user clicks "shuffle" and the new order is [C, A, B].
+
+**First (F):** Before the DOM updates, Svelte records the bounding rectangle (\`getBoundingClientRect()\`) of each keyed element: A at y=0, B at y=40, C at y=80.
+
+**Last (L):** Svelte updates the DOM to reflect the new order. Now: C at y=0, A at y=40, B at y=80.
+
+**Invert (I):** Svelte calculates the delta for each element. Element A moved from y=0 to y=40, so delta is -40px. Svelte applies \`transform: translateY(-40px)\` to A, visually snapping it back to its old position. Similarly for B and C.
+
+**Play (P):** Svelte transitions \`transform\` from the inverted value to \`none\`, animating each element smoothly to its final DOM position.
+
+The result: items appear to slide to their new positions, even though the DOM was updated instantly. The animation is pure visual deception using CSS transforms, which are GPU-accelerated.
+
+### WHY Keyed Each Blocks Are Required
+
+The \`animate:\` directive only works inside a **keyed** each block: \`{#each items as item (item.id)}\`. Without keys, Svelte cannot track which DOM element corresponds to which data item across reorders. It would not know that "the element that was showing A is now showing C" -- it would just see content changes, not position changes.
+
+Keys give each item a stable identity. When the array reorders, Svelte matches old and new items by key, determines which DOM elements moved, and applies the FLIP technique to each one.
+
+### The animate:flip Parameters
+
+\`\`\`typescript
+animate:flip={{ duration: 300 }}
+// or with a function for distance-based duration:
+animate:flip={{ duration: (d) => Math.sqrt(d) * 120 }}
+\`\`\`
+
+- \`duration\`: Fixed milliseconds, or a function receiving the pixel distance \`d\` the element needs to travel. Distance-based durations feel more natural because items that move farther take proportionally longer.
+- \`delay\`: Milliseconds before animation starts.
+- \`easing\`: Easing function (default: \`cubicOut\`).`
 		},
 		{
 			type: 'concept-callout',
@@ -53,7 +98,21 @@ The \`animate:\` directive only works inside a **keyed** each block — \`{#each
 {/each}
 \`\`\`
 
-**Your task:** Create a sortable list with \`animate:flip\` that smoothly animates when items are reordered.`
+### Building a Sortable List
+
+A sortable list is the canonical application of \`animate:flip\`. The pattern combines:
+- A keyed \`{#each}\` for stable identity tracking
+- \`animate:flip\` for smooth reordering
+- Array mutation methods (\`sort\`, \`splice\`, index swapping) to trigger reorders
+- Optionally, \`in:\` and \`out:\` transitions for adding and removing items
+
+The key insight is that you just manipulate the data array -- sort it, splice it, reverse it -- and Svelte automatically animates the resulting DOM changes. You never touch the DOM directly for animation purposes.
+
+### Performance Characteristics
+
+FLIP animations are inherently performant because they use CSS transforms, which are composited on the GPU. However, measuring bounding rectangles (\`getBoundingClientRect()\`) for every item before and after the reorder triggers a layout calculation. For lists with hundreds of items, this measurement phase can be expensive. In practice, lists under ~100 items animate smoothly; for larger lists, consider paginating or virtualizing.
+
+**Your task:** Create a sortable list with \`animate:flip\` that smoothly animates when items are reordered. Use the shuffle function to trigger reorders and observe how items slide to their new positions.`
 		},
 		{
 			type: 'checkpoint',
@@ -63,9 +122,44 @@ The \`animate:\` directive only works inside a **keyed** each block — \`{#each
 			type: 'text',
 			content: `## Combining Animate with Transitions
 
-You can combine \`animate:\` with \`in:\` and \`out:\` transitions. The animate directive handles reordering while transitions handle adding/removing.
+The \`animate:\` directive handles **reordering** -- items moving to new positions within the list. But what about items being **added** or **removed**? That is where \`in:\` and \`out:\` transitions complement \`animate:flip\`.
 
-**Task:** Add the ability to add and remove items from the list, with transitions for enter/exit and flip animation for reordering.`
+When all three directives are combined on a single element:
+- **New items** play their \`in:\` transition (e.g., fly in from the left)
+- **Removed items** play their \`out:\` transition (e.g., fade out)
+- **Remaining items** play their \`animate:flip\` animation to slide into their new positions (accounting for the space opened or closed by additions/removals)
+
+This combination creates a fully animated list where every possible mutation -- add, remove, reorder -- produces smooth visual feedback.
+
+### The Interaction Sequence
+
+When you add an item:
+1. The new DOM element is created at its target position
+2. \`in:\` transition plays on the new element
+3. All other elements whose positions changed (because the new element pushed them) play \`animate:flip\`
+
+When you remove an item:
+1. \`out:\` transition plays on the removed element
+2. After the out transition completes, the element is removed from the DOM
+3. Remaining elements whose positions changed (because the gap closed) play \`animate:flip\`
+
+When you reorder:
+1. DOM elements are moved to new positions
+2. \`animate:flip\` plays on all elements that moved
+
+### Decision Framework: When to Use animate:
+
+Use \`animate:flip\` when:
+- You have a list that can be **reordered** (sorted, shuffled, dragged)
+- Items have **stable identities** (unique IDs)
+- Users need to **track items visually** across position changes
+
+Do not use \`animate:flip\` when:
+- The list content changes but order is fixed (just use transitions)
+- Items do not have stable identities (consider adding IDs)
+- Performance is critical and the list has 100+ items (benchmark first)
+
+**Task:** Add the ability to add and remove items from the list, with transitions for enter/exit and flip animation for reordering. Test all three operations -- add, remove, shuffle -- and observe how the animations compose naturally.`
 		},
 		{
 			type: 'checkpoint',

@@ -8,7 +8,7 @@ export const howCssWorks: Lesson = {
 	trackId: 'foundations',
 	moduleId: 'css-fundamentals',
 	order: 1,
-	estimatedMinutes: 12,
+	estimatedMinutes: 18,
 	concepts: ['css.cascade', 'css.specificity', 'css.inheritance'],
 	prerequisites: [],
 
@@ -17,12 +17,27 @@ export const howCssWorks: Lesson = {
 			type: 'text',
 			content: `# How CSS Works
 
-CSS stands for **Cascading Style Sheets**. The "cascading" part is key — it defines how the browser decides which styles win when multiple rules target the same element.
+CSS stands for **Cascading Style Sheets**. That first word — "cascading" — is not decoration. It names the algorithm the browser uses to resolve conflicts when multiple declarations compete for the same property on the same element. Understanding the cascade, specificity, and inheritance is not optional knowledge. It is the foundation that makes every other CSS concept predictable.
 
-Three mechanisms control this:
-- **Cascade** — Later rules override earlier ones (when specificity is equal)
-- **Specificity** — More specific selectors win over less specific ones
-- **Inheritance** — Some properties pass from parent to child automatically`
+## The Cascade Algorithm
+
+When the browser encounters competing declarations, it resolves them through a strict priority order. The CSS Cascade Level 5 specification defines these origins, evaluated from highest to lowest priority:
+
+1. **Transition declarations** — Active CSS transitions always win
+2. **!important user-agent** — Browser defaults marked important
+3. **!important user** — User stylesheets marked important
+4. **!important author** — Your stylesheets marked important
+5. **Normal author** — Your regular stylesheets (this is where you live 99% of the time)
+6. **Normal user** — User preference stylesheets
+7. **Normal user-agent** — Browser default styles
+
+Within the same origin and importance level, the cascade resolves by **specificity**. At equal specificity, **source order** wins — the declaration that appears later in the stylesheet takes effect.
+
+### The !important Escape Hatch
+
+\`!important\` does not increase specificity. It moves the declaration to a different origin tier entirely. This is why \`!important\` on an author style beats any non-important author style, regardless of specificity. But it also means that \`!important\` declarations resolve *in reverse order* — a user-agent \`!important\` beats an author \`!important\`. This inversion exists to protect accessibility: a user who sets \`font-size: 24px !important\` should not be overridden by a site's stylesheet.
+
+The practical takeaway: avoid \`!important\` in application code. If you need it, you are almost certainly fighting a specificity problem that has a structural solution.`
 		},
 		{
 			type: 'concept-callout',
@@ -32,11 +47,13 @@ Three mechanisms control this:
 			type: 'text',
 			content: `## The Cascade in Action
 
-When two rules target the same element with equal specificity, the one that appears later wins.
+When two rules target the same element with equal specificity, the one that appears later wins. This is source-order resolution — the final tiebreaker in the cascade.
 
-Look at the starter code. There are two conflicting color rules on the paragraph.
+Look at the starter code. There are two conflicting \`color\` rules on the paragraph. Both use the same selector (\`p\`), so they have identical specificity. The second rule wins because it comes later.
 
-**Task:** Add a third rule that sets the paragraph color to \`green\` by leveraging cascade order.`
+**Task:** Add a third rule that sets the paragraph color to \`green\` by leveraging cascade order. Place it after the existing rules.
+
+Think about what this means: rearranging your stylesheet is not cosmetic. Moving a rule from line 10 to line 50 can change which styles apply. This is why CSS architecture patterns like BEM and utility-first frameworks exist — they reduce the chance that source order matters.`
 		},
 		{
 			type: 'checkpoint',
@@ -44,20 +61,31 @@ Look at the starter code. There are two conflicting color rules on the paragraph
 		},
 		{
 			type: 'text',
-			content: `## Specificity
+			content: `## Specificity — The 4-Digit Formula
 
-Specificity is a scoring system:
-- **Element selectors** (\`p\`, \`div\`) — lowest
-- **Class selectors** (\`.intro\`) — medium
-- **ID selectors** (\`#main\`) — highest
+Specificity is a weight assigned to every CSS selector, represented as a 4-part tuple: **A-B-C-D**.
+
+| Component | What counts | Example |
+|-----------|-------------|---------|
+| **A** | Inline \`style\` attribute | \`style="color: red"\` = 1-0-0-0 |
+| **B** | ID selectors | \`#main\` = 0-1-0-0 |
+| **C** | Class selectors, attribute selectors, pseudo-classes | \`.card\`, \`[href]\`, \`:hover\` = 0-0-1-0 |
+| **D** | Type selectors, pseudo-elements | \`div\`, \`::before\` = 0-0-0-1 |
+
+Specificity is compared component by component, left to right. A single ID selector (0-1-0-0) beats any number of classes — 0-1-0-0 > 0-0-99-0. This is why stacking classes never overcomes an ID.
 
 \`\`\`css
-p { color: blue; }          /* specificity: 0-0-1 */
-.intro { color: green; }    /* specificity: 0-1-0 */
-#main { color: red; }       /* specificity: 1-0-0 */
+p { color: blue; }                    /* 0-0-0-1 */
+.intro { color: green; }             /* 0-0-1-0 — wins over p */
+#main { color: red; }                /* 0-1-0-0 — wins over .intro */
+p.intro.highlight { color: teal; }   /* 0-0-2-1 — still loses to #main */
 \`\`\`
 
-**Task:** Add a class \`highlighted\` to the paragraph and use it to set a \`background-color\` of \`yellow\`.`
+### Selectors With Zero Specificity
+
+The universal selector (\`*\`), combinators (\`>\`, \`+\`, \`~\`), and the \`:where()\` pseudo-class contribute **zero** specificity. The \`:is()\` and \`:not()\` pseudo-classes take the specificity of their most specific argument. This distinction matters for building low-specificity utility layers.
+
+**Task:** Add a class \`highlighted\` to the paragraph and use it to set a \`background-color\` of \`yellow\`. This demonstrates that a class selector (0-0-1-0) can coexist with type selectors (0-0-0-1) when targeting different properties, and will override type selectors when targeting the same property.`
 		},
 		{
 			type: 'checkpoint',
@@ -69,15 +97,84 @@ p { color: blue; }          /* specificity: 0-0-1 */
 		},
 		{
 			type: 'text',
-			content: `## Inheritance
+			content: `## Svelte Scoped CSS — How the Framework Uses the Cascade
 
-Some CSS properties are inherited by child elements automatically — mostly text-related properties like \`color\`, \`font-family\`, and \`line-height\`. Layout properties like \`padding\` and \`margin\` are not inherited.
+Svelte compiles each component's \`<style>\` block into scoped CSS by adding a unique hash class (like \`.svelte-1a2b3c\`) to both the selector and the element. This means:
 
-**Task:** Set \`font-family: system-ui, sans-serif\` on the wrapper div and verify that the child elements inherit it.`
+\`\`\`css
+/* What you write */
+p { color: blue; }
+
+/* What Svelte compiles */
+p.svelte-1a2b3c { color: blue; }
+\`\`\`
+
+This scoping adds one class selector to the specificity, so your component styles have specificity 0-0-1-1 (one class + one type) rather than plain 0-0-0-1. This is why global styles from a CSS reset are easily overridden by component styles — the scoping hash gives them higher specificity for free.
+
+If you need a component style to reach outside its scope (for example, styling a child component's elements), Svelte provides the \`:global()\` modifier:
+
+\`\`\`css
+:global(.toast-container) p { color: red; }
+\`\`\`
+
+Use this sparingly. The moment you reach for \`:global()\`, you are opting out of the encapsulation that makes component CSS safe.`
+		},
+		{
+			type: 'text',
+			content: `## Inheritance — The Silent Propagation
+
+Some CSS properties are **inherited** by child elements automatically. The browser does not copy styles — it walks up the DOM tree looking for a value when none is set directly. Understanding which properties inherit saves you from writing redundant declarations.
+
+**Inherited properties** (text/font-related):
+- \`color\`, \`font-family\`, \`font-size\`, \`font-weight\`
+- \`line-height\`, \`letter-spacing\`, \`word-spacing\`
+- \`text-align\`, \`text-indent\`, \`text-transform\`
+- \`visibility\`, \`cursor\`, \`list-style\`
+
+**Non-inherited properties** (layout/box-related):
+- \`margin\`, \`padding\`, \`border\`
+- \`width\`, \`height\`, \`display\`
+- \`background\`, \`position\`, \`overflow\`
+
+You can force inheritance with the \`inherit\` keyword or prevent it with \`initial\` or \`unset\`:
+
+\`\`\`css
+.child {
+  border: inherit;    /* Force inheritance of a non-inherited property */
+  color: initial;     /* Reset to the property's initial value */
+  margin: unset;      /* Acts like 'inherit' for inherited props, 'initial' for others */
+}
+\`\`\`
+
+**Task:** Set \`font-family: system-ui, sans-serif\` on the wrapper div and verify that the child elements inherit it. You do not need to set \`font-family\` on \`h1\` or \`p\` — they will receive it through inheritance.`
 		},
 		{
 			type: 'checkpoint',
 			content: 'cp-3'
+		},
+		{
+			type: 'text',
+			content: `## Mental Model — How the Browser Resolves a Property
+
+When the browser needs the \`color\` value for a \`<p>\` element, it follows this exact sequence:
+
+1. **Collect** all declarations that target this element and set \`color\`
+2. **Sort by origin** — transitions > important user-agent > important user > important author > normal author > normal user > normal user-agent
+3. **Sort by specificity** within the same origin
+4. **Sort by source order** as the final tiebreaker
+5. **If no declaration exists**, check if \`color\` is an inherited property — if yes, use the parent's computed value
+6. **If still no value**, use the property's **initial value** (for \`color\`, that is typically \`CanvasText\`, which maps to black in most contexts)
+
+This algorithm runs for *every property on every element*. The browser is fast enough that this happens in milliseconds, but understanding the sequence lets you predict exactly which style will apply without guessing.
+
+### Debugging the Cascade
+
+In browser DevTools, the Styles panel shows declarations in specificity order (highest at top) with overridden declarations struck through. When a style is not applying as expected:
+
+1. Check if the declaration appears in the Styles panel at all (selector may not match)
+2. Check if it is struck through (a higher-specificity rule is winning)
+3. Check the Computed tab for the final resolved value and which rule it came from
+4. Look for \`!important\` flags that may be overriding your rule from a different origin`
 		}
 	],
 

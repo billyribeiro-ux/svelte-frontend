@@ -17,9 +17,198 @@ export const seoAndMeta: Lesson = {
 			type: 'text',
 			content: `# SEO & Meta Tags
 
-Because SvelteKit server-renders pages, search engines can crawl your content. You control the \`<head>\` of each page using the \`<svelte:head>\` special element.
+## Why SSR Makes SEO Work
 
-This lets you set the page title, meta description, Open Graph tags, and structured data — all rendered server-side for perfect SEO.`
+Search engine optimization in modern web apps depends on one critical factor: can Google's crawler see your content? Googlebot does execute JavaScript, but it is slow, resource-limited, and may not wait for all your async data to load. Pages that rely entirely on client-side rendering often have incomplete or delayed indexing.
+
+SvelteKit's SSR solves this by delivering complete HTML on the first response. When Googlebot requests \`/blog/my-post\`, it receives the full article text, meta tags, and structured data in the initial HTML -- no JavaScript execution needed. This is the single biggest SEO advantage of SSR frameworks over CSR-only solutions.
+
+But SSR alone is not sufficient for SEO. You also need to control the \`<head>\` element: the page title, meta description, canonical URL, Open Graph tags for social sharing, and structured data for rich search results.
+
+## svelte:head: Controlling the Document Head
+
+Svelte provides a special element \`<svelte:head>\` that injects content into the document's \`<head>\`. During SSR, this content is included in the initial HTML response. During client-side navigation, SvelteKit dynamically updates the head:
+
+\`\`\`svelte
+<svelte:head>
+  <title>My Blog Post | MySite</title>
+  <meta name="description" content="A detailed guide to SvelteKit SEO" />
+  <link rel="canonical" href="https://mysite.com/blog/sveltekit-seo" />
+</svelte:head>
+\`\`\`
+
+Every component can include \`<svelte:head>\`. When multiple components set \`<title>\`, the last one wins (deepest component in the tree). This naturally means page-level titles override layout-level titles.
+
+## The Essential Meta Tags
+
+**Title tag** -- the most important single SEO element:
+\`\`\`svelte
+<title>{data.title} | MySite</title>
+\`\`\`
+- Keep under 60 characters (Google truncates longer titles)
+- Include the primary keyword
+- Make each page title unique
+
+**Meta description** -- appears in search results:
+\`\`\`svelte
+<meta name="description" content={data.excerpt} />
+\`\`\`
+- Keep between 120-160 characters
+- Write compelling copy that encourages clicks
+- Include relevant keywords naturally
+
+**Canonical URL** -- prevents duplicate content issues:
+\`\`\`svelte
+<link rel="canonical" href={\`https://mysite.com\${page.url.pathname}\`} />
+\`\`\`
+- Essential for pages accessible via multiple URLs
+- Tells search engines which version is the "real" one
+
+## Open Graph Tags: Social Media Previews
+
+Open Graph (OG) tags control how your page appears when shared on social media (Facebook, LinkedIn, Slack, Discord, iMessage):
+
+\`\`\`svelte
+<svelte:head>
+  <meta property="og:title" content={data.title} />
+  <meta property="og:description" content={data.excerpt} />
+  <meta property="og:image" content={data.ogImage} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:url" content={\`https://mysite.com\${page.url.pathname}\`} />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="MySite" />
+</svelte:head>
+\`\`\`
+
+**Twitter/X card tags** (for Twitter-specific previews):
+\`\`\`svelte
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={data.title} />
+<meta name="twitter:description" content={data.excerpt} />
+<meta name="twitter:image" content={data.ogImage} />
+\`\`\`
+
+The OG image is the single most impactful element for social sharing engagement. Use 1200x630 pixels for optimal display across platforms.
+
+## Dynamic Meta Tags from Load Functions
+
+The real power comes from combining load functions with dynamic meta tags:
+
+\`\`\`typescript
+// blog/[slug]/+page.server.ts
+export const load: PageServerLoad = async ({ params }) => {
+  const post = await getPost(params.slug);
+  if (!post) error(404, 'Post not found');
+
+  return {
+    title: post.title,
+    excerpt: post.excerpt,
+    ogImage: post.coverImage ?? 'https://mysite.com/default-og.png',
+    publishedAt: post.publishedAt,
+    author: post.author.name
+  };
+};
+\`\`\`
+
+\`\`\`svelte
+<!-- blog/[slug]/+page.svelte -->
+<script lang="ts">
+  import { page } from '$app/state';
+  let { data } = $props();
+</script>
+
+<svelte:head>
+  <title>{data.title} | MySite Blog</title>
+  <meta name="description" content={data.excerpt} />
+  <meta property="og:title" content={data.title} />
+  <meta property="og:description" content={data.excerpt} />
+  <meta property="og:image" content={data.ogImage} />
+  <meta property="og:type" content="article" />
+  <meta property="article:published_time" content={data.publishedAt} />
+  <meta property="article:author" content={data.author} />
+  <link rel="canonical" href={\`https://mysite.com\${page.url.pathname}\`} />
+</svelte:head>
+\`\`\`
+
+Because this renders during SSR, social media crawlers (which rarely execute JavaScript) see the correct meta tags in the initial HTML response.
+
+## Structured Data: Rich Search Results
+
+Structured data (JSON-LD) tells search engines about the content type and properties, enabling rich results like recipe cards, product ratings, FAQ dropdowns, and breadcrumbs:
+
+\`\`\`svelte
+<svelte:head>
+  {@html \`<script type="application/ld+json">
+    \${JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": data.title,
+      "description": data.excerpt,
+      "author": {
+        "@type": "Person",
+        "name": data.author
+      },
+      "datePublished": data.publishedAt,
+      "image": data.ogImage
+    })}
+  </script>\`}
+</svelte:head>
+\`\`\`
+
+Use \`{@html}\` because structured data is a script tag that must not be escaped by Svelte.
+
+## Core Web Vitals and Performance SEO
+
+Google uses Core Web Vitals as ranking factors. SvelteKit's architecture inherently supports good scores:
+
+- **LCP (Largest Contentful Paint):** SSR delivers content in the initial HTML, enabling fast LCP. Ensure images have explicit width/height attributes and use responsive images.
+- **FID/INP (Interaction to Next Paint):** Svelte's compiled output produces minimal JavaScript, keeping the main thread responsive. Avoid heavy computations during hydration.
+- **CLS (Cumulative Layout Shift):** Set explicit dimensions on images and ads. Avoid injecting content above the fold after initial render.
+
+Key optimizations:
+- Use \`<link rel="preload">\` in \`<svelte:head>\` for critical resources
+- Leverage SvelteKit's automatic code splitting (each page only loads its own JavaScript)
+- Use \`prerender\` for static pages to eliminate server computation entirely
+
+## Building a Reusable SEO Component
+
+A common pattern is creating a reusable component for meta tags:
+
+\`\`\`svelte
+<!-- src/lib/components/SEO.svelte -->
+<script lang="ts">
+  import { page } from '$app/state';
+
+  let { title, description, image, type = 'website' }: {
+    title: string;
+    description: string;
+    image?: string;
+    type?: string;
+  } = $props();
+
+  const siteName = 'MySite';
+  const origin = 'https://mysite.com';
+  const defaultImage = \`\${origin}/default-og.png\`;
+</script>
+
+<svelte:head>
+  <title>{title} | {siteName}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={\`\${origin}\${page.url.pathname}\`} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={image ?? defaultImage} />
+  <meta property="og:type" content={type} />
+  <meta property="og:site_name" content={siteName} />
+  <meta name="twitter:card" content="summary_large_image" />
+</svelte:head>
+\`\`\`
+
+Then use it in every page:
+\`\`\`svelte
+<SEO title={data.title} description={data.excerpt} image={data.ogImage} />
+\`\`\``
 		},
 		{
 			type: 'concept-callout',

@@ -18,9 +18,49 @@ export const inAndOut: Lesson = {
 			type: 'text',
 			content: `# Separate In and Out Transitions
 
-The \`transition:\` directive uses the same animation for both entering and leaving. If you want **different** animations, use the \`in:\` and \`out:\` directives separately.
+## WHY Separate Directives Exist
 
-This gives you full control over enter and exit behavior.`
+The \`transition:\` directive uses the same animation function for both entering and leaving, just run in opposite directions (\`t: 0->1\` for intro, \`t: 1->0\` for outro). This is elegant and sufficient for many cases, but it creates an inherent symmetry that does not always match the UX you want.
+
+Consider a notification toast: it should **slide in from the right** (directional, attention-grabbing, suggests a new item arriving) and **fade out** (gentle, non-distracting, suggests the item dissolving away). These are fundamentally different animations. With \`transition:\`, you cannot achieve this -- you get the same animation played forward and backward.
+
+The \`in:\` and \`out:\` directives let you assign **completely different transition functions** to the enter and exit phases. Each directive independently specifies its function, parameters, and timing.
+
+### Reversal Mechanics: How Svelte Handles Mid-Animation Toggles
+
+One of the most subtle aspects of transitions is what happens when a user toggles visibility while an animation is still running. Consider this scenario:
+
+1. User clicks "show" -- element begins flying in from the right (\`in:fly\`)
+2. Halfway through the animation, user clicks "hide"
+3. What should happen?
+
+With \`transition:\` (bidirectional), Svelte reverses the same animation from its current position. The element smoothly changes direction. This works because the same function generates CSS for both directions.
+
+With separate \`in:\` and \`out:\` directives, the behavior is different:
+- The \`in:\` animation is **aborted** at its current position
+- The \`out:\` animation **starts from the element's current visual state**
+
+If the \`in:\` and \`out:\` transitions animate different properties, this can create visual discontinuities. For example, if \`in:\` animates \`transform\` (position) and \`out:\` animates \`opacity\`, the element will suddenly stop moving and start fading. This is not a bug -- it is the expected behavior of two independent animations.
+
+### Decision Framework: transition: vs. in:/out:
+
+Use **transition:** (bidirectional) when:
+- The enter and exit animations are the same effect in reverse
+- Mid-animation reversal should be seamless (toggles are common)
+- Examples: modals, tooltips, accordions
+
+Use **in:/out:** (separate) when:
+- Enter and exit animations are conceptually different
+- The element typically completes its animation before being removed
+- Examples: notifications (slide in, fade out), list items (fly in from left, fade out), page transitions (slide in from right, slide out to left)
+
+### UX Patterns for In/Out Transitions
+
+**Notification toasts:** \`in:fly={{ x: 300 }}\` (slide in from side) + \`out:fade\` (gentle disappearance). The directional entry draws attention; the fade exit avoids distracting the user.
+
+**Form validation messages:** \`in:slide\` (expand into space, pushing content down) + \`out:fade={{ duration: 150 }}\` (disappear quickly when resolved). The slide-in communicates "new content is being inserted here," while the fast fade communicates "this issue is resolved."
+
+**Route transitions:** \`in:fly={{ x: 100 }}\` (page slides in from right) + \`out:fly={{ x: -100 }}\` (old page slides out to left). This creates a navigation metaphor where pages are arranged left-to-right.`
 		},
 		{
 			type: 'concept-callout',
@@ -43,7 +83,22 @@ This gives you full control over enter and exit behavior.`
 {/if}
 \`\`\`
 
-**Your task:** Create a notification that flies in from the right and slides out to the left using separate \`in:\` and \`out:\` directives.`
+### Timing Independence
+
+Each directive has its own \`duration\` and \`delay\`. This means the entry animation can be slow and dramatic while the exit is fast and subtle:
+
+\`\`\`svelte
+<div
+  in:fly={{ x: 200, duration: 600, easing: elasticOut }}
+  out:fade={{ duration: 150 }}
+>
+\`\`\`
+
+This timing independence is critical for polish. Entry animations benefit from longer durations that let users perceive the movement. Exit animations should generally be faster because the user has already decided to dismiss the element and does not want to wait.
+
+A useful heuristic: **exit animations should be 40-60% the duration of entry animations.** An entry of 400ms pairs well with an exit of 200ms.
+
+**Your task:** Create a notification that flies in from the right and fades out using separate \`in:\` and \`out:\` directives. Notice how the two animations feel natural because they serve different UX purposes.`
 		},
 		{
 			type: 'checkpoint',
@@ -53,9 +108,33 @@ This gives you full control over enter and exit behavior.`
 			type: 'text',
 			content: `## Practical Example: Toast Notifications
 
-Separate transitions are perfect for toast notifications — they slide in from one edge and fade out.
+Toast notifications are the canonical use case for separate in/out transitions. They need to:
+1. **Announce themselves** with a directional entry (sliding in from the edge of the screen)
+2. **Disappear gracefully** without drawing attention back (fading out)
+3. **Stack properly** when multiple toasts are active
+4. **Handle rapid additions** without visual chaos
 
-**Task:** Build a simple toast system where clicking a button adds a notification that flies in and fades out after a delay.`
+The combination of \`in:fly\` and \`out:fade\` achieves all of this. The fly-in creates a clear visual signal that something new has appeared. The fade-out avoids the jarring "slide back to where it came from" effect that a bidirectional \`transition:fly\` would produce.
+
+### Keyed Each Blocks and Transitions
+
+When transitions are used inside \`{#each}\` blocks, each item gets its own transition instance. Items added to the list trigger \`in:\` transitions; items removed trigger \`out:\` transitions. This works correctly only when the each block is **keyed** -- \`{#each items as item (item.id)}\`. Without a key, Svelte cannot distinguish between "item added/removed" and "item content changed," which leads to incorrect transition behavior.
+
+### The Auto-Dismiss Pattern
+
+Toast notifications typically auto-dismiss after a timeout. The pattern combines \`setTimeout\` with array manipulation:
+
+\`\`\`typescript
+function addToast(message: string) {
+  const id = nextId++;
+  toasts.push({ id, message });
+  setTimeout(() => removeToast(id), 3000);
+}
+\`\`\`
+
+When \`removeToast\` removes the item from the array, Svelte detects the removal, plays the \`out:\` transition, and then removes the DOM node after the animation completes.
+
+**Task:** Build a simple toast system where clicking a button adds a notification that flies in and fades out after a delay. Each toast should animate independently.`
 		},
 		{
 			type: 'checkpoint',

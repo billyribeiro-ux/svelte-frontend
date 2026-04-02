@@ -17,9 +17,132 @@ export const namedActions: Lesson = {
 			type: 'text',
 			content: `# Named Actions
 
-When a page has multiple forms, you need **named actions** to distinguish them. Instead of a single \`default\` action, define named actions like \`create\` and \`delete\`.
+## Why Named Actions Exist
 
-Forms target a specific action using the \`action\` attribute: \`action="?/create"\` or \`action="?/delete"\`.`
+The default action handles a single form per page. But real pages often have multiple forms: a todo list has a "create" form and a "delete" button for each item. A settings page has forms for profile info, email preferences, and password changes. A comment section has a "post comment" form, "edit" forms, and "delete" buttons.
+
+Named actions solve this by routing different forms to different server-side handlers based on the \`action\` attribute on the \`<form>\` element.
+
+## The action URL Convention
+
+Named actions use a query parameter convention: \`?/actionName\`. When a form has \`action="?/create"\`, the POST request goes to the current page URL with \`?/create\` appended. SvelteKit strips this prefix and routes to the \`create\` handler in your \`actions\` object:
+
+\`\`\`typescript
+export const actions: Actions = {
+  create: async ({ request }) => {
+    // Handles forms with action="?/create"
+  },
+  delete: async ({ request }) => {
+    // Handles forms with action="?/delete"
+  }
+};
+\`\`\`
+
+The \`?/\` prefix is a SvelteKit convention, not a Web standard. It ensures action URLs do not conflict with normal query parameters. The form submits to the same page URL, keeping the URL bar clean.
+
+**Mutual exclusivity rule:** A page can have either a \`default\` action OR named actions, never both. If you define a \`default\` action alongside named actions, SvelteKit will throw an error. This constraint keeps the routing logic unambiguous.
+
+## When to Split into Named Actions vs. Separate Pages
+
+This is a genuine architectural decision. Consider a user settings page:
+
+**Option A: Named actions on one page**
+\`\`\`
+/settings
+  ?/updateProfile
+  ?/updateEmail
+  ?/changePassword
+  ?/deleteAccount
+\`\`\`
+
+**Option B: Separate pages**
+\`\`\`
+/settings/profile    (default action)
+/settings/email      (default action)
+/settings/password   (default action)
+/settings/delete     (default action)
+\`\`\`
+
+**Choose named actions when:**
+- The forms share the same page and data context
+- Users commonly interact with multiple forms in one session
+- The forms are part of a single conceptual workflow (like a todo list with create/delete)
+- The data displayed on the page is the same regardless of which form was submitted
+
+**Choose separate pages when:**
+- Each form has distinct data requirements (its own load function)
+- The forms are conceptually independent (profile vs. billing)
+- You want distinct URLs for bookmarking/sharing
+- The forms are complex enough to warrant their own error boundaries
+
+## How the form Prop Works with Named Actions
+
+After a named action completes, the \`form\` prop contains the returned data, just like default actions. However, when you have multiple forms on a page, you need a way to know WHICH action's result you are displaying.
+
+A common pattern is including the action name in the return value:
+
+\`\`\`typescript
+export const actions: Actions = {
+  create: async ({ request }) => {
+    // ... process creation
+    return { action: 'create', success: true };
+  },
+  delete: async ({ request }) => {
+    // ... process deletion
+    return { action: 'delete', success: true };
+  }
+};
+\`\`\`
+
+Then in the template:
+\`\`\`svelte
+{#if form?.action === 'create' && form.success}
+  <p>Item created!</p>
+{/if}
+{#if form?.action === 'delete' && form.success}
+  <p>Item deleted.</p>
+{/if}
+\`\`\`
+
+## Inline Forms for Delete/Toggle Actions
+
+A powerful pattern is embedding small forms directly in list items. Each item has its own delete form with a hidden input carrying the item's ID:
+
+\`\`\`svelte
+{#each data.todos as todo}
+  <li>
+    {todo.title}
+    <form method="POST" action="?/delete" style="display:inline">
+      <input type="hidden" name="id" value={todo.id} />
+      <button type="submit">Delete</button>
+    </form>
+  </li>
+{/each}
+\`\`\`
+
+This works without JavaScript -- clicking "Delete" submits the form, the action runs, the page reloads with the item removed. With \`use:enhance\`, it becomes instant and seamless.
+
+The hidden input pattern (\`<input type="hidden" name="id" value={todo.id} />\`) is how you pass non-user-entered data to an action. The form element carries the action route (\`?/delete\`), and hidden inputs carry the context (which item to delete).
+
+## Cross-Page Action Calls
+
+Forms can target actions on OTHER pages using the full path:
+
+\`\`\`svelte
+<!-- On /blog/[slug] page, targeting the /blog page's actions -->
+<form method="POST" action="/blog?/delete">
+  <input type="hidden" name="slug" value={data.post.slug} />
+  <button>Delete Post</button>
+</form>
+\`\`\`
+
+After this action completes, SvelteKit redirects back to the page specified in the action URL (\`/blog\`). This is useful when a child page needs to trigger a mutation that is logically owned by a parent page.
+
+## Security: Actions and CSRF Protection
+
+SvelteKit automatically protects against CSRF (Cross-Site Request Forgery) attacks. It checks the \`Origin\` header of incoming POST requests and rejects requests that do not originate from the same domain. This happens transparently -- you do not need to add CSRF tokens to your forms.
+
+This protection works because SvelteKit validates at the framework level, before your action code runs. If a malicious site tries to submit a form to your SvelteKit app, the request is rejected with a 403.`
 		},
 		{
 			type: 'concept-callout',
@@ -29,7 +152,7 @@ Forms target a specific action using the \`action\` attribute: \`action="?/creat
 			type: 'text',
 			content: `## Defining Named Actions
 
-**Your task:** Create two named actions — \`create\` for adding items and \`delete\` for removing them. Point each form to the correct action using the \`action\` attribute.`
+**Your task:** Create two named actions -- \`create\` for adding items and \`delete\` for removing them. Point each form to the correct action using the \`action\` attribute.`
 		},
 		{
 			type: 'checkpoint',

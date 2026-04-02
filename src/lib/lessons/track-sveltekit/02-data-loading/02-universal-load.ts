@@ -17,9 +17,102 @@ export const universalLoad: Lesson = {
 			type: 'text',
 			content: `# Universal Load Functions
 
-While \`+page.server.ts\` runs only on the server, \`+page.ts\` runs on **both** server and client. On the first page load, it runs on the server. On subsequent navigations, it runs in the browser.
+## The Dual-Environment Execution Model
 
-Universal load functions receive a \`fetch\` function that works identically on both server and client, handling cookies, relative URLs, and avoiding duplicate requests.`
+Universal load functions in \`+page.ts\` have a unique execution characteristic: they run on the **server during SSR** and in the **browser during client-side navigation**. This dual execution model opens capabilities that server-only load functions cannot provide, but it also introduces constraints and subtleties you must understand.
+
+On the first page load (user types a URL or refreshes), SvelteKit server-renders the page. The universal load function runs on the server, fetches data, and the result is rendered into HTML. The serialized data is embedded in the page so the browser does not re-run the load function during hydration.
+
+On subsequent navigations (user clicks an internal link), the universal load function runs in the browser. It makes fetch requests directly from the browser, processes the response, and the page updates client-side.
+
+This means your universal load function must work in both environments. You cannot use Node.js APIs (\`fs\`, \`crypto\`, database drivers) because those do not exist in the browser. You cannot access \`window\` or \`document\` because those do not exist on the server. The function must be environment-agnostic.
+
+## The Server vs. Universal Decision Matrix
+
+Choosing between \`+page.server.ts\` and \`+page.ts\` is one of the most important architectural decisions in SvelteKit. Here is a rigorous framework:
+
+| Criterion | Server Load | Universal Load |
+|---|---|---|
+| Access private secrets | Yes | No |
+| Query databases directly | Yes | No |
+| Return non-serializable data | No | Yes |
+| Run in browser on navigation | No (JSON fetch) | Yes |
+| Access cookies/headers | Yes (directly) | Limited |
+| Bundle size impact | None (server only) | Adds to client bundle |
+| Can return component constructors | No | Yes |
+| Can return functions | No | Yes |
+
+**The key differentiator is serializability.** Server load functions must return serializable data because the result crosses a network boundary (server to client). Universal load functions return data directly to the component in the same JavaScript context, so they can return anything -- including component constructors, class instances, and functions.
+
+This is why universal load is essential for patterns like:
+- Dynamic component selection: \`return { Component: (await import('./renderers/Markdown.svelte')).default }\`
+- Computed getters or derived state that should be functions
+- Third-party SDK instances that lose their prototype when serialized
+
+## The Special fetch Function
+
+Universal load functions receive a \`fetch\` parameter that is not the global \`fetch\`. SvelteKit wraps the native fetch to provide critical behaviors:
+
+**On the server during SSR:**
+- Relative URLs work (e.g., \`fetch('/api/users')\` resolves against the origin)
+- Cookies from the incoming request are forwarded automatically
+- The response is captured and replayed -- if a load function and the page both fetch \`/api/users\`, only one actual request is made
+
+**On the client during navigation:**
+- It is essentially the native \`fetch\`, but SvelteKit tracks the URLs fetched for invalidation purposes
+- Cookies are sent automatically (standard browser behavior)
+
+**Critical rule:** Always use the provided \`fetch\`, never the global \`fetch\`. If you use the global \`fetch\` on the server, cookies will not be forwarded, relative URLs will fail, and deduplication will not work.
+
+\`\`\`typescript
+export const load: PageLoad = async ({ fetch }) => {
+  // CORRECT: Uses the provided fetch
+  const response = await fetch('/api/users');
+
+  // WRONG: Uses the global fetch -- no cookie forwarding, no dedup
+  // const response = await globalThis.fetch('/api/users');
+
+  const users = await response.json();
+  return { users };
+};
+\`\`\`
+
+## Coexistence with Server Load
+
+A page can have BOTH \`+page.server.ts\` and \`+page.ts\`. When both exist:
+
+1. The server load function runs first and returns its data
+2. The universal load function receives the server data via the \`data\` property on its event object
+3. The universal load function's return value is what the page component receives
+
+This pattern is useful when you need server-side secrets to fetch initial data but want to augment it with non-serializable values:
+
+\`\`\`typescript
+// +page.server.ts -- has access to secrets
+export const load: PageServerLoad = async () => {
+  const rawPosts = await db.query('SELECT * FROM posts');
+  return { posts: rawPosts };
+};
+
+// +page.ts -- can return non-serializable data
+export const load: PageLoad = async ({ data }) => {
+  // data.posts comes from the server load
+  return {
+    posts: data.posts,
+    renderPost: (post) => marked(post.content) // function -- not serializable
+  };
+};
+\`\`\`
+
+## Performance Implications
+
+Universal load functions are included in the client-side JavaScript bundle. Every import in \`+page.ts\` adds to the bundle size your users download. Server load functions have zero client-side bundle impact.
+
+For data fetching from public APIs, the tradeoff is:
+- **Server load:** User requests page -> server fetches API -> server renders HTML -> sends to user. Latency = user-to-server + server-to-API.
+- **Universal load (on navigation):** User clicks link -> browser fetches API directly. Latency = user-to-API (often lower if API has a CDN).
+
+For APIs that are geographically close to the user (or served via CDN), universal load can be faster on navigation. For APIs that are close to your server (same data center), server load can be faster.`
 		},
 		{
 			type: 'concept-callout',

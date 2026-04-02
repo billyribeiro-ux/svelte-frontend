@@ -18,9 +18,53 @@ export const transitionDirective: Lesson = {
 			type: 'text',
 			content: `# The Transition Directive
 
-Svelte makes it easy to animate elements as they enter and leave the DOM. The \`transition:\` directive applies an animation in both directions — when the element is added and when it is removed.
+## WHY Svelte Has a Built-in Transition System
 
-Svelte ships with several built-in transitions: \`fade\`, \`fly\`, \`slide\`, \`scale\`, \`blur\`, and \`draw\`.`
+Most frameworks treat animation as an afterthought -- something you bolt on with a CSS library or a JavaScript animation engine. Svelte takes a fundamentally different approach by making transitions a **compiler-level primitive**. The reason is tied to a problem that is genuinely hard to solve from userland: **animating elements as they enter and leave the DOM.**
+
+Adding an element is easy: insert it and apply a CSS animation. But *removing* an element is paradoxical: you need to animate it *before* it is removed, which means you need to keep the element alive in the DOM temporarily after the condition that created it becomes false. In vanilla JavaScript, you would need to intercept the removal, play the animation, wait for it to finish, and then actually remove the element. This requires lifecycle management that is deeply intertwined with the rendering engine.
+
+Svelte solves this at the compiler level. When you write \`transition:fade\` on an element inside an \`{#if}\` block, the compiler generates code that:
+
+1. **On enter:** Inserts the element, then immediately starts the intro animation
+2. **On exit:** Intercepts the removal, plays the outro animation, then removes the element after it completes
+3. **On interruption:** If the condition toggles mid-animation, reverses the current animation smoothly from its current position
+
+This interception-and-reversal behavior is nearly impossible to implement correctly from userland because it requires coordination with the framework's DOM reconciliation.
+
+### CSS Keyframes vs. JavaScript Tick Functions
+
+Svelte transitions support two animation strategies, and the choice between them has significant performance implications:
+
+**CSS-based transitions** (the \`css\` function) generate dynamic \`@keyframes\` rules and apply them via CSS animations. The browser's compositor handles the interpolation on a separate thread (the compositor thread), meaning the main thread is free to handle user input and other JavaScript. This is why CSS transitions are the default for \`fade\`, \`fly\`, \`slide\`, and \`scale\` -- they are inherently performant because they leverage GPU acceleration.
+
+**Tick-based transitions** (the \`tick\` function) run a JavaScript callback on every frame via \`requestAnimationFrame\`. This runs on the main thread and can cause jank if the callback is expensive. Tick functions exist for cases where CSS cannot express the animation (e.g., a typewriter effect that changes text content, or a counter that interpolates numbers).
+
+### GPU-Accelerated Properties
+
+Not all CSS properties can be animated on the compositor. The properties that *can* be GPU-accelerated are:
+- \`transform\` (translate, rotate, scale)
+- \`opacity\`
+- \`filter\` (blur, etc.)
+
+Properties like \`width\`, \`height\`, \`margin\`, \`padding\`, and \`color\` trigger layout or paint, which runs on the main thread. Svelte's built-in transitions are carefully designed to use only GPU-friendly properties:
+
+- **fade:** Animates \`opacity\` (GPU)
+- **fly:** Animates \`transform: translate()\` + \`opacity\` (GPU)
+- **scale:** Animates \`transform: scale()\` + \`opacity\` (GPU)
+- **slide:** Animates \`height\`/\`width\` + \`overflow\` (not GPU -- uses the tick approach for accuracy)
+- **blur:** Animates \`filter: blur()\` + \`opacity\` (GPU)
+- **draw:** Animates SVG \`stroke-dasharray\` (not GPU but lightweight)
+
+### Transition Lifecycle
+
+Every transition moves through a lifecycle that the compiler manages:
+
+1. **Pending:** Element exists in the DOM but transition has not started (respects \`delay\`)
+2. **Running:** Animation is playing; the \`t\` parameter moves from 0 to 1 (intro) or 1 to 0 (outro)
+3. **Complete:** Animation finished; element is fully visible (after intro) or removed from DOM (after outro)
+
+The \`t\` parameter is your interpolation value. At \`t=0\` the element is in its "absent" state; at \`t=1\` it is in its "present" state. Svelte also provides \`u = 1 - t\` as a convenience for computing the inverse.`
 		},
 		{
 			type: 'concept-callout',
@@ -44,7 +88,13 @@ Svelte ships with several built-in transitions: \`fade\`, \`fly\`, \`slide\`, \`
 {/if}
 \`\`\`
 
-**Your task:** Create a toggle that shows/hides elements with different transitions. Use \`fade\`, \`fly\`, and \`slide\`.`
+### The transition: Directive is Bidirectional
+
+A key insight: \`transition:fade\` applies the same animation function in both directions. On intro, \`t\` goes 0->1. On outro, \`t\` goes 1->0. The same \`css\` function produces the correct CSS for both directions because it is written in terms of \`t\`. At \`t=0\`, opacity is 0 (invisible). At \`t=1\`, opacity is 1 (visible). Whether the element is appearing or disappearing, the function just needs the right \`t\` value.
+
+This bidirectionality is why \`transition:\` is the default choice. You only need separate \`in:\` and \`out:\` when you want *different* animations for entering and leaving.
+
+**Your task:** Create a toggle that shows/hides elements with different transitions. Use \`fade\`, \`fly\`, and \`slide\`. Observe how all three animate smoothly in both directions with a single directive.`
 		},
 		{
 			type: 'checkpoint',
@@ -54,14 +104,34 @@ Svelte ships with several built-in transitions: \`fade\`, \`fly\`, \`slide\`, \`
 			type: 'text',
 			content: `## Transition Parameters
 
-Each transition accepts configuration parameters:
+Each transition accepts configuration parameters that control timing, positioning, and easing:
 
 - \`fade\`: \`duration\`, \`delay\`, \`easing\`
 - \`fly\`: \`x\`, \`y\`, \`duration\`, \`delay\`, \`easing\`, \`opacity\`
 - \`slide\`: \`duration\`, \`delay\`, \`easing\`, \`axis\` (\`'x'\` or \`'y'\`)
 - \`scale\`: \`start\`, \`duration\`, \`delay\`, \`easing\`, \`opacity\`
 
-**Task:** Add a \`scale\` transition with custom parameters and experiment with the \`delay\` option to stagger multiple elements.`
+### Staggering with delay
+
+The \`delay\` parameter is particularly useful for creating staggered animations where multiple elements appear in sequence. When several elements share the same \`{#if}\` block, they all transition simultaneously by default. Adding incrementing \`delay\` values creates a cascade effect:
+
+\`\`\`svelte
+<div transition:fade={{ delay: 0 }}>First</div>
+<div transition:fade={{ delay: 100 }}>Second</div>
+<div transition:fade={{ delay: 200 }}>Third</div>
+\`\`\`
+
+### Easing Functions
+
+The \`easing\` parameter accepts any function that maps \`t\` (0-1) to a new value. Svelte ships many easings in \`svelte/easing\`: \`cubicOut\`, \`quintInOut\`, \`elasticOut\`, \`bounceOut\`, etc. The default easing for most transitions is \`cubicOut\` for intros (fast start, slow finish) and \`cubicIn\` for outros (slow start, fast finish), which feels natural to users.
+
+Choosing the right easing is a UX decision:
+- **cubicOut**: Natural deceleration. Best for elements entering the viewport.
+- **cubicIn**: Natural acceleration. Best for elements leaving.
+- **elasticOut**: Bouncy overshoot. Good for playful UI, bad for serious applications.
+- **linear**: Mechanical, robotic. Rarely the right choice for UI.
+
+**Task:** Add a \`scale\` transition with custom parameters and experiment with the \`delay\` option to stagger multiple elements. Notice how staggering creates a more polished, intentional feel than having everything animate at once.`
 		},
 		{
 			type: 'checkpoint',

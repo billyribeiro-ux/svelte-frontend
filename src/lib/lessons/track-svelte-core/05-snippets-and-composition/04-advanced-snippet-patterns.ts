@@ -18,7 +18,72 @@ export const advancedSnippetPatterns: Lesson = {
 			type: 'text',
 			content: `# Advanced Snippet Patterns
 
-Snippets become truly powerful when combined with TypeScript generics and composition patterns. You can build type-safe, reusable components that let consumers control rendering while the component manages data and behavior.`
+## WHY Generic Snippets Change Everything
+
+In the previous lessons, snippets were typed with concrete types: \`Snippet<[string, number]>\`. This works when you know the data type at component-authoring time. But library components -- data tables, autocomplete inputs, tree views, sortable lists -- must work with *any* data type the consumer provides. Without generics, you would need to type snippet parameters as \`any\` or \`unknown\`, losing the type safety that makes snippets superior to slots.
+
+Svelte 5 solves this with the \`generics\` attribute on the script tag:
+
+\`\`\`svelte
+<script lang="ts" generics="T">
+\`\`\`
+
+This tells the compiler: "This component is generic over \`T\`. Infer \`T\` from the props the consumer provides." When you pass \`items={['a', 'b']}\`, TypeScript infers \`T = string\`. When you pass \`items={[{id: 1}]}\`, it infers \`T = {id: number}\`. The snippet types flow from this inference:
+
+\`\`\`svelte
+<script lang="ts" generics="T">
+  import type { Snippet } from 'svelte';
+  let { items, row }: { items: T[]; row: Snippet<[T, number]> } = $props();
+</script>
+\`\`\`
+
+Now the consumer's snippet is type-checked against the actual items they passed. If \`items\` is \`Todo[]\`, then the \`row\` snippet must accept \`(item: Todo, index: number)\`. The compiler enforces this at the call site -- no runtime checks, no \`any\` escape hatches.
+
+### How the Compiler Handles Generics
+
+When the compiler sees \`generics="T"\`, it generates a TypeScript generic function signature for the component's constructor. The props type becomes parameterized:
+
+\`\`\`typescript
+// Conceptually generated
+function DataList<T>(props: {
+  items: T[];
+  row: Snippet<[T, number]>;
+  empty?: Snippet;
+}): void;
+\`\`\`
+
+TypeScript's inference engine then determines \`T\` from the call site. Multiple generics are supported (\`generics="T, U"\`), and you can add constraints (\`generics="T extends { id: number }"\`).
+
+### Recursive Snippets
+
+Because snippets are just functions, a snippet can call itself recursively. This enables rendering tree structures:
+
+\`\`\`svelte
+{#snippet treeNode(node)}
+  <li>
+    {node.name}
+    {#if node.children?.length}
+      <ul>
+        {#each node.children as child}
+          {@render treeNode(child)}
+        {/each}
+      </ul>
+    {/if}
+  </li>
+{/snippet}
+\`\`\`
+
+The compiler handles this correctly because snippets compile to regular JavaScript functions, and JavaScript functions naturally support recursion. There is no stack-depth limit imposed by Svelte -- only the engine's native call stack limit.
+
+### Decision Framework: Typed vs. Generic vs. Recursive
+
+| Pattern | When to Use |
+|---|---|
+| **Concrete typed** \`Snippet<[string]>\` | Component works with a known, fixed data type |
+| **Generic** \`Snippet<[T]>\` with \`generics="T"\` | Library component that must handle any data type |
+| **Constrained generic** \`T extends Base\` | Generic component that needs specific properties on T |
+| **Recursive snippet** | Tree structures, nested data, fractal layouts |
+| **Optional snippet** \`snippet?: Snippet\` | Component with fallback UI when snippet not provided |`
 		},
 		{
 			type: 'concept-callout',
@@ -44,7 +109,13 @@ Use the \`Snippet\` type with parameters to ensure type safety between the compo
 </script>
 \`\`\`
 
-**Your task:** Create a \`DataList\` component that accepts typed \`row\` and optional \`empty\` snippets.`
+### WHY You Should Type Every Snippet Prop
+
+Leaving snippet props untyped (\`row: Snippet\` without parameters) means the child can call \`{@render row(anything)}\` and the parent has no guarantee about what arguments it will receive. This defeats the purpose of moving from slots to snippets. The rule is: **if a snippet receives arguments, type those arguments.**
+
+For snippets that take no arguments (like \`empty\` above), \`Snippet\` without parameters is correct and complete.
+
+**Your task:** Create a \`DataList\` component that accepts typed \`row\` and optional \`empty\` snippets. The \`row\` snippet should be typed to receive the item and its index. When the items array is empty, render the \`empty\` snippet or a default message.`
 		},
 		{
 			type: 'checkpoint',
@@ -54,7 +125,7 @@ Use the \`Snippet\` type with parameters to ensure type safety between the compo
 			type: 'text',
 			content: `## Optional Snippets with Fallbacks
 
-Snippets can be optional. Use conditional rendering to provide fallback UI when a snippet isn't provided.
+Snippets can be optional. Use conditional rendering to provide fallback UI when a snippet is not provided. This is a fundamental pattern for building flexible components that work well with zero configuration but can be customized when needed.
 
 \`\`\`svelte
 <script lang="ts">
@@ -70,7 +141,36 @@ Snippets can be optional. Use conditional rendering to provide fallback UI when 
 {@render children()}
 \`\`\`
 
-**Task:** Add an optional \`footer\` snippet to DataList that shows a default message when not provided.`
+### The Progressive Disclosure Principle
+
+Well-designed components follow progressive disclosure: they work with minimal configuration, but every rendering aspect can be overridden when needed. Optional snippets implement this perfectly:
+
+- **Zero-config usage:** \`<DataList items={data}>\` renders with defaults for everything
+- **Custom row rendering:** \`<DataList items={data}>{#snippet row(item)}...{/snippet}</DataList>\`
+- **Custom empty state:** Add an \`empty\` snippet to override the "no items" message
+- **Custom footer:** Add a \`footer\` snippet for summary information
+
+Each level of customization is opt-in. The component grows in sophistication without growing in complexity for simple use cases.
+
+### Composing Multiple Optional Snippets
+
+Real-world data components often have many optional snippet slots. A well-designed data table might accept:
+
+\`\`\`typescript
+interface DataTableProps<T> {
+  items: T[];
+  row: Snippet<[T, number]>;      // Required: how to render each row
+  header?: Snippet;                 // Optional: custom table header
+  footer?: Snippet;                 // Optional: custom footer
+  empty?: Snippet;                  // Optional: custom empty state
+  loading?: Snippet;                // Optional: custom loading state
+  error?: Snippet<[Error]>;         // Optional: custom error state
+}
+\`\`\`
+
+Each optional snippet has a sensible default. This approach gives consumers full control over every visual aspect of the component while keeping the simple case simple.
+
+**Task:** Add an optional \`footer\` snippet to DataList that shows a default message when not provided. Test it by using DataList once with a custom footer and once without to verify the fallback renders correctly.`
 		},
 		{
 			type: 'checkpoint',

@@ -18,10 +18,69 @@ export const dynamicComponents: Lesson = {
 			type: 'text',
 			content: `# Dynamic Components
 
-Sometimes you need to decide which component or element to render at runtime. Svelte provides two special elements for this:
+## WHY You Need Runtime Component Selection
 
-- \`<svelte:component this={...}>\` — dynamically render a component
-- \`<svelte:element this={...}>\` — dynamically render an HTML element`
+In most Svelte code, you import a component and use it directly: \`<Card />\`. The component to render is known at compile time. But many real-world patterns require choosing which component to render **at runtime**:
+
+**Tab interfaces.** Each tab renders a different component. The active tab changes based on user interaction, so you cannot hardcode which component renders.
+
+**Plugin systems.** A CMS or dashboard loads widgets dynamically. The set of available widgets is not known at build time -- they might come from a configuration file, a database, or third-party packages.
+
+**Polymorphic rendering.** A feed of mixed content types (text posts, images, videos, polls) where each type has its own component. The rendering component depends on a type field in the data.
+
+**Form builders.** A schema describes form fields (text input, checkbox, date picker), and the form engine maps each field type to its component.
+
+Without dynamic components, you would resort to chains of \`{#if}\`/\`{:else if}\` blocks:
+
+\`\`\`svelte
+{#if type === 'text'}
+  <TextPost data={item} />
+{:else if type === 'image'}
+  <ImagePost data={item} />
+{:else if type === 'video'}
+  <VideoPost data={item} />
+{:else if type === 'poll'}
+  <PollPost data={item} />
+{/if}
+\`\`\`
+
+This is verbose, hard to extend (adding a new type requires modifying the if/else chain), and violates the open/closed principle. Dynamic components replace this with a lookup:
+
+\`\`\`svelte
+<svelte:component this={componentMap[type]} data={item} />
+\`\`\`
+
+### svelte:component vs. svelte:element
+
+Svelte provides two special elements for dynamic rendering:
+
+- **\`<svelte:component this={Component}>\`** -- renders a Svelte component dynamically. The \`this\` prop accepts a component constructor.
+- **\`<svelte:element this={tag}>\`** -- renders a plain HTML element dynamically. The \`this\` prop accepts a tag name string (\`'div'\`, \`'h1'\`, \`'button'\`, etc.).
+
+These solve different problems:
+- \`svelte:component\` for when the **behavior and template** change (different components)
+- \`svelte:element\` for when the **HTML tag** changes but the content and behavior stay the same
+
+### How Dynamic Components Work Under the Hood
+
+When the \`this\` prop of \`<svelte:component>\` changes, Svelte:
+
+1. **Destroys** the current component instance (runs cleanup, removes DOM)
+2. **Creates** a new instance of the new component
+3. **Mounts** the new component in the same DOM position
+
+This is a full component swap, not a reconciliation. The new component starts fresh -- no state is preserved from the old one. If you need to preserve state across component swaps, you must lift it into a shared location (parent component, reactive class, or context).
+
+### The null Case
+
+If \`this\` is \`null\` or \`undefined\`, nothing renders. This is useful for conditional rendering:
+
+\`\`\`svelte
+<svelte:component this={maybeComponent} />
+<!-- Renders nothing when maybeComponent is null -->
+\`\`\`
+
+This replaces the common \`{#if component}<svelte:component this={component} />{/if}\` pattern.`
 		},
 		{
 			type: 'concept-callout',
@@ -41,9 +100,51 @@ Sometimes you need to decide which component or element to render at runtime. Sv
 </svelte:element>
 \`\`\`
 
-This is useful for components that need to render different HTML tags based on a prop — like a \`Heading\` component that accepts a \`level\`.
+### WHY Dynamic Elements Matter
 
-**Your task:** Create a \`Heading\` component that uses \`<svelte:element>\` to render h1-h6 based on a \`level\` prop.`
+The most common use case is a **polymorphic Heading component**. In a design system, you want a single component that renders the correct heading level:
+
+\`\`\`svelte
+<!-- Without svelte:element: -->
+{#if level === 1}
+  <h1>{@render children()}</h1>
+{:else if level === 2}
+  <h2>{@render children()}</h2>
+{:else if level === 3}
+  <h3>{@render children()}</h3>
+{:else if level === 4}
+  <h4>{@render children()}</h4>
+{:else if level === 5}
+  <h5>{@render children()}</h5>
+{:else}
+  <h6>{@render children()}</h6>
+{/if}
+
+<!-- With svelte:element: -->
+<svelte:element this={'h' + level}>
+  {@render children()}
+</svelte:element>
+\`\`\`
+
+Six conditional branches collapse to one line. The tag string is computed from the \`level\` prop, and \`svelte:element\` renders it as the corresponding HTML element.
+
+### Other Use Cases for Dynamic Elements
+
+- **Polymorphic buttons:** Render as \`<button>\` or \`<a>\` based on whether an \`href\` prop is provided
+- **Semantic list components:** Render as \`<ul>\`, \`<ol>\`, or \`<menu>\` based on a \`type\` prop
+- **Layout components:** Render as \`<div>\`, \`<section>\`, \`<article>\`, or \`<main>\` based on semantic role
+
+### Safety: Invalid Tag Names
+
+If you pass an invalid tag name to \`svelte:element\`, the browser will create an unknown HTML element (like \`<foo>\`), which is valid but meaningless. Guard against this:
+
+\`\`\`typescript
+let tag = $derived('h' + Math.min(Math.max(level, 1), 6));
+\`\`\`
+
+This clamps \`level\` to 1-6, ensuring only valid heading tags are generated.
+
+**Your task:** Create a \`Heading\` component that uses \`<svelte:element>\` to render h1-h6 based on a \`level\` prop. Use \`$derived\` to compute the tag name.`
 		},
 		{
 			type: 'checkpoint',
@@ -71,7 +172,75 @@ This is useful for components that need to render different HTML tags based on a
 <svelte:component this={activeTab.component} />
 \`\`\`
 
-**Task:** Build a tab switcher that dynamically renders the selected tab's component.`
+### Building a Tab System: The Decision Framework
+
+When building a tab interface, you face a design choice about how to map tab selection to components:
+
+**Approach 1: Component map (static tabs)**
+\`\`\`typescript
+const tabs = [
+  { label: 'Profile', component: ProfileTab },
+  { label: 'Settings', component: SettingsTab },
+];
+\`\`\`
+Best when the set of tabs is fixed and known at compile time. Each component is imported directly.
+
+**Approach 2: Dynamic import map (lazy loading)**
+\`\`\`typescript
+const tabs = [
+  { label: 'Profile', load: () => import('./ProfileTab.svelte') },
+  { label: 'Settings', load: () => import('./SettingsTab.svelte') },
+];
+\`\`\`
+Best when tabs contain heavy components that should not be loaded until the user navigates to them. Combined with \`{#await}\`, this enables code-splitting.
+
+**Approach 3: Plugin registry (dynamic)**
+\`\`\`typescript
+const registry = new Map<string, Component>();
+registry.set('profile', ProfileTab);
+// Plugins can register their own tabs
+export function registerTab(id: string, component: Component) {
+  registry.set(id, component);
+}
+\`\`\`
+Best for extensible systems where third parties add tabs.
+
+### Passing Props to Dynamic Components
+
+Dynamic components accept props just like static ones:
+
+\`\`\`svelte
+<svelte:component this={activeComponent} {data} {onSave} />
+\`\`\`
+
+All props are forwarded to whichever component is currently rendered. If different components expect different props, you can spread a props object:
+
+\`\`\`svelte
+<svelte:component this={tab.component} {...tab.props} />
+\`\`\`
+
+### State Preservation Caveat
+
+When the \`this\` prop changes, the old component is **destroyed and the new one is created from scratch**. No state carries over. If TabA has a form the user is filling out, switching to TabB and back will reset the form.
+
+To preserve state across tab switches:
+1. **Lift state** to the parent component or a reactive class
+2. **Use CSS visibility** instead of conditional rendering (show/hide with \`display: none\`)
+3. **Cache state** in an external store keyed by tab ID
+
+### svelte:component with Snippets
+
+Dynamic components work with snippets just like static ones:
+
+\`\`\`svelte
+<svelte:component this={activeComponent}>
+  {#snippet header()}
+    <h2>Custom Header</h2>
+  {/snippet}
+</svelte:component>
+\`\`\`
+
+**Task:** Build a tab switcher that dynamically renders the selected tab's component. Use \`<svelte:component>\` with a tabs array. Verify that switching tabs updates the rendered component.`
 		},
 		{
 			type: 'checkpoint',
@@ -404,7 +573,7 @@ This is useful for components that need to render different HTML tags based on a
 			},
 			hints: [
 				'Use `<svelte:component this={tabs[activeIndex].component} />`.',
-				'The `this` prop accepts a component constructor — pass it from the tabs array.',
+				'The `this` prop accepts a component constructor -- pass it from the tabs array.',
 				'Add `<svelte:component this={tabs[activeIndex].component} />` after the nav element.'
 			],
 			conceptsTested: ['svelte5.dynamic.component']

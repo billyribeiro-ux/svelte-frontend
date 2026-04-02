@@ -18,9 +18,73 @@ export const errorBoundaries: Lesson = {
 			type: 'text',
 			content: `# Error Boundaries
 
-When a component throws an error during rendering, it normally crashes the entire application. Svelte 5 provides \`<svelte:boundary>\` to catch errors and display fallback UI instead.
+## WHY Error Boundaries Are Essential
 
-This is essential for building resilient applications where one broken component doesn't take down the whole page.`
+When a component throws an error during rendering, the default behavior in most frameworks is catastrophic: the entire application crashes. The user sees a blank screen or a cryptic error message. In production, this means a single broken widget -- a malformed date, a null reference in a rarely-used component, an API response with an unexpected shape -- can take down an otherwise functional application.
+
+Error boundaries solve this by establishing **fault isolation zones** in your component tree. An error boundary catches errors thrown by its children and displays fallback UI instead. The rest of the application continues working normally.
+
+### How Error Propagation Works
+
+When an error occurs during rendering in Svelte 5, it propagates upward through the component tree until it hits a \`<svelte:boundary>\`. If no boundary catches it, the error reaches the top of the tree and crashes the application.
+
+The propagation follows the component hierarchy, not the DOM hierarchy. An error in a deeply nested component will pass through every ancestor component until a boundary catches it.
+
+\`\`\`
+App
+  Layout
+    <svelte:boundary>      <-- Error caught here
+      Sidebar
+        UserWidget
+          Avatar            <-- Error thrown here
+    </svelte:boundary>
+    MainContent             <-- Still works fine
+\`\`\`
+
+### What Errors Are Caught?
+
+\`<svelte:boundary>\` catches errors thrown during:
+- **Component rendering** (errors in the template or derived state)
+- **$derived computations** that throw
+- **$effect** callbacks that throw (synchronous errors)
+
+It does **not** catch:
+- **Asynchronous errors** (unhandled promise rejections, setTimeout callbacks)
+- **Event handler errors** (onclick throwing does not propagate to boundaries)
+- **Errors in the boundary component itself** (a boundary cannot catch its own errors)
+
+This is by design. Rendering errors are the most dangerous because they prevent the UI from updating. Event handler errors are typically recoverable -- the UI is still rendered, and the next interaction can succeed.
+
+### The failed Snippet: Error and Reset
+
+The \`<svelte:boundary>\` element accepts a \`failed\` snippet that renders when an error is caught:
+
+\`\`\`svelte
+<svelte:boundary>
+  <RiskyComponent />
+
+  {#snippet failed(error, reset)}
+    <div class="error">
+      <p>Error: {error.message}</p>
+      <button onclick={reset}>Try again</button>
+    </div>
+  {/snippet}
+</svelte:boundary>
+\`\`\`
+
+The \`failed\` snippet receives two arguments:
+- \`error\`: The caught Error object
+- \`reset\`: A function that re-mounts the children, giving them another chance
+
+### WHY reset() Exists
+
+The \`reset\` function is crucial because it enables **recovery**. Without it, the error boundary is a dead end -- once an error occurs, the user is stuck with the fallback UI forever (until page reload). With \`reset\`, you can:
+
+1. Fix the state that caused the error (e.g., reset to valid defaults)
+2. Call \`reset()\` to re-mount the children
+3. The children render again with the corrected state
+
+This creates a resilient UX where errors are temporary and recoverable. The user clicks "Try again" and the component gets a fresh start.`
 		},
 		{
 			type: 'concept-callout',
@@ -43,9 +107,37 @@ This is essential for building resilient applications where one broken component
 </svelte:boundary>
 \`\`\`
 
-The \`failed\` snippet receives the error and a \`reset\` function that re-mounts the children.
+### Placement Strategy: Where to Put Boundaries
 
-**Your task:** Wrap a component that might fail in a \`<svelte:boundary>\` with a fallback UI.`
+Error boundaries add a small amount of overhead (the boundary must track whether its children have errored). Do not wrap every component -- that is wasteful. Instead, place boundaries at strategic points:
+
+**1. Around risky components.** Components that depend on external data (API responses, user-generated content) are most likely to throw. Wrap them individually.
+
+**2. At layout section boundaries.** Wrap the sidebar, header, and main content separately. If the sidebar breaks, the main content survives.
+
+**3. Around dynamic/plugin content.** If your app loads third-party components or user-created widgets, each one should have its own boundary.
+
+**4. Around route-level components.** In SvelteKit, wrapping the page content in a boundary prevents a page-level error from crashing the layout.
+
+### Anti-Pattern: The Top-Level-Only Boundary
+
+Placing a single boundary at the app root catches everything but provides the worst UX -- the entire UI is replaced with a generic error message. The user loses all context. Granular boundaries are better: they show fallback UI only for the broken section while the rest of the page remains functional.
+
+### Error Logging
+
+The \`failed\` snippet is a natural place to log errors to your monitoring service:
+
+\`\`\`svelte
+{#snippet failed(error, reset)}
+  {logError(error)}  <!-- Side effect: sends to error tracking -->
+  <div class="error">
+    <p>Something went wrong</p>
+    <button onclick={reset}>Retry</button>
+  </div>
+{/snippet}
+\`\`\`
+
+**Your task:** Wrap a component that might fail in a \`<svelte:boundary>\` with a fallback UI. The UserProfile component throws when given an invalid ID. Wrap it so the error is caught gracefully.`
 		},
 		{
 			type: 'checkpoint',
@@ -55,9 +147,65 @@ The \`failed\` snippet receives the error and a \`reset\` function that re-mount
 			type: 'text',
 			content: `## Error Handling with Recovery
 
-The \`reset\` function re-renders the children, giving the component another chance. You can combine this with state changes to fix the underlying issue.
+The \`reset\` function re-renders the children, giving the component another chance. But calling \`reset()\` alone just re-renders with the same state that caused the error -- which will error again. To achieve true recovery, you must **fix the state before calling reset**.
 
-**Task:** Create a component that fails when given invalid data, wrap it in an error boundary, and provide a way to fix the data and retry.`
+### The Recovery Pattern
+
+\`\`\`svelte
+<svelte:boundary>
+  <UserProfile id={userId} />
+
+  {#snippet failed(error, reset)}
+    <div class="error">
+      <p>{error.message}</p>
+      <button onclick={() => { userId = 1; reset(); }}>
+        Reset to valid user
+      </button>
+    </div>
+  {/snippet}
+</svelte:boundary>
+\`\`\`
+
+The handler does two things in sequence:
+1. Sets \`userId\` to a known-good value (1)
+2. Calls \`reset()\` to re-mount children with the corrected state
+
+The children re-render, find a valid user for ID 1, and display correctly.
+
+### Building Resilient UI: The Full Pattern
+
+In a real application, the recovery pattern might include:
+- **Retry with the same data** (for transient errors like network timeouts)
+- **Reset to defaults** (for data validation errors)
+- **Navigate away** (for unrecoverable errors)
+- **Show a detailed error** (for developers in development mode)
+
+\`\`\`svelte
+{#snippet failed(error, reset)}
+  <div class="error">
+    <p>{error.message}</p>
+    <div class="actions">
+      <button onclick={reset}>Retry</button>
+      <button onclick={() => { state = defaults; reset(); }}>Reset</button>
+      <button onclick={() => goto('/')}>Go Home</button>
+    </div>
+    {#if dev}
+      <pre>{error.stack}</pre>
+    {/if}
+  </div>
+{/snippet}
+\`\`\`
+
+### Nested Boundaries
+
+Boundaries can be nested. The innermost boundary catches the error first. If it does not handle it (e.g., if the \`failed\` snippet itself throws), the error propagates to the next boundary up.
+
+This enables layered error handling:
+- Inner boundary: component-level recovery (retry, reset defaults)
+- Middle boundary: section-level fallback (placeholder UI)
+- Outer boundary: app-level fallback (generic error page with navigation)
+
+**Task:** Create a component that fails when given invalid data, wrap it in an error boundary, and provide a way to fix the data and retry. Verify that the reset button actually recovers from the error by setting valid state before calling reset.`
 		},
 		{
 			type: 'checkpoint',
