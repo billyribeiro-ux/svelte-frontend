@@ -10,11 +10,12 @@
 	interface Props {
 		lesson: Lesson;
 		onvalidate?: (checkpointId: string) => { passed: boolean; message: string } | undefined;
+		onsolve?: () => void;
 		trackSlug?: string;
 		moduleSlug?: string;
 	}
 
-	let { lesson, onvalidate, trackSlug, moduleSlug }: Props = $props();
+	let { lesson, onvalidate, onsolve, trackSlug, moduleSlug }: Props = $props();
 </script>
 
 <div class="lesson-panel">
@@ -59,7 +60,7 @@
 		{/each}
 	</div>
 
-	<LessonNav {lesson} {trackSlug} {moduleSlug} />
+	<LessonNav {lesson} {trackSlug} {moduleSlug} {onsolve} />
 </div>
 
 <script lang="ts" module>

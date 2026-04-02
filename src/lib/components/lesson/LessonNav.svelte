@@ -10,9 +10,10 @@
 		lesson: Lesson;
 		trackSlug?: string;
 		moduleSlug?: string;
+		onsolve?: () => void;
 	}
 
-	let { lesson, trackSlug, moduleSlug }: Props = $props();
+	let { lesson, trackSlug, moduleSlug, onsolve }: Props = $props();
 
 	let track = $derived(trackSlug ?? lesson.trackId);
 	let module_ = $derived(moduleSlug ?? lesson.moduleId);
@@ -21,9 +22,20 @@
 	let prevLesson = $derived(getPrevLesson(track, module_, lesson.slug));
 
 	let canGoNext = $derived(lessonState.isComplete || !lesson.checkpoints.length);
+	let hasSolution = $derived(lesson.solutionFiles.length > 0);
+	let showSolveConfirm = $state(false);
 
 	function goToLesson(slug: string) {
 		goto(`/learn/${track}/${module_}/${slug}`);
+	}
+
+	function handleSolve() {
+		if (!showSolveConfirm) {
+			showSolveConfirm = true;
+			return;
+		}
+		onsolve?.();
+		showSolveConfirm = false;
 	}
 </script>
 
@@ -39,6 +51,28 @@
 			<span class="complete-badge">Complete!</span>
 		{/if}
 	</div>
+
+	{#if hasSolution && !lessonState.isComplete}
+		<div class="solve-section">
+			{#if showSolveConfirm}
+				<div class="solve-confirm">
+					<span class="solve-warning">This will replace your code with the solution. Continue?</span>
+					<div class="solve-actions">
+						<button class="solve-btn solve-btn--cancel" onclick={() => showSolveConfirm = false}>Cancel</button>
+						<button class="solve-btn solve-btn--confirm" onclick={handleSolve}>
+							<Icon icon="ph:lightbulb-filament" size={14} />
+							Show Solution
+						</button>
+					</div>
+				</div>
+			{:else}
+				<button class="solve-btn solve-btn--reveal" onclick={handleSolve}>
+					<Icon icon="ph:lightbulb" size={14} />
+					Stuck? Show Solution
+				</button>
+			{/if}
+		</div>
+	{/if}
 
 	<div class="nav-buttons">
 		{#if prevLesson}
@@ -105,6 +139,81 @@
 		padding: var(--sf-space-1) var(--sf-space-2);
 		background: oklch(0.72 0.19 155 / 0.1);
 		border-radius: var(--sf-radius-sm);
+		animation: sf-bounce-in 500ms var(--sf-ease-spring);
+	}
+
+	.solve-section {
+		margin-block-end: var(--sf-space-3);
+		padding-block-start: var(--sf-space-2);
+	}
+
+	.solve-confirm {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sf-space-2);
+		padding: var(--sf-space-3);
+		background: oklch(0.78 0.18 75 / 0.08);
+		border-inline-start: 3px solid var(--sf-warning);
+		border-radius: var(--sf-radius-md);
+		animation: sf-fade-in 200ms var(--sf-ease-out);
+	}
+
+	.solve-warning {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-warning);
+		line-height: 1.5;
+	}
+
+	.solve-actions {
+		display: flex;
+		gap: var(--sf-space-2);
+	}
+
+	.solve-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sf-space-1);
+		padding: var(--sf-space-1) var(--sf-space-3);
+		font-size: var(--sf-font-size-xs);
+		border-radius: var(--sf-radius-sm);
+		transition: all var(--sf-transition-fast);
+
+		&:active:not(:disabled) {
+			transform: scale(0.97);
+		}
+	}
+
+	.solve-btn--reveal {
+		color: var(--sf-warning);
+		background: oklch(0.78 0.18 75 / 0.08);
+		border: 1px solid oklch(0.78 0.18 75 / 0.2);
+		inline-size: 100%;
+		justify-content: center;
+
+		&:hover {
+			background: oklch(0.78 0.18 75 / 0.15);
+			border-color: var(--sf-warning);
+		}
+	}
+
+	.solve-btn--cancel {
+		color: var(--sf-text-2);
+		background: var(--sf-bg-3);
+
+		&:hover {
+			background: var(--sf-bg-4);
+			color: var(--sf-text-0);
+		}
+	}
+
+	.solve-btn--confirm {
+		color: var(--sf-accent-text);
+		background: var(--sf-warning);
+		font-weight: 600;
+
+		&:hover {
+			filter: brightness(1.1);
+		}
 	}
 
 	.nav-buttons {
