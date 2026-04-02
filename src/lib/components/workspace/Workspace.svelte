@@ -62,11 +62,11 @@
 	function handleFormat() {
 		const file = editor.activeFile;
 		if (!file) return;
-		const formatted = file.content
-			.split('\n')
-			.map((line) => line.trimEnd())
-			.join('\n');
-		editor.updateActiveFileContent(formatted);
+		const lines = file.content.split('\n');
+		const formatted = lines.map((line) => line.trimEnd()).join('\n').trim() + '\n';
+		if (formatted !== file.content) {
+			editor.updateActiveFileContent(formatted);
+		}
 	}
 
 	function handleReset() {

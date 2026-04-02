@@ -9,8 +9,165 @@ interface SandboxMessage {
 	payload: unknown;
 }
 
+/**
+ * Transform compiled Svelte JS to run standalone in a sandbox iframe.
+ *
+ * The Svelte 5 compiler outputs ES module code with imports like:
+ *   import * as $ from 'svelte/internal/client';
+ *   export default function Component($$anchor) { ... }
+ *
+ * This can't run in a sandbox iframe without the Svelte runtime.
+ * We strip the imports and replace them with a minimal runtime shim
+ * that provides the subset of functions the compiled code actually uses.
+ */
+function transformForSandbox(js: string): string {
+	// Remove import statements
+	let code = js.replace(/^import\s+.*?;\s*$/gm, '');
+
+	// Remove export default — just execute the function definition
+	code = code.replace(/export\s+default\s+function\s+(\w+)/, 'function $1');
+
+	// Find the component function name
+	const fnMatch = code.match(/^function\s+(\w+)\s*\(\$\$anchor\)/m);
+	const componentName = fnMatch?.[1] ?? 'Component';
+
+	return code + `\n\n// Mount the component\n${componentName}(document.getElementById('app'));`;
+}
+
+/**
+ * Minimal Svelte 5 runtime shim for the sandbox.
+ * Provides the core functions that compiled components use.
+ * This is a simplified version — it renders static HTML correctly
+ * but has limited reactivity support in the sandbox.
+ */
+const SVELTE_RUNTIME_SHIM = `
+// Minimal Svelte 5 runtime shim for sandbox preview
+const $ = (function() {
+  let currentAnchor = null;
+
+  function from_html(html) {
+    return function() {
+      const template = document.createElement('template');
+      template.innerHTML = html.trim();
+      return template.content.firstChild.cloneNode(true);
+    };
+  }
+
+  function template(html) {
+    return from_html(html);
+  }
+
+  function from_html_tag(html) {
+    return from_html(html);
+  }
+
+  function append(anchor, node) {
+    if (anchor && node) {
+      anchor.appendChild(node);
+    }
+  }
+
+  function set_text(node, text) {
+    if (node) node.textContent = text;
+  }
+
+  function text(value) {
+    return document.createTextNode(value != null ? String(value) : '');
+  }
+
+  function first_child(node) {
+    return node?.firstChild ?? null;
+  }
+
+  function sibling(node, count) {
+    if (!count) count = 1;
+    let current = node;
+    for (let i = 0; i < count && current; i++) {
+      current = current.nextSibling;
+    }
+    return current;
+  }
+
+  function child(node) {
+    return node?.firstChild ?? null;
+  }
+
+  function element(tag) {
+    return document.createElement(tag);
+  }
+
+  function attr(node, name, value) {
+    if (node && name) {
+      if (value == null) node.removeAttribute(name);
+      else node.setAttribute(name, value);
+    }
+  }
+
+  function listen(node, event, handler) {
+    if (node && event && handler) {
+      node.addEventListener(event, handler);
+    }
+  }
+
+  function set_attribute(node, name, value) {
+    attr(node, name, value);
+  }
+
+  function init() {}
+  function push() {}
+  function pop() { return {}; }
+  function noop() {}
+
+  // Reactivity stubs for sandbox
+  function source(initial) {
+    let value = initial;
+    function get() { return value; }
+    function set(v) { value = typeof v === 'function' ? v(value) : v; }
+    return { get, set };
+  }
+
+  function set(signal, value) {
+    if (signal && signal.set) signal.set(value);
+  }
+
+  function get(signal) {
+    if (signal && signal.get) return signal.get();
+    return signal;
+  }
+
+  function derived(fn) {
+    return { get: fn };
+  }
+
+  function effect(fn) {
+    try { fn(); } catch(e) {}
+  }
+
+  function render_effect(fn) {
+    try { fn(); } catch(e) {}
+  }
+
+  function template_effect(fn) {
+    try { fn(); } catch(e) {}
+  }
+
+  function block(fn) {
+    try { fn(); } catch(e) {}
+  }
+
+  // Return all exports
+  return {
+    from_html, template, from_html_tag, append, set_text, text,
+    first_child, sibling, child, element, attr, listen,
+    set_attribute, init, push, pop, noop, source, set, get,
+    derived, effect, render_effect, template_effect, block
+  };
+})();
+`;
+
 function buildSrcdoc(js: string, css: string | null): string {
-	const escapedJs = js.replace(/<\/script>/g, '<\\/script>');
+	const transformedJs = transformForSandbox(js);
+	const escapedJs = transformedJs.replace(/<\/script>/g, '<\\/script>');
 	const escapedCss = css ? css.replace(/<\/style>/g, '<\\/style>') : '';
 
 	return `<!DOCTYPE html>
@@ -26,7 +183,7 @@ function buildSrcdoc(js: string, css: string | null): string {
 </head>
 <body>
 <div id="app"></div>
-<script type="module">
+<script>
 (function() {
 	const origin = '*';
 
@@ -97,6 +254,9 @@ function buildSrcdoc(js: string, css: string | null): string {
 		});
 	}
 
+	// Svelte runtime shim
+	${SVELTE_RUNTIME_SHIM}
+
 	try {
 		${escapedJs}
 	} catch (err) {
@@ -106,7 +266,7 @@ function buildSrcdoc(js: string, css: string | null): string {
 		});
 	}
 })();
-</script>
+<\/script>
 </body>
 </html>`;
 }
