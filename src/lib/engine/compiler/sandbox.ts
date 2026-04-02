@@ -337,6 +337,7 @@ export class SvelteSandbox {
 
 		this.iframe = document.createElement('iframe');
 		this.iframe.sandbox.add('allow-scripts');
+		this.iframe.sandbox.add('allow-same-origin');
 		this.iframe.style.cssText = 'width:100%;height:100%;border:none;';
 		this.iframe.srcdoc = buildSrcdoc(js, css);
 
