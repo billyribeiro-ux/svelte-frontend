@@ -20,7 +20,6 @@
 
 	let { value, language, readonly = false, onchange }: Props = $props();
 
-	let container: HTMLDivElement | undefined = $state();
 	let view: EditorView | undefined = $state();
 	let updatingFromProp = false;
 
@@ -39,9 +38,7 @@
 		}
 	}
 
-	$effect(() => {
-		if (!container) return;
-
+	function createEditor(container: HTMLDivElement) {
 		const languageExtension = getLanguageExtension(language);
 
 		const updateListener = EditorView.updateListener.of((update) => {
@@ -78,7 +75,7 @@
 			view?.destroy();
 			view = undefined;
 		};
-	});
+	}
 
 	$effect(() => {
 		if (view && value !== view.state.doc.toString()) {
@@ -95,7 +92,7 @@
 	});
 </script>
 
-<div class="editor-container" bind:this={container}></div>
+<div class="editor-container" {@attach createEditor}></div>
 
 <style>
 	.editor-container {

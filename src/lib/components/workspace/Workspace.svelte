@@ -137,12 +137,20 @@
 				<EditorToolbar onrun={handleRun} onformat={handleFormat} onreset={handleReset} isCompiling={editor.isCompiling} />
 				{#if editor.activeFile}
 					<div class="editor-content">
-						<Editor
-							value={editor.activeFile.content}
-							language={editor.activeFile.language === 'json' ? 'typescript' : editor.activeFile.language}
-							readonly={editor.activeFile.readOnly ?? false}
-							onchange={handleCodeChange}
-						/>
+						<svelte:boundary>
+							<Editor
+								value={editor.activeFile.content}
+								language={editor.activeFile.language === 'json' ? 'typescript' : editor.activeFile.language}
+								readonly={editor.activeFile.readOnly ?? false}
+								onchange={handleCodeChange}
+							/>
+							{#snippet failed(error, reset)}
+								<div class="boundary-error">
+									<p>Editor error: {error instanceof Error ? error.message : 'Unknown error'}</p>
+									<button onclick={reset}>Reload editor</button>
+								</div>
+							{/snippet}
+						</svelte:boundary>
 					</div>
 				{/if}
 			</div>
@@ -158,11 +166,19 @@
 					class="panel preview-panel"
 					style="inline-size: {workspace.layout.preview.width ?? 400}px"
 				>
-					<Preview
-						compilationResult={editor.compilationResult}
-						onConsole={handleConsoleEntry}
-						onDOMMutation={handleDOMMutation}
-					/>
+					<svelte:boundary>
+						<Preview
+							compilationResult={editor.compilationResult}
+							onConsole={handleConsoleEntry}
+							onDOMMutation={handleDOMMutation}
+						/>
+						{#snippet failed(error, reset)}
+							<div class="boundary-error">
+								<p>Preview crashed: {error instanceof Error ? error.message : 'Unknown error'}</p>
+								<button onclick={reset}>Retry</button>
+							</div>
+						{/snippet}
+					</svelte:boundary>
 				</aside>
 			{/if}
 		</div>
@@ -321,6 +337,29 @@
 	.bottom-content {
 		flex: 1;
 		overflow: auto;
+	}
+
+	.boundary-error {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--sf-space-3);
+		padding: var(--sf-space-6);
+		color: var(--sf-text-2);
+		font-size: var(--sf-font-size-sm);
+		text-align: center;
+		height: 100%;
+
+		& button {
+			padding: var(--sf-space-2) var(--sf-space-4);
+			background: var(--sf-accent);
+			color: var(--sf-accent-text);
+			border: none;
+			border-radius: var(--sf-radius-sm);
+			cursor: pointer;
+			font-size: var(--sf-font-size-sm);
+		}
 	}
 
 </style>
