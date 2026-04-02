@@ -41,126 +41,270 @@ function transformForSandbox(js: string): string {
  * but has limited reactivity support in the sandbox.
  */
 const SVELTE_RUNTIME_SHIM = `
-// Minimal Svelte 5 runtime shim for sandbox preview
+// Svelte 5 runtime shim for sandbox preview
+// Provides reactivity, control flow, events, and DOM manipulation
 const $ = (function() {
-  let currentAnchor = null;
+  // === REACTIVITY ENGINE ===
+  let currentEffect = null;
+  const effectQueue = [];
+  let flushing = false;
 
-  function from_html(html) {
-    return function() {
-      const template = document.createElement('template');
-      template.innerHTML = html.trim();
-      return template.content.firstChild.cloneNode(true);
+  function flush() {
+    if (flushing) return;
+    flushing = true;
+    while (effectQueue.length) {
+      const fn = effectQueue.shift();
+      try { fn(); } catch(e) { console.error(e); }
+    }
+    flushing = false;
+  }
+
+  function scheduleEffect(fn) {
+    effectQueue.push(fn);
+    queueMicrotask(flush);
+  }
+
+  // Reactive signal (used by $state)
+  function state(initial) {
+    let value = initial;
+    const subscribers = new Set();
+    return {
+      get v() { if (currentEffect) subscribers.add(currentEffect); return value; },
+      set v(newVal) {
+        if (newVal !== value) {
+          value = newVal;
+          subscribers.forEach(fn => scheduleEffect(fn));
+        }
+      },
+      _subscribers: subscribers
     };
   }
 
-  function template(html) {
-    return from_html(html);
+  function proxy(obj) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    const subscribers = new Set();
+    return new Proxy(obj, {
+      get(target, prop) {
+        if (currentEffect) subscribers.add(currentEffect);
+        return target[prop];
+      },
+      set(target, prop, val) {
+        target[prop] = val;
+        subscribers.forEach(fn => scheduleEffect(fn));
+        return true;
+      }
+    });
   }
 
-  function from_html_tag(html) {
-    return from_html(html);
+  function get(signal) {
+    if (signal && typeof signal === 'object' && 'v' in signal) return signal.v;
+    return signal;
   }
 
-  function append(anchor, node) {
-    if (anchor && node) {
-      anchor.appendChild(node);
+  function set(signal, value) {
+    if (signal && typeof signal === 'object' && 'v' in signal) {
+      signal.v = typeof value === 'function' ? value(signal.v) : value;
     }
   }
 
+  function update(signal, d) {
+    if (signal && 'v' in signal) {
+      signal.v = signal.v + (d || 1);
+    }
+  }
+
+  function update_pre(signal, d) {
+    if (signal && 'v' in signal) {
+      signal.v = signal.v + (d || 1);
+      return signal.v;
+    }
+  }
+
+  function mutate(signal, fn) {
+    if (signal && 'v' in signal) {
+      fn(signal.v);
+      signal._subscribers?.forEach(s => scheduleEffect(s));
+    }
+  }
+
+  // === DOM HELPERS ===
+  function from_html(html) {
+    return function() {
+      const t = document.createElement('template');
+      t.innerHTML = html.trim();
+      const node = t.content.firstChild?.cloneNode(true);
+      return node || document.createTextNode('');
+    };
+  }
+  const template = from_html;
+
+  function append(anchor, node) {
+    if (anchor && node) anchor.appendChild(node);
+  }
+
   function set_text(node, text) {
-    if (node) node.textContent = text;
+    if (node) node.textContent = (text != null) ? String(text) : '';
   }
 
   function text(value) {
     return document.createTextNode(value != null ? String(value) : '');
   }
 
-  function first_child(node) {
-    return node?.firstChild ?? null;
+  function comment() {
+    return document.createComment('');
   }
 
-  function sibling(node, count) {
-    if (!count) count = 1;
-    let current = node;
-    for (let i = 0; i < count && current; i++) {
-      current = current.nextSibling;
-    }
-    return current;
+  function first_child(node) {
+    return node?.firstChild ?? null;
   }
 
   function child(node) {
     return node?.firstChild ?? null;
   }
 
+  function sibling(node, count) {
+    count = count || 1;
+    let c = node;
+    for (let i = 0; i < Math.abs(count) && c; i++) {
+      c = count > 0 ? c.nextSibling : c.previousSibling;
+    }
+    return c;
+  }
+
+  function next(count) { /* used in each blocks, no-op in simplified runtime */ }
+
   function element(tag) {
     return document.createElement(tag);
   }
 
   function attr(node, name, value) {
-    if (node && name) {
-      if (value == null) node.removeAttribute(name);
-      else node.setAttribute(name, value);
+    if (!node || !name) return;
+    if (value == null || value === false) node.removeAttribute(name);
+    else node.setAttribute(name, value === true ? '' : String(value));
+  }
+
+  function set_attribute(node, name, value) { attr(node, name, value); }
+  function set_class(node, value) { if (node) node.className = value || ''; }
+  function set_style(node, prop, value) { if (node) node.style[prop] = value ?? ''; }
+  function toggle_class(node, name, value) { if (node) node.classList.toggle(name, !!value); }
+
+  function remove(node) {
+    if (node && node.parentNode) node.parentNode.removeChild(node);
+  }
+
+  function reset(node) {
+    if (node) node.textContent = '';
+  }
+
+  function remove_input_defaults(node) { /* no-op for sandbox */ }
+
+  // === EVENT SYSTEM ===
+  const delegatedEvents = {};
+  function delegate(events) {
+    for (const evt of events) {
+      if (!delegatedEvents[evt]) {
+        delegatedEvents[evt] = true;
+        document.addEventListener(evt, (e) => {
+          let target = e.target;
+          while (target) {
+            const handler = target['__' + evt];
+            if (handler) { handler.call(target, e); break; }
+            target = target.parentNode;
+          }
+        });
+      }
     }
   }
 
-  function listen(node, event, handler) {
+  function delegated(evt, node, handler) {
+    if (node) node['__' + evt] = handler;
+  }
+
+  function listen(node, event, handler, options) {
     if (node && event && handler) {
-      node.addEventListener(event, handler);
+      node.addEventListener(event, handler, options);
     }
   }
 
-  function set_attribute(node, name, value) {
-    attr(node, name, value);
+  // === BINDINGS ===
+  function bind_value(node, setter) {
+    if (!node) return;
+    node.addEventListener('input', () => setter(node.value));
+    node.addEventListener('change', () => setter(node.value));
   }
 
+  function bind_checked(node, setter) {
+    if (!node) return;
+    node.addEventListener('change', () => setter(node.checked));
+  }
+
+  // === EFFECTS ===
+  function template_effect(fn) {
+    const effect = () => {
+      const prev = currentEffect;
+      currentEffect = effect;
+      try { fn(); } catch(e) { console.error(e); }
+      currentEffect = prev;
+    };
+    effect();
+  }
+
+  function render_effect(fn) { template_effect(fn); }
+  function effect(fn) { template_effect(fn); }
+  function block(fn) { try { fn(); } catch(e) {} }
+
+  // === CONTROL FLOW ===
+  function if_block(anchor, fn, elseRender) {
+    let currentBlock = null;
+    let currentAnchor = anchor;
+    template_effect(() => {
+      const container = document.createDocumentFragment();
+      try { fn((render) => render(container)); }
+      catch(e) {}
+      if (currentBlock) { currentBlock.remove(); }
+      if (container.childNodes.length) {
+        currentBlock = container;
+        if (anchor.parentNode) anchor.parentNode.insertBefore(container, anchor);
+      }
+    });
+  }
+
+  function each(anchor, flags, getItems, getKey, render) {
+    template_effect(() => {
+      const items = typeof getItems === 'function' ? getItems() : getItems;
+      // Clear previous
+      while (anchor.previousSibling && anchor.previousSibling.nodeType !== 8) {
+        anchor.previousSibling.remove();
+      }
+      if (Array.isArray(items)) {
+        const frag = document.createDocumentFragment();
+        items.forEach((item, i) => {
+          try { render(frag, item, i); } catch(e) {}
+        });
+        if (anchor.parentNode) anchor.parentNode.insertBefore(frag, anchor);
+      }
+    });
+  }
+
+  function index(i) { return i; }
+
+  // === MISC ===
   function init() {}
   function push() {}
   function pop() { return {}; }
   function noop() {}
+  function source(initial) { return state(initial); }
+  function derived(fn) { return { get v() { return fn(); } }; }
 
-  // Reactivity stubs for sandbox
-  function source(initial) {
-    let value = initial;
-    function get() { return value; }
-    function set(v) { value = typeof v === 'function' ? v(value) : v; }
-    return { get, set };
-  }
-
-  function set(signal, value) {
-    if (signal && signal.set) signal.set(value);
-  }
-
-  function get(signal) {
-    if (signal && signal.get) return signal.get();
-    return signal;
-  }
-
-  function derived(fn) {
-    return { get: fn };
-  }
-
-  function effect(fn) {
-    try { fn(); } catch(e) {}
-  }
-
-  function render_effect(fn) {
-    try { fn(); } catch(e) {}
-  }
-
-  function template_effect(fn) {
-    try { fn(); } catch(e) {}
-  }
-
-  function block(fn) {
-    try { fn(); } catch(e) {}
-  }
-
-  // Return all exports
   return {
-    from_html, template, from_html_tag, append, set_text, text,
-    first_child, sibling, child, element, attr, listen,
-    set_attribute, init, push, pop, noop, source, set, get,
-    derived, effect, render_effect, template_effect, block
+    state, proxy, get, set, update, update_pre, mutate, source, derived,
+    from_html, template, append, set_text, text, comment, first_child, child,
+    sibling, next, element, attr, set_attribute, set_class, set_style,
+    toggle_class, remove, reset, remove_input_defaults,
+    delegate, delegated, listen, bind_value, bind_checked,
+    template_effect, render_effect, effect, block,
+    if: if_block, each, index,
+    init, push, pop, noop
   };
 })();
 `;
