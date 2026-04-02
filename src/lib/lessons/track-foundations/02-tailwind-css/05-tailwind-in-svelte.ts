@@ -25,7 +25,39 @@ npx sv add tailwindcss
 
 This configures everything automatically — \`tailwind.config.js\`, PostCSS, and the base styles.
 
-Where things get interesting is combining Tailwind's utility classes with Svelte's reactivity. Svelte gives you several patterns for dynamic styling.`
+Where things get interesting is combining Tailwind's utility classes with Svelte's reactivity. Svelte gives you several patterns for dynamic styling.
+
+## WHY: PostCSS Integration and the Build Pipeline
+
+Understanding how Tailwind integrates with Svelte at the build level helps you debug issues and optimize performance.
+
+**The build pipeline:**
+1. **Svelte preprocessor** runs first — processes \`<script>\`, \`<style>\`, and template
+2. **PostCSS** processes CSS — this is where Tailwind runs
+3. **Tailwind's JIT engine** scans your \`content\` files for class names and generates only the CSS for classes it finds
+4. **Vite** bundles everything for production
+
+**PostCSS is the bridge.** Tailwind is technically a PostCSS plugin. When you write Tailwind utilities in your Svelte component's class attributes, the PostCSS step generates the corresponding CSS. The Svelte compiler never sees Tailwind-specific syntax in \`<style>\` blocks — it sees the generated standard CSS.
+
+**Build optimization tips:**
+- **PurgeCSS is built in.** Tailwind v3+ automatically tree-shakes unused utilities. A typical production CSS bundle is 5-15KB gzipped, regardless of how many utilities exist in the framework.
+- **Avoid \`@apply\` in component styles.** When you use \`@apply\` inside a Svelte component's \`<style>\` block, the generated CSS is duplicated for every instance of that component. Prefer utility classes in the template or global \`@apply\` rules in \`app.css\`.
+- **Dynamic class names must be complete.** Tailwind scans files as static text. \`\`bg-\${color}-500\`\` will NOT work because Tailwind cannot resolve the variable at build time. Use a lookup object instead:
+\`\`\`svelte
+<script>
+  const colorMap = { red: 'bg-red-500', blue: 'bg-blue-500' };
+  let color = $state('red');
+</script>
+<div class={colorMap[color]}>...</div>
+\`\`\`
+
+- **Safelist for truly dynamic classes.** If you must generate classes from data (like CMS content), add them to the \`safelist\` in your config:
+\`\`\`js
+// tailwind.config.js
+export default {
+  safelist: ['bg-red-500', 'bg-blue-500', 'bg-green-500'],
+}
+\`\`\``
 		},
 		{
 			type: 'concept-callout',
@@ -49,6 +81,16 @@ The simplest pattern is a ternary expression inside the class attribute:
 
 The curly braces embed a JavaScript expression directly in the class string. This is perfect for toggling between two states.
 
+**When to use this pattern:**
+- Binary state toggles (active/inactive, open/closed, selected/unselected)
+- Simple color or style swaps based on a boolean
+- When both states have different but complete class sets
+
+**When NOT to use this pattern:**
+- More than 2 states — the ternary becomes unreadable
+- When you only need to ADD a class, not swap — use \`class:\` directive instead
+- Complex logic — move to \`$derived\`
+
 **Task:** The starter code has a toggle button with hardcoded classes. Make the button class dynamic using a ternary expression based on the \`active\` state.`
 		},
 		{
@@ -67,9 +109,21 @@ Svelte's \`class:\` directive conditionally adds a single class based on a boole
 </div>
 \`\`\`
 
-When \`active\` is true, \`bg-blue-500\` and \`shadow-lg\` are added. When false, they're removed.
+When \`active\` is true, \`bg-blue-500\` and \`shadow-lg\` are added. When false, they are removed.
 
-This is cleaner than ternaries when you only need to add (not swap) classes.
+This is cleaner than ternaries when you only need to add (not swap) classes. It also makes it easy to conditionally apply multiple independent classes:
+
+\`\`\`svelte
+<div
+  class="base-styles"
+  class:ring-2={focused}
+  class:ring-blue-500={focused}
+  class:opacity-50={disabled}
+  class:pointer-events-none={disabled}
+>
+\`\`\`
+
+Each \`class:\` directive is independent — you can mix and match conditions without creating complex nested ternaries.
 
 **Task:** Add a \`class:\` directive to the card element to conditionally apply a highlight style.`
 		},
@@ -102,7 +156,28 @@ For complex conditional logic, use \`$derived\` to compute class strings reactiv
 
 This keeps your template clean and your logic in the script block where it belongs.
 
-**Task:** Create a \`$derived\` value that computes the appropriate Tailwind classes based on component state.`
+**Decision framework for choosing a pattern:**
+
+| Scenario | Pattern |
+|---|---|
+| Toggle between 2 class sets | Ternary in template |
+| Add/remove a single class | \`class:\` directive |
+| 3+ states or complex logic | \`$derived\` computed string |
+| Shared across components | Utility function returning class string |
+
+**Task:** Create a \`$derived\` value that computes the appropriate Tailwind classes based on component state.
+
+## Realistic Exercise: Building a Dynamic Component
+
+After completing the checkpoints, consider this scenario: you are building a notification toast component that can be \`info\`, \`success\`, \`warning\`, or \`error\`. Each type needs different background colors, text colors, and icons.
+
+Your approach should be:
+1. Define a \`$derived\` that maps the notification type to Tailwind classes
+2. Use template interpolation to apply the computed classes
+3. Ensure all class names appear as complete strings somewhere in the file (so Tailwind can detect them)
+4. Test each state to confirm the correct styles apply
+
+This is a pattern you will use constantly in real Svelte applications.`
 		},
 		{
 			type: 'checkpoint',
@@ -110,7 +185,7 @@ This keeps your template clean and your logic in the script block where it belon
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and click the toggle button. Watch how Svelte reactively updates the class attribute — individual utility classes are added and removed in real time.'
+			content: 'Toggle X-Ray mode and click the toggle button. Watch how Svelte reactively updates the class attribute — individual utility classes are added and removed in real time. Click "Cycle Status" to see how the $derived value recomputes and applies completely different class sets based on the current state. This reactive class binding is one of the strongest patterns in the Svelte-Tailwind combination.'
 		}
 	],
 

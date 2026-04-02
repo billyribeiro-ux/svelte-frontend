@@ -29,7 +29,45 @@ You write:
 <div class="p-4 bg-white rounded-lg shadow-md">...</div>
 \`\`\`
 
-This eliminates context switching between HTML and CSS files, and means your styles are always co-located with the markup they affect.`
+This eliminates context switching between HTML and CSS files, and means your styles are always co-located with the markup they affect.
+
+## WHY: The 4px Grid Scale Philosophy
+
+Tailwind's spacing scale is not arbitrary. Every value is a multiple of 4px (0.25rem at 16px base font):
+
+| Class | Value | Pixels |
+|-------|-------|--------|
+| \`p-1\` | 0.25rem | 4px |
+| \`p-2\` | 0.5rem | 8px |
+| \`p-3\` | 0.75rem | 12px |
+| \`p-4\` | 1rem | 16px |
+| \`p-6\` | 1.5rem | 24px |
+| \`p-8\` | 2rem | 32px |
+
+**Why 4px?** The 4px grid is a design systems convention used by Material Design, Apple's Human Interface Guidelines, and most professional design tools. It works because:
+
+1. **Divisibility** — 4 divides evenly into common screen sizes and font sizes
+2. **Visual rhythm** — Consistent multiples create harmonious spacing that "feels right" without manual alignment
+3. **Sub-pixel avoidance** — At any standard zoom level, 4px multiples render crisply without sub-pixel blurring
+
+When you use \`p-4\` you are not just setting "1rem of padding" — you are saying "I want 4 units of spacing on the 4px grid." This makes your entire interface feel cohesive because every spacing decision snaps to the same underlying grid.
+
+## WHY: The Design Token Approach
+
+Tailwind's utility classes are really **design tokens** — named, constrained values from a shared system. When you write \`text-slate-700\`, you are not picking an arbitrary gray; you are referencing a specific color from a curated palette with tested contrast ratios.
+
+This constraint is the key insight: by limiting your choices to a predefined scale, you make faster decisions and produce more consistent results. It is the same principle behind music theory — constraining yourself to a scale makes it easier to compose something that sounds good.
+
+## Decision Framework: When Utility-First Fails
+
+Utility-first is not always the right choice. Here are the legitimate cases where you should reach for traditional CSS:
+
+1. **Complex animations** — Keyframe animations with multiple steps are unreadable as utilities
+2. **Deeply nested selectors** — Styling third-party HTML you cannot add classes to (like CMS content or markdown output)
+3. **Ultra-reusable patterns** — When 10+ elements share the exact same 8+ utilities, extract a component (in Svelte) or use \`@apply\` sparingly
+4. **Pseudo-element content** — \`::before\` and \`::after\` with generated content are sometimes cleaner in CSS
+
+**The rule of thumb:** If you are copying the same string of 6+ utilities more than 3 times, create a Svelte component instead of reaching for \`@apply\`.`
 		},
 		{
 			type: 'concept-callout',
@@ -48,7 +86,7 @@ Tailwind organizes utilities into intuitive categories:
 - **Borders**: \`rounded-lg\`, \`border\`, \`border-gray-200\`
 - **Effects**: \`shadow-md\`, \`opacity-50\`, \`transition\`
 
-The number scale follows a consistent pattern: \`p-1\` = 0.25rem, \`p-2\` = 0.5rem, \`p-4\` = 1rem, \`p-8\` = 2rem.
+The naming convention is consistent: \`{property}-{value}\`. Once you learn the pattern, you can guess most class names correctly on the first try. \`text-\` is for text color and size, \`bg-\` is for background, \`rounded-\` is for border radius, \`shadow-\` is for box shadow.
 
 **Task:** Convert the card component from traditional CSS to Tailwind utilities. Start by adding layout utilities to the card.`
 		},
@@ -68,6 +106,13 @@ Spacing is where utility-first really shines. Instead of remembering custom clas
 <div class="mt-8 mb-4"> <!-- margin-top: 2rem, margin-bottom: 1rem -->
 \`\`\`
 
+The directional shorthands follow a logical pattern:
+- \`p\` / \`m\` — all sides
+- \`px\` / \`mx\` — horizontal (left and right, or more precisely inline-start and inline-end)
+- \`py\` / \`my\` — vertical (top and bottom)
+- \`pt\` / \`pr\` / \`pb\` / \`pl\` — individual sides
+- \`ps\` / \`pe\` — logical start/end (for RTL support)
+
 **Task:** Add spacing utilities to the card content and avatar area.`
 		},
 		{
@@ -83,8 +128,22 @@ Complete the card by adding background, border-radius, and shadow utilities:
 - \`bg-white\` — white background
 - \`rounded-lg\` — large border radius (0.5rem)
 - \`shadow-md\` — medium drop shadow
+- \`max-w-sm\` — maximum width of 24rem (384px)
 
-**Task:** Add background color, rounded corners, and a shadow to finish the card.`
+The shadow scale follows a progression from subtle to dramatic: \`shadow-sm\` (barely visible), \`shadow\` (default), \`shadow-md\` (medium), \`shadow-lg\` (large), \`shadow-xl\` (extra large), \`shadow-2xl\` (dramatic). Choose based on the element's perceived elevation — cards typically use \`shadow-md\`, modals use \`shadow-xl\`.
+
+**Task:** Add background color, rounded corners, and a shadow to finish the card.
+
+## Realistic Exercise: Converting a Component
+
+After completing the checkpoints, try this mental exercise with any CSS you have written before:
+
+1. Take a component with 5-10 CSS rules
+2. For each rule, find the Tailwind utility equivalent
+3. Count the lines of CSS you eliminated
+4. Consider: is the markup harder to read? (Usually not, once you know the utility names)
+
+The typical result is that a 30-line CSS file becomes 0 lines, and the markup gains 10-15 class names spread across 3-5 elements. The total code is less, and it is all in one place.`
 		},
 		{
 			type: 'checkpoint',
@@ -92,7 +151,7 @@ Complete the card by adding background, border-radius, and shadow utilities:
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and compare the utility-class approach with the original CSS approach. Notice how every visual property is declared right on the element — no jumping between markup and styles.'
+			content: 'Toggle X-Ray mode and compare the utility-class approach with the original CSS approach. Notice how every visual property is declared right on the element — no jumping between markup and styles. Hover over individual utility classes to see their CSS equivalent. This is the key insight: each utility maps to exactly one CSS declaration.'
 		}
 	],
 

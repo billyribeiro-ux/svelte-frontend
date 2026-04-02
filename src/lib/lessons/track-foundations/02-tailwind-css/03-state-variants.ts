@@ -37,7 +37,27 @@ Common state variants:
 - **\`focus:\`** — element is focused (keyboard/click)
 - **\`active:\`** — element is being pressed
 - **\`disabled:\`** — form element is disabled
-- **\`first:\`** / **\`last:\`** — first/last child`
+- **\`first:\`** / **\`last:\`** — first/last child
+
+## WHY: Interaction State Ordering
+
+When you apply multiple state variants to an element, the order in your class string matters for readability — but the order in the generated CSS matters for behavior. Tailwind generates state variants in a specific order to match natural interaction flow:
+
+**hover -> focus -> active**
+
+This order reflects what happens during a typical user interaction:
+1. User moves mouse over element (\`hover\` activates)
+2. User clicks down (\`active\` activates, \`hover\` still active)
+3. After click, element receives focus (\`focus\` activates)
+
+Because \`active\` and \`focus\` are generated after \`hover\` in the CSS, they override hover styles when both conditions are true. This means your active state is always visible during a click, and focus state persists after release.
+
+**Decision framework for state styling:**
+- \`hover:\` — Visual feedback on pointer devices. Change color, add shadow, show hidden elements.
+- \`focus:\` — Keyboard accessibility indicator. Always use \`ring\` utilities. Never remove focus styles entirely.
+- \`active:\` — Press feedback. Subtle scale (\`scale-95\`) or color shift during the click.
+- \`focus-visible:\` — Show focus only for keyboard navigation (not mouse clicks). Preferred over \`focus:\` for purely visual elements.
+- \`disabled:\` — Gray out and reduce opacity for inactive controls.`
 		},
 		{
 			type: 'concept-callout',
@@ -63,7 +83,9 @@ For the button, add:
 			type: 'text',
 			content: `## Focus States and Accessibility
 
-Focus states are critical for keyboard navigation. Tailwind makes it easy to add visible focus indicators:
+Focus states are critical for keyboard navigation. Without visible focus indicators, keyboard users cannot tell which element is selected — they are essentially navigating blind.
+
+Tailwind makes it easy to add visible focus indicators:
 
 \`\`\`html
 <button class="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
@@ -71,7 +93,15 @@ Focus states are critical for keyboard navigation. Tailwind makes it easy to add
 </button>
 \`\`\`
 
-The \`ring\` utilities create a box-shadow-based outline that doesn't affect layout — perfect for focus indicators.
+The \`ring\` utilities create a box-shadow-based outline that doesn't affect layout — perfect for focus indicators. Unlike \`outline\`, the ring follows \`border-radius\`, so it looks great on rounded elements.
+
+**The ring system explained:**
+- \`focus:ring-2\` — Sets ring width (2px)
+- \`focus:ring-blue-500\` — Sets ring color
+- \`focus:ring-offset-2\` — Adds a gap between the element and the ring (using box-shadow)
+- \`focus:outline-none\` — Removes the browser default outline (replace it with the ring, do NOT just remove it)
+
+**Critical accessibility rule:** Never use \`focus:outline-none\` without providing an alternative focus indicator. Removing the default focus ring without replacing it violates WCAG 2.1 Success Criterion 2.4.7 (Focus Visible).
 
 **Task:** Add \`focus:\` utilities to the button for keyboard accessibility.`
 		},
@@ -81,7 +111,35 @@ The \`ring\` utilities create a box-shadow-based outline that doesn't affect lay
 		},
 		{
 			type: 'text',
-			content: `## Dark Mode Variant
+			content: `## Group and Peer Modifiers
+
+Sometimes you need to style an element based on the state of a different element. Tailwind provides two modifiers for this:
+
+**\`group\` — Parent-to-child state:** Style a child when the parent is hovered, focused, etc.
+
+\`\`\`html
+<div class="group">
+  <h3 class="group-hover:text-blue-500">Title</h3>
+  <p class="group-hover:text-blue-300">Description</p>
+</div>
+\`\`\`
+
+When you hover the outer \`div\`, both the title and description change color. The parent needs \`class="group"\` and children use \`group-hover:\`, \`group-focus:\`, etc.
+
+**\`peer\` — Sibling-to-sibling state:** Style an element based on a preceding sibling's state.
+
+\`\`\`html
+<input class="peer" type="email" />
+<span class="hidden peer-invalid:block text-red-500">
+  Invalid email address
+</span>
+\`\`\`
+
+The error message appears only when the input is invalid. The input needs \`class="peer"\` and the sibling uses \`peer-invalid:\`. The peer element must come BEFORE the styled element in the DOM.
+
+**Named groups and peers:** When you have nested groups, use named variants to avoid ambiguity: \`group/card\` on the parent and \`group-hover/card:\` on the child.
+
+## Dark Mode Variant
 
 Tailwind supports dark mode with the \`dark:\` prefix. When the user's system (or your app) enables dark mode, these utilities activate:
 
@@ -91,6 +149,23 @@ Tailwind supports dark mode with the \`dark:\` prefix. When the user's system (o
 </div>
 \`\`\`
 
+**Implementation strategies (media vs class):**
+
+- **\`media\` strategy (default):** Responds to \`prefers-color-scheme: dark\` — the user's OS-level setting. Zero JavaScript required. Best for simple sites.
+- **\`class\` strategy:** Requires adding \`class="dark"\` to the \`<html>\` element. Gives you manual control via a toggle switch. Best for apps where users should choose their preference.
+
+Configure in \`tailwind.config.js\`:
+\`\`\`js
+export default {
+  darkMode: 'class', // or 'media' (default)
+}
+\`\`\`
+
+**Decision framework for dark mode:**
+- Personal portfolio or blog? Use \`media\` — respect the user's system preference.
+- SaaS app or dashboard? Use \`class\` — give users a toggle in settings, store preference in localStorage.
+- Either way: always provide a \`dark:\` variant for \`bg-\`, \`text-\`, \`border-\`, and \`shadow-\` utilities on every visible element.
+
 **Task:** Add \`dark:\` variants to the card so it looks great in both light and dark mode.`
 		},
 		{
@@ -99,7 +174,7 @@ Tailwind supports dark mode with the \`dark:\` prefix. When the user's system (o
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and hover over the button to see which state variant utilities activate. Notice how Tailwind generates the appropriate CSS pseudo-class selectors under the hood.'
+			content: 'Toggle X-Ray mode and hover over the button to see which state variant utilities activate. Notice how Tailwind generates the appropriate CSS pseudo-class selectors under the hood. Try tabbing to the button with your keyboard — the focus ring should be clearly visible, confirming that your focus states work for keyboard users.'
 		}
 	],
 

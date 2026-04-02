@@ -8,7 +8,7 @@ export const stateBasics: Lesson = {
 	trackId: 'svelte-core',
 	moduleId: 'runes-reactivity',
 	order: 1,
-	estimatedMinutes: 15,
+	estimatedMinutes: 20,
 	concepts: ['svelte5.runes.state', 'svelte5.reactivity.basic'],
 	prerequisites: ['svelte5.components.basic'],
 
@@ -19,7 +19,38 @@ export const stateBasics: Lesson = {
 
 In Svelte 5, reactivity is **explicit**. When you want a variable to trigger UI updates when it changes, you declare it with the \`$state\` rune.
 
-This is fundamentally different from Svelte 4, where \`let\` declarations at the top level of a component were implicitly reactive. With runes, you're telling the Svelte compiler exactly which values should be tracked.`
+This is fundamentally different from Svelte 4, where \`let\` declarations at the top level of a component were implicitly reactive. With runes, you are telling the Svelte compiler exactly which values should be tracked. But this raises an important question: why did Svelte move to this model in the first place?
+
+## Why Signals Instead of Proxy or Virtual DOM
+
+Every UI framework must solve the same problem: when application state changes, how does the framework know what parts of the UI to update? Historically, frameworks have taken three broad approaches:
+
+1. **Virtual DOM diffing (React):** Re-run the entire component function on every state change, produce a virtual tree, then diff it against the previous tree to find what changed. This is conceptually simple but carries overhead — you are doing work proportional to the size of your component tree on every update, even if only one value changed.
+
+2. **Proxy-based tracking (Vue 3, old Svelte 4 for objects):** Wrap reactive objects in a JavaScript Proxy that intercepts property reads and writes. This provides fine-grained tracking but comes with gotchas: you must be careful about destructuring (you lose reactivity), you cannot track primitive values without wrapping them in objects (Vue's \`ref()\` wrapper), and the Proxy layer adds runtime cost to every property access.
+
+3. **Signals (Svelte 5, SolidJS, Angular Signals, Preact Signals):** Each reactive value is a signal — a getter/setter pair that knows who depends on it. When you read a signal inside a reactive context (like a template or an effect), the framework records that dependency. When you write to a signal, only the specific subscribers that read that signal are notified. There is no diffing, no tree walking, and no proxy overhead on every property access.
+
+Svelte 5 chose signals because they give you the **finest possible granularity** of updates with the **least runtime overhead**. A \`$state\` variable compiles down to a signal, but thanks to the Svelte compiler, you never have to call \`.get()\` or \`.set()\` yourself — you just read and assign variables normally.
+
+## How \`$state\` Compiles to a Signal
+
+When the Svelte compiler sees \`let count = $state(0)\`, it transforms your code into something conceptually like this:
+
+\`\`\`js
+// Simplified conceptual output — not the exact compiler output
+import { source, get, set } from 'svelte/internal/client';
+
+const count = source(0); // creates a signal with initial value 0
+
+// When you READ count in template or effect:
+get(count); // returns current value, registers dependency
+
+// When you WRITE count += 1:
+set(count, get(count) + 1); // updates value, notifies subscribers
+\`\`\`
+
+The key insight is that \`$state\` is a **compiler instruction**, not a runtime function. The dollar sign tells the Svelte compiler to rewrite your plain variable access into signal operations. This means you write natural JavaScript — \`count += 1\` — and the compiler handles the reactive wiring.`
 		},
 		{
 			type: 'concept-callout',
@@ -29,9 +60,9 @@ This is fundamentally different from Svelte 4, where \`let\` declarations at the
 			type: 'text',
 			content: `## Your First Reactive Variable
 
-Look at the starter code in the editor. You'll see a simple component with a \`count\` variable. Right now, clicking the button does nothing visible — the variable updates, but Svelte doesn't know to re-render.
+Look at the starter code in the editor. You will see a simple component with a \`count\` variable. Right now, clicking the button does nothing visible — the variable updates in memory, but Svelte does not know to re-render because the variable is not reactive.
 
-**Your task:** Make \`count\` reactive using the \`$state\` rune.`
+**Your task:** Make \`count\` reactive using the \`$state\` rune. Change \`let count = 0\` to \`let count = $state(0)\`.`
 		},
 		{
 			type: 'checkpoint',
@@ -39,15 +70,51 @@ Look at the starter code in the editor. You'll see a simple component with a \`c
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and look at the **Compiler Output** tab. Notice how `$state(0)` compiles to a signal under the hood — but you never have to interact with the signal directly.'
+			content: 'Toggle X-Ray mode and look at the **Compiler Output** tab. Notice how `$state(0)` compiles to a signal under the hood — a `source()` call that creates a getter/setter pair. But you never have to interact with the signal directly. Compare the compiled output for the template expression `{count}` — you will see it calls `get()` on the signal, which is what registers the dependency.'
 		},
 		{
 			type: 'text',
-			content: `## $state with Objects and Arrays
+			content: `## Deep Reactivity — \`$state\` with Objects and Arrays
 
-\`$state\` works with any value — numbers, strings, objects, arrays. When you use it with objects or arrays, Svelte deeply tracks mutations.
+When you use \`$state\` with an object or array, Svelte wraps the value in a **Proxy** that deeply tracks mutations. This means you can do things like \`items.push('new')\` or \`user.name = 'Ada'\` and the UI updates automatically — no need to create a new array or spread into a new object.
 
-**Task:** Add a reactive \`items\` array using \`$state\` and a button that pushes a new item.`
+\`\`\`svelte
+let user = $state({ name: 'Ada', score: 0 });
+user.score += 10; // UI updates — the Proxy intercepts this write
+
+let items = $state(['apple', 'banana']);
+items.push('cherry'); // UI updates — Array.push is intercepted too
+\`\`\`
+
+This deep Proxy is what makes Svelte 5 feel so natural. In React, you would need \`setItems([...items, 'cherry'])\` to trigger a re-render. In Svelte 5, you just mutate.
+
+### \`$state.raw\` — Opting Out of Deep Reactivity
+
+The deep Proxy has a cost: every property access on the object goes through the Proxy. For large datasets that you replace wholesale rather than mutate — think a big JSON response from an API — you can use \`$state.raw\` to skip the Proxy:
+
+\`\`\`svelte
+let data = $state.raw(hugeArray);
+// data[0].name = 'new'; // This WON'T trigger updates!
+data = newHugeArray;     // This WILL — you're reassigning the whole signal
+\`\`\`
+
+Use \`$state.raw\` when you have large, read-heavy data structures and you only ever replace them, never mutate individual properties. The performance difference is measurable on datasets with thousands of items.
+
+### \`$state.snapshot\` — Getting a Plain Object
+
+Because \`$state\` objects are Proxies, passing them to external APIs (like \`JSON.stringify\`, \`structuredClone\`, or third-party libraries) can produce unexpected results. Use \`$state.snapshot\` to get a plain, non-reactive copy:
+
+\`\`\`svelte
+let cart = $state([{ name: 'Widget', qty: 2 }]);
+
+function saveToAPI() {
+  const plainData = $state.snapshot(cart);
+  // plainData is a regular array — safe to serialize
+  fetch('/api/cart', { method: 'POST', body: JSON.stringify(plainData) });
+}
+\`\`\`
+
+**Task:** Now add a reactive \`items\` array using \`$state\` and a button that pushes a new item. Notice how \`.push()\` just works — the deep Proxy tracks the mutation and updates the \`{#each}\` block automatically.`
 		},
 		{
 			type: 'checkpoint',

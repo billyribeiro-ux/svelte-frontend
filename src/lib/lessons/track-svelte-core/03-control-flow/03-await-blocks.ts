@@ -29,7 +29,103 @@ Handling asynchronous data is a reality of every web app. Svelte makes it elegan
 {/await}
 \`\`\`
 
-No need for manual state variables like \`isLoading\`, \`data\`, and \`error\` — Svelte handles it all.`
+No need for manual state variables like \`isLoading\`, \`data\`, and \`error\` — Svelte handles it all.
+
+## Why Declarative Async Matters
+
+In most frameworks, handling asynchronous data requires manually managing multiple pieces of state. Here is a typical React pattern:
+
+\`\`\`jsx
+function UserProfile() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    fetchUser()
+      .then(data => {
+        if (!cancelled) {
+          setUser(data);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setError(err);
+          setLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+  return <p>{user.name}</p>;
+}
+\`\`\`
+
+This is 25 lines of boilerplate for a single fetch. And notice the \`cancelled\` flag — that is there to prevent a race condition where the component unmounts before the fetch completes, and the callback tries to set state on an unmounted component.
+
+The same thing in Svelte:
+
+\`\`\`svelte
+{#await fetchUser()}
+  <p>Loading...</p>
+{:then user}
+  <p>{user.name}</p>
+{:catch error}
+  <p>Error: {error.message}</p>
+{/await}
+\`\`\`
+
+Six lines. No state variables. No cleanup function. No race condition bug.
+
+### How Svelte Handles Race Conditions
+
+Race conditions are one of the most subtle bugs in async UI code. Here is how they happen: a user clicks a button to fetch data, then clicks again before the first fetch completes. If the second fetch completes before the first, the UI briefly shows the correct data, then the first fetch resolves and overwrites it with stale data.
+
+Svelte's \`{#await}\` blocks handle this automatically. When you reassign the promise variable, Svelte tracks which promise is "current." If an older promise resolves after a newer one, Svelte ignores the stale result. The UI always shows the result of the most recently assigned promise.
+
+\`\`\`svelte
+<script lang="ts">
+  let userPromise = $state(fetchUser(1));
+
+  function loadUser(id: number) {
+    // Each reassignment cancels interest in the previous promise
+    userPromise = fetchUser(id);
+  }
+</script>
+
+<button onclick={() => loadUser(1)}>User 1</button>
+<button onclick={() => loadUser(2)}>User 2</button>
+
+{#await userPromise}
+  <p>Loading...</p>
+{:then user}
+  <p>{user.name}</p>
+{:catch error}
+  <p>Error: {error.message}</p>
+{/await}
+\`\`\`
+
+If you click "User 1" then immediately click "User 2", Svelte will show "Loading..." during both fetches. If User 1's response arrives after User 2's, it is silently discarded. The UI will always show User 2's data because that is the current promise.
+
+### Loading and Error States as First-Class Concepts
+
+The three-branch structure of \`{#await}\` forces you to think about all three states of an async operation:
+
+1. **Pending** — What does the user see while waiting? A skeleton? A spinner? A shimmer animation? The \`{#await promise}\` block is where this goes.
+
+2. **Fulfilled** — The happy path. The \`{:then data}\` block renders the resolved value.
+
+3. **Rejected** — What went wrong? The \`{:catch error}\` block handles failures. This is where you show error messages, retry buttons, or fallback content.
+
+Many developers skip error handling. The \`{:catch}\` block makes it harder to forget because the three-branch structure makes the omission visually obvious — you see \`{#await}\` and \`{:then}\` without a \`{:catch}\`, and it looks incomplete.`
 		},
 		{
 			type: 'concept-callout',
@@ -39,9 +135,26 @@ No need for manual state variables like \`isLoading\`, \`data\`, and \`error\` �
 			type: 'text',
 			content: `## Using {#await}
 
-Look at the starter code — there's a function that returns a promise simulating a data fetch. Currently, the result is not displayed.
+Look at the starter code — there is a function that returns a promise simulating a data fetch. Currently, the result is not displayed.
 
-**Task:** Add an \`{#await}\` block that shows a loading message, then displays the fetched data.`
+The full \`{#await}\` syntax has three branches:
+
+\`\`\`svelte
+{#await promise}
+  <!-- Pending: shown while the promise is unresolved -->
+  <p class="loading">Loading...</p>
+{:then value}
+  <!-- Fulfilled: shown when the promise resolves -->
+  <p>Result: {value}</p>
+{:catch error}
+  <!-- Rejected: shown when the promise rejects -->
+  <p class="error">{error.message}</p>
+{/await}
+\`\`\`
+
+The variable names after \`{:then}\` and \`{:catch}\` are yours to choose — they receive the resolved value and rejection reason respectively.
+
+**Task:** Add an \`{#await}\` block that shows a loading message, then displays the fetched user data.`
 		},
 		{
 			type: 'checkpoint',
@@ -63,6 +176,57 @@ The \`{:catch}\` branch handles rejected promises. This is crucial for a good us
 {/await}
 \`\`\`
 
+### Error Recovery Patterns
+
+A common pattern is combining \`{#await}\` with a refetch function for retry-on-error:
+
+\`\`\`svelte
+<script lang="ts">
+  let dataPromise = $state(fetchData());
+
+  function retry() {
+    dataPromise = fetchData();
+  }
+</script>
+
+{#await dataPromise}
+  <p>Loading...</p>
+{:then data}
+  <p>{data}</p>
+{:catch error}
+  <div class="error">
+    <p>Failed: {error.message}</p>
+    <button onclick={retry}>Try Again</button>
+  </div>
+{/await}
+\`\`\`
+
+When the user clicks "Try Again", \`dataPromise\` is reassigned to a new promise, which sends the \`{#await}\` block back to the pending state. The entire retry flow is handled by a single variable reassignment.
+
+### Combining {#await} with {#if}
+
+Sometimes you want to conditionally show an \`{#await}\` block — for example, only when the user has triggered a fetch:
+
+\`\`\`svelte
+<script lang="ts">
+  let promise = $state<Promise<string> | null>(null);
+</script>
+
+<button onclick={() => promise = fetchData()}>Load Data</button>
+
+{#if promise}
+  {#await promise}
+    <p>Loading...</p>
+  {:then data}
+    <p>{data}</p>
+  {:catch error}
+    <p class="error">{error.message}</p>
+  {/await}
+{/if}
+\`\`\`
+
+The \`{#if promise}\` guard prevents the \`{#await}\` block from rendering before the user clicks the button. Without it, the block would try to await \`null\`, which is not a promise.
+
 **Task:** Add a \`{:catch}\` block that displays the error message. Use the "Fetch Error" button to test it.`
 		},
 		{
@@ -77,7 +241,7 @@ The \`{:catch}\` branch handles rejected promises. This is crucial for a good us
 			type: 'text',
 			content: `## Shorthand Await
 
-If you don't need a loading state, use the shorthand:
+If you do not need a loading state, use the shorthand:
 
 \`\`\`svelte
 {#await promise then data}
@@ -85,7 +249,98 @@ If you don't need a loading state, use the shorthand:
 {/await}
 \`\`\`
 
-This skips the pending state and only renders when the promise resolves. You can combine this with your understanding of \`$state\` to create a refetch pattern — just reassign the promise variable.`
+This skips the pending state and only renders when the promise resolves. Nothing is shown while the promise is pending.
+
+There is also a catch-only shorthand:
+
+\`\`\`svelte
+{#await promise catch error}
+  <p class="error">{error.message}</p>
+{/await}
+\`\`\`
+
+### The Refetch Pattern
+
+You can combine \`{#await}\` with \`$state\` to create a refetch pattern — just reassign the promise variable:
+
+\`\`\`svelte
+<script lang="ts">
+  let userPromise = $state(fetchUser());
+
+  function refetch() {
+    userPromise = fetchUser();
+  }
+</script>
+
+<button onclick={refetch}>Refresh</button>
+
+{#await userPromise}
+  <p>Loading...</p>
+{:then user}
+  <p>{user.name}</p>
+{:catch error}
+  <p>Error: {error.message}</p>
+{/await}
+\`\`\`
+
+Each time \`refetch\` is called, the promise is replaced. The \`{#await}\` block goes back to the pending state, shows "Loading...", and then shows the new data when it arrives.
+
+### Building an API Fetcher Component
+
+Here is a real-world pattern that combines everything we have learned — a reusable API fetcher:
+
+\`\`\`svelte
+<script lang="ts">
+  let endpoint = $state('/api/users');
+  let dataPromise = $state(fetchEndpoint(endpoint));
+
+  async function fetchEndpoint(url: string) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+    return response.json();
+  }
+
+  function refetch() {
+    dataPromise = fetchEndpoint(endpoint);
+  }
+</script>
+
+<div class="api-fetcher">
+  <div class="toolbar">
+    <input bind:value={endpoint} placeholder="/api/..." />
+    <button onclick={refetch}>Fetch</button>
+  </div>
+
+  {#await dataPromise}
+    <div class="skeleton">
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+  {:then data}
+    <pre>{JSON.stringify(data, null, 2)}</pre>
+  {:catch error}
+    <div class="error-panel">
+      <p>{error.message}</p>
+      <button onclick={refetch}>Retry</button>
+    </div>
+  {/await}
+</div>
+\`\`\`
+
+This pattern gives you loading skeletons, formatted JSON output, error messages with retry buttons, and race condition safety — all from a single \`{#await}\` block.
+
+### When to Use {#await} vs Manual State
+
+\`{#await}\` is ideal when:
+- You have a single promise that maps directly to UI state
+- You want all three states (pending, fulfilled, rejected) handled in the template
+- You need automatic race condition handling
+
+Manual state management (\`$state\` variables for loading/data/error) is better when:
+- You need to transform or combine data from multiple promises
+- You want to keep showing stale data while refreshing (optimistic updates)
+- You need fine-grained control over when loading indicators appear (e.g., only show a spinner after a 200ms delay to avoid flash-of-loading)
+- You are working with streaming data or WebSockets, not simple request/response`
 		}
 	],
 
