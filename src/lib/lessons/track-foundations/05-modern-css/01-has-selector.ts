@@ -17,7 +17,7 @@ export const hasSelector: Lesson = {
 			type: 'text',
 			content: `# The :has() Selector
 
-The \`:has()\` pseudo-class is CSS's long-awaited "parent selector." For over a decade, developers requested the ability to style an element based on its children — and browsers resisted because of performance concerns. As of 2023, \`:has()\` is supported in all major browsers and changes what is possible with pure CSS.
+The \`:has()\` pseudo-class is CSS's long-awaited "parent selector." It lets you style an element based on its children or descendants — something that was impossible in CSS for over two decades.
 
 \`\`\`css
 /* Style a card differently when it contains an image */
@@ -31,37 +31,43 @@ form:has(:invalid) {
 }
 \`\`\`
 
-## WHY: Browser Support and Performance
+## Browser Support and the Long Wait
 
-**Browser support:** \`:has()\` is supported in Chrome 105+, Safari 15.4+, Firefox 121+, and Edge 105+. As of early 2026, global support exceeds 95%. For the rare case of older browsers, \`:has()\` rules are simply ignored — they degrade gracefully.
+CSS developers requested a parent selector for years. The reason it took so long is performance. CSS is evaluated by the browser from right to left: when the browser encounters \`.card img { ... }\`, it first finds all \`img\` elements, then checks if their ancestor is \`.card\`. This is efficient because the number of matches narrows at each step.
 
-**Performance implications:** \`:has()\` was historically avoided because it requires the browser to evaluate selectors "backwards" — from child to parent. Modern browser engines handle this efficiently through:
-- **Bloom filters** for fast initial candidate elimination
-- **Subject invalidation** — only re-evaluating when relevant children change
-- **Lazy evaluation** — skipping :has() checks when the result cannot have changed
+A parent selector reverses this: \`.card:has(img)\` requires the browser to find all \`.card\` elements, then look at their entire subtree to check for \`img\` descendants. If a \`.card\` contains thousands of child elements, this check is expensive. And it must be re-evaluated whenever the DOM changes.
 
-**However, some patterns are more expensive than others:**
+Browser vendors solved this with clever optimizations — bloom filters, incremental invalidation, and subject tracking. As of 2024, \`:has()\` is supported in all major browsers (Chrome 105+, Firefox 121+, Safari 15.4+).
+
+## Performance Considerations
+
+While \`:has()\` is well-optimized in modern browsers, there are patterns to avoid:
+
 \`\`\`css
-/* Cheap — scoped to a small subtree */
-.card:has(> img) { }
+/* Avoid: forces the browser to check the entire document */
+:has(.some-class) { ... }
 
-/* Moderate — any descendant match */
-.card:has(img) { }
+/* Better: scope to a specific parent */
+.container:has(.some-class) { ... }
 
-/* Expensive — avoid this pattern */
-:has(.error) body { }  /* forces evaluation on every DOM change */
+/* Avoid: deeply nested has() with complex selectors */
+.a:has(.b:has(.c:has(.d))) { ... }
+
+/* Better: flatten the logic */
+.a:has(.d) { ... }
 \`\`\`
 
-**Decision framework:** Prefer direct child selectors (\`>\`) inside \`:has()\` when possible. Avoid \`:has()\` on elements near the document root, as this forces broader evaluation.
+The key rule: the more specific the subject (the element before \`:has()\`), the better the performance. \`:has()\` on a universal or element selector forces a much broader check.
 
-## Specificity of :has()
+## Specificity
 
-The specificity of \`:has()\` is determined by its most specific argument:
-- \`:has(img)\` — specificity of a type selector (0,0,1)
-- \`:has(.active)\` — specificity of a class selector (0,1,0)
-- \`:has(#main)\` — specificity of an ID selector (1,0,0)
+\`:has()\` contributes to specificity based on its most specific argument. \`.card:has(#main-image)\` has the specificity of \`.card#main-image\` (0-1-1), not just \`.card\` (0-1-0). This can lead to unexpected specificity conflicts if you are not careful:
 
-This is the same specificity rule used by \`:is()\` and \`:not()\`. The \`:has()\` itself contributes no additional specificity — only its argument matters.`
+\`\`\`css
+.card:has(.featured) { background: gold; }      /* Specificity: 0-2-0 */
+.card.highlighted { background: lightblue; }     /* Specificity: 0-2-0 */
+/* Same specificity — last one wins (source order) */
+\`\`\``
 		},
 		{
 			type: 'concept-callout',
@@ -73,6 +79,23 @@ This is the same specificity rule used by \`:is()\` and \`:not()\`. The \`:has()
 
 \`:has()\` matches an element if any of its descendants match the selector argument.
 
+\`\`\`css
+/* Cards that contain images get a different border */
+.card:has(img) {
+  border-color: var(--accent);
+}
+
+/* Cards that do NOT contain images */
+.card:not(:has(img)) {
+  padding: 2rem;
+}
+
+/* Sections that contain at least 3 items */
+.section:has(:nth-child(3)) {
+  column-count: 2;
+}
+\`\`\`
+
 Look at the starter code. There are cards — some with images, some without.
 
 **Task:** Use \`.card:has(img)\` to add a \`border-color\` of \`var(--sf-accent, #6366f1)\` to cards that contain images.`
@@ -83,53 +106,71 @@ Look at the starter code. There are cards — some with images, some without.
 		},
 		{
 			type: 'text',
-			content: `## Conditional Styling — Real-World Patterns
+			content: `## Conditional Styling
 
 \`:has()\` enables powerful conditional patterns that previously required JavaScript:
 
-**Form validation styling:**
-\`\`\`css
-/* Highlight the entire form when any field is invalid */
-form:has(:invalid) {
-  border-color: #ef4444;
-  background: #fef2f2;
-}
-
-/* Show the submit button as disabled when form has errors */
-form:has(:invalid) button[type="submit"] {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* Style a field group when its input is focused */
-.field-group:has(input:focus) {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-\`\`\`
-
-**Conditional layout:**
 \`\`\`css
 /* Change layout when checkbox is checked */
 .container:has(input:checked) {
   background: #f0fdf4;
 }
 
-/* Empty state — show placeholder when list has no items */
-.list:not(:has(li)) {
-  display: grid;
-  place-items: center;
-}
-.list:not(:has(li))::after {
-  content: 'No items yet';
-}
-
-/* Style adjacent sibling — label when its input has focus */
+/* Style label when its input has focus */
 label:has(+ input:focus) {
   color: blue;
-  font-weight: 600;
 }
 \`\`\`
+
+### The Form Validation Pattern
+
+One of the most compelling uses of \`:has()\` is form validation styling — highlighting the entire form or field group when validation fails:
+
+\`\`\`css
+/* Highlight the entire form when any input is invalid */
+form:has(:invalid) {
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+}
+
+/* Style the field wrapper when its input is invalid */
+.field:has(input:invalid) {
+  color: #dc2626;
+}
+
+/* Show the error message only when the input is invalid */
+.field:has(input:invalid) .error-message {
+  display: block;
+}
+
+/* Style the submit button when the form is valid */
+form:has(:invalid) button[type="submit"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* When all fields are valid */
+form:not(:has(:invalid)) button[type="submit"] {
+  background: #22c55e;
+}
+\`\`\`
+
+This replaces JavaScript validation state management for visual feedback. The actual form submission validation should still happen in JavaScript and on the server, but the visual cues are now pure CSS.
+
+### Previous Sibling Selection
+
+\`:has()\` combined with adjacent sibling selectors enables "previous sibling selection" — another long-requested feature:
+
+\`\`\`css
+/* Style the label that comes BEFORE a focused input */
+label:has(+ input:focus) {
+  color: blue;
+  transform: translateY(-20px);
+  font-size: 0.75rem;
+}
+\`\`\`
+
+The \`+\` combinator in \`label:has(+ input:focus)\` means "a label that is directly followed by a focused input." This was impossible before \`:has()\`.
 
 **Task:** Add a rule that changes the \`.controls\` background when the checkbox inside is checked, using \`.controls:has(input:checked)\`.`
 		},
@@ -139,45 +180,63 @@ label:has(+ input:focus) {
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and check/uncheck the checkbox. Observe how :has() dynamically re-evaluates and applies styles without any JavaScript. The browser is monitoring the checkbox state and re-running the :has() selector match in real time. This is what makes :has() so powerful — it turns CSS into a reactive styling language.'
+			content: 'Toggle X-Ray mode and check/uncheck the checkbox. Observe how :has() dynamically re-evaluates and applies styles without any JavaScript.'
 		},
 		{
 			type: 'text',
 			content: `## Combining :has() with Other Selectors
 
-\`:has()\` can be combined with other selectors and pseudo-classes for sophisticated patterns:
+\`:has()\` can be combined with other selectors and pseudo-classes for sophisticated conditional logic:
 
 \`\`\`css
 /* Hover effect only on cards with images */
-.card:has(img):hover { transform: scale(1.02); }
-
-/* Cards with BOTH an image and a badge */
-.card:has(img):has(.badge) { border-width: 3px; }
-
-/* Negation — cards WITHOUT images */
-.card:not(:has(img)) { background: #f1f5f9; }
-
-/* Quantity query — list with only one item */
-.list:has(> :last-child:nth-child(1)) {
-  /* single-item styling */
+.card:has(img):hover {
+  transform: scale(1.02);
 }
 
-/* Sibling combinator inside :has() */
-h2:has(+ p) { margin-bottom: 0.5rem; }  /* h2 followed by a p */
+/* Dark theme for sections containing video */
+section:has(video):not(.light-theme) {
+  background: #0f172a;
+  color: white;
+}
+
+/* Grid layout when a list has more than 2 items */
+.list:has(> :nth-child(3)) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Single-item list styling */
+.list:has(> :first-child:last-child) {
+  text-align: center;
+}
 \`\`\`
 
-**Task:** Add a \`.card:has(img):hover\` rule that applies \`transform: scale(1.02)\` and \`transition: transform 0.2s\`.
+### Using :has() for Quantity Queries
 
-## Realistic Exercise: Form Validation Without JavaScript
+You can use \`:has()\` with \`:nth-child()\` to style containers based on how many children they have:
 
-After completing the checkpoints, consider building a contact form with these CSS-only behaviors:
+\`\`\`css
+/* Container with exactly 1 child */
+.grid:has(> :first-child:last-child) {
+  grid-template-columns: 1fr;
+  max-width: 600px;
+}
 
-1. When the email input is invalid, its \`.field-group\` container shows a red border
-2. When ALL required fields are valid, the submit button changes from gray to blue
-3. When a text area has content (use \`:not(:placeholder-shown)\`), its label moves above it
-4. When the form has ANY focused input, the form header turns blue
+/* Container with 2+ children */
+.grid:has(> :nth-child(2)) {
+  grid-template-columns: repeat(2, 1fr);
+}
 
-All of these can be implemented with \`:has()\` and zero JavaScript. This is the paradigm shift — CSS can now respond to content state, not just interaction state.`
+/* Container with 4+ children */
+.grid:has(> :nth-child(4)) {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+\`\`\`
+
+This lets your layout automatically adapt to the number of items — no JavaScript or CSS classes needed.
+
+**Task:** Add a \`.card:has(img):hover\` rule that applies \`transform: scale(1.02)\` and \`transition: transform 0.2s\`.`
 		},
 		{
 			type: 'checkpoint',
