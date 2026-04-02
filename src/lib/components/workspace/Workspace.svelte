@@ -75,6 +75,18 @@
 		domMutations = [];
 	}
 
+	function handleSolve() {
+		if (lesson.solutionFiles.length > 0) {
+			editor.setFiles(lesson.solutionFiles);
+			// Mark all checkpoints as completed
+			for (const cp of lesson.checkpoints) {
+				lessonState.completeCheckpoint(cp.id);
+			}
+			// Auto-compile the solution
+			compileCurrentFile();
+		}
+	}
+
 	function handleValidateCheckpoint(checkpointId: string) {
 		const checkpoint = lesson.checkpoints.find((cp) => cp.id === checkpointId);
 		if (!checkpoint) return;
@@ -104,7 +116,7 @@
 	<!-- Lesson Panel -->
 	{#if !workspace.layout.lesson.collapsed}
 		<aside class="panel lesson-panel" style="inline-size: {workspace.layout.lesson.width ?? 320}px">
-			<LessonPanel {lesson} onvalidate={handleValidateCheckpoint} trackSlug={lesson.trackId} moduleSlug={lesson.moduleId} />
+			<LessonPanel {lesson} onvalidate={handleValidateCheckpoint} onsolve={handleSolve} trackSlug={lesson.trackId} moduleSlug={lesson.moduleId} />
 		</aside>
 		<PanelResizer
 			direction="horizontal"
