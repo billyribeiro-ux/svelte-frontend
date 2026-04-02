@@ -7,13 +7,14 @@ import { hooksAndMiddlewareModule } from './05-hooks-and-middleware/_module';
 import { ssrAndRenderingModule } from './06-ssr-and-rendering/_module';
 import { environmentAndConfigModule } from './07-environment-and-config/_module';
 import { advancedSvelteKitModule } from './08-advanced-sveltekit/_module';
+import { testingModule } from './09-testing/_module';
 
 export const svelteKitTrack: Track = {
 	id: 'sveltekit',
 	slug: 'sveltekit',
 	title: 'SvelteKit Mastery',
 	description:
-		'Master SvelteKit 2 — routing, data loading, form actions, API routes, hooks, SSR, and deployment.',
+		'Master SvelteKit 2 — routing, data loading, form actions, API routes, hooks, SSR, deployment, and testing.',
 	order: 2,
 	modules: [
 		routingModule,
@@ -23,6 +24,7 @@ export const svelteKitTrack: Track = {
 		hooksAndMiddlewareModule,
 		ssrAndRenderingModule,
 		environmentAndConfigModule,
-		advancedSvelteKitModule
+		advancedSvelteKitModule,
+		testingModule
 	]
 };
