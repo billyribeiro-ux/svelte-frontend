@@ -2,41 +2,19 @@
 	import Icon from '$components/ui/Icon.svelte';
 	import Progress from '$components/ui/Progress.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
+	import { initLessons } from '$lessons/init';
+	import { getAllTracks } from '$lessons/registry';
 
-	const tracks = [
-		{
-			slug: 'svelte-core',
-			title: 'Svelte 5 Core',
-			description: 'Master Svelte 5 fundamentals including runes, reactivity, components, and the template syntax.',
-			modules: 6,
-			lessons: 24,
-			progress: 35
-		},
-		{
-			slug: 'sveltekit',
-			title: 'SvelteKit Essentials',
-			description: 'Build full-stack applications with SvelteKit: routing, load functions, form actions, and deployment.',
-			modules: 5,
-			lessons: 20,
-			progress: 0
-		},
-		{
-			slug: 'foundations',
-			title: 'Web Foundations',
-			description: 'Strengthen your HTML, CSS, and TypeScript foundations before diving into Svelte.',
-			modules: 4,
-			lessons: 16,
-			progress: 80
-		},
-		{
-			slug: 'projects',
-			title: 'Real-World Projects',
-			description: 'Apply your skills by building complete applications from scratch with guided walkthroughs.',
-			modules: 3,
-			lessons: 12,
-			progress: 0
-		}
-	];
+	initLessons();
+
+	const tracks = $derived(getAllTracks().map((track) => ({
+		slug: track.slug,
+		title: track.title,
+		description: track.description,
+		modules: track.modules.length,
+		lessons: track.modules.reduce((sum, m) => sum + m.lessons.length, 0),
+		progress: 0
+	})));
 </script>
 
 <SEOHead seo={{ title: 'Learning Tracks', description: 'Browse interactive learning tracks for Svelte 5, SvelteKit, HTML, CSS, and TypeScript.' }} />
@@ -59,9 +37,7 @@
 						{track.lessons} lessons
 					</span>
 				</div>
-				<div class="track-progress">
-					<Progress value={track.progress} showLabel size="sm" />
-				</div>
+				<Progress value={track.progress} showLabel />
 			</a>
 		{/each}
 	</div>
@@ -89,19 +65,20 @@
 	}
 
 	.track-card {
-		background: var(--sf-bg-1);
-		border: 1px solid var(--sf-bg-3);
-		border-radius: var(--sf-radius-lg);
-		padding: var(--sf-space-5);
 		display: flex;
 		flex-direction: column;
 		gap: var(--sf-space-3);
+		padding: var(--sf-space-5);
+		background: var(--sf-bg-1);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-lg);
 		text-decoration: none;
-		transition: border-color var(--sf-transition-fast), box-shadow var(--sf-transition-fast);
+		transition: border-color var(--sf-transition-fast), box-shadow var(--sf-transition-fast), transform var(--sf-transition-fast);
 
 		&:hover {
 			border-color: var(--sf-accent);
 			box-shadow: var(--sf-shadow-md);
+			transform: translateY(-2px);
 		}
 	}
 
@@ -119,7 +96,6 @@
 		color: var(--sf-text-2);
 		margin: 0;
 		line-height: 1.6;
-		flex: 1;
 	}
 
 	.track-meta {
@@ -133,10 +109,6 @@
 		gap: var(--sf-space-1);
 		font-family: var(--sf-font-sans);
 		font-size: var(--sf-font-size-xs);
-		color: var(--sf-text-2);
-	}
-
-	.track-progress {
-		margin-block-start: var(--sf-space-2);
+		color: var(--sf-text-3);
 	}
 </style>
