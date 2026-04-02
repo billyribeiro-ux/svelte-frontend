@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 	import { EditorState } from '@codemirror/state';
 	import { javascript } from '@codemirror/lang-javascript';
@@ -49,8 +50,10 @@
 			}
 		});
 
+		const initialDoc = untrack(() => value);
+
 		const state = EditorState.create({
-			doc: value,
+			doc: initialDoc,
 			extensions: [
 				lineNumbers(),
 				bracketMatching(),
