@@ -9,105 +9,114 @@ export const asyncComponents: Lesson = {
 	trackId: 'svelte-core',
 	moduleId: 'advanced-patterns',
 	order: 6,
-	estimatedMinutes: 18,
-	concepts: ['svelte5.async.await-expression', 'svelte5.async.top-level-await', 'svelte5.async.boundary-integration'],
-	prerequisites: ['svelte5.control-flow.await-blocks', 'svelte5.advanced.error-boundaries'],
+	estimatedMinutes: 22,
+	concepts: ['svelte5.async.top-level-await', 'svelte5.async.await-expression', 'svelte5.async.boundary'],
+	prerequisites: ['svelte5.runes.state', 'svelte5.runes.derived', 'svelte5.components.basic', 'svelte5.patterns.error-boundaries'],
 
 	content: [
 		{
 			type: 'text',
 			content: `# Async Components & Await Expressions
 
-## Why Async Components Exist
+## The Async Data Problem in UI Frameworks
 
-In traditional Svelte, handling async data requires either {#await} blocks in templates or loading data in SvelteKit's load functions. Both work, but each has limitations:
+Nearly every modern web application fetches data from servers. User profiles, product listings, dashboard metrics, notifications -- all arrive asynchronously. Handling the lifecycle of an async request (loading, success, error) is one of the most common patterns in frontend development, and getting it wrong leads to janky UIs with flickering spinners, missing error states, and race conditions.
 
-**{#await} blocks** handle a single promise inline, but complex data dependencies create deeply nested templates:
+Svelte has historically handled async data with the \`{#await}\` block:
 
 \`\`\`svelte
-{#await fetchUser(id)}
-  <p>Loading user...</p>
+{#await fetchUser(userId)}
+  <p>Loading...</p>
 {:then user}
-  {#await fetchPosts(user.id)}
-    <p>Loading posts...</p>
-  {:then posts}
-    {#await fetchComments(posts[0].id)}
-      <!-- This nesting gets painful -->
-    {/await}
-  {/await}
+  <p>Hello, {user.name}!</p>
+{:catch error}
+  <p>Error: {error.message}</p>
 {/await}
 \`\`\`
 
-**Load functions** work great for page-level data but cannot be used for individual components. A widget that needs its own data has to receive it as a prop from the page.
+This works well for simple cases, but it has limitations. The promise must be created inline or stored in a variable. Multiple related async operations require nested \`{#await}\` blocks. Error handling is local to each block, making it hard to implement a unified error UI. And the async logic lives in the template, mixing data fetching with presentation.
 
-Svelte 5 introduces **async components** — components that can use \`await\` directly in their script section and in template expressions. This makes components self-contained: they fetch their own data, handle their own loading states, and compose naturally.
+Svelte 5 introduces two powerful features that change how we work with async data: **top-level await in components** and the **\`await\` expression in templates**, paired with \`<svelte:boundary>\` for centralized loading and error states.
 
-## The Await Expression
+## Top-Level Await in Svelte 5 Components
 
-The simplest form is the **await expression** — using \`await\` directly in the template:
+Svelte 5 allows you to use \`await\` at the top level of a component's \`<script>\` block. This means a component can pause its initialization until async data is available:
 
 \`\`\`svelte
-<script>
-  let { userId } = $props();
-
-  async function fetchUser(id: string) {
-    const res = await fetch(\\\`/api/users/\\\${id}\\\`);
-    return res.json();
+<!-- UserProfile.svelte -->
+<script lang="ts">
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+    avatar: string;
   }
+
+  const { userId }: { userId: number } = $props();
+
+  const response = await fetch(\`/api/users/\${userId}\`);
+  if (!response.ok) throw new Error(\`Failed to load user: \${response.status}\`);
+  const user: User = await response.json();
 </script>
 
-<h1>{(await fetchUser(userId)).name}</h1>
+<div class="profile">
+  <img src={user.avatar} alt={user.name} />
+  <h2>{user.name}</h2>
+  <p>{user.email}</p>
+</div>
 \`\`\`
 
-When Svelte encounters an \`await\` expression in the template, it suspends rendering of this component until the promise resolves. The parent component (or a \`<svelte:boundary>\`) provides the loading state.
+This component does not render until the fetch completes. The \`user\` variable is guaranteed to be defined when the template executes -- no need for optional chaining, null checks, or loading states within the component itself. The component simply describes what it looks like when data is available.
 
-### How It Differs from {#await}
+This is a fundamental shift in thinking. Instead of a component that manages its own loading and error states internally, you write a component that declares its data dependencies and trusts the parent to handle the pending and error states. The component becomes simpler and more focused.
 
-| Feature | \`{#await promise}\` | \`await\` expression |
-|---------|---------------------|---------------------|
-| Loading UI | Inline in same component | Provided by parent/boundary |
-| Error handling | \`{:catch}\` block | \`<svelte:boundary>\` |
-| Multiple async values | Nested blocks | Flat, natural code |
-| Component suspension | No | Yes |
-| SSR behavior | Streams when ready | Server awaits, then sends |
+### How It Works Under the Hood
 
-## Top-Level Await
+When Svelte encounters a top-level \`await\` in a component, the component becomes an "async component." During rendering, when the component reaches the \`await\` expression, it suspends. The parent (or a boundary) is responsible for showing fallback content while the component is suspended.
 
-Components can also use top-level \`await\` in the script section:
+This is conceptually similar to React's Suspense model, but with Svelte's characteristic simplicity -- you just write \`await\` and it works.
 
-\`\`\`svelte
-<script>
-  let { userId } = $props();
+## SSR Behavior: Server Awaits, Client Hydrates
 
-  const response = await fetch(\\\`/api/users/\\\${userId}\\\`);
-  const user = await response.json();
-</script>
+The SSR behavior of async components is elegant. When rendering on the server, Svelte **actually awaits** the promises. The server pauses rendering of that component until the data arrives, then includes the fully rendered HTML in the response. The client receives complete HTML with all data already present.
 
-<h1>{user.name}</h1>
-<p>{user.email}</p>
+During hydration on the client, Svelte does not re-fetch the data. The component hydrates using the data that was already serialized into the server-rendered page. This means:
+
+1. No loading spinners on initial page load (the HTML is complete)
+2. No duplicate network requests (data is fetched once on the server)
+3. Full SEO support (search engines see the complete content)
+4. Fast Time-to-Content (the browser can display content before JavaScript loads)
+
+\`\`\`
+Server: fetch data -> await -> render HTML -> send to client
+Client: receive HTML -> display immediately -> hydrate (no re-fetch)
 \`\`\`
 
-The entire component suspends until all top-level awaits resolve. This is the cleanest pattern for components that need data before they can render anything meaningful.`
+If the component is navigated to client-side (after initial hydration), the fetch happens on the client and the boundary shows loading state while waiting.`
 		},
 		{
 			type: 'concept-callout',
-			content: 'svelte5.async.await-expression'
+			content: 'svelte5.async.top-level-await'
 		},
 		{
 			type: 'text',
-			content: `## Integration with <svelte:boundary>
+			content: `## <svelte:boundary> for Loading and Error States
 
-Async components need a boundary to display loading and error states. The \`<svelte:boundary>\` element (which we covered in the error boundaries lesson) serves double duty — it catches both errors AND provides loading fallbacks for suspended components:
+The companion to async components is \`<svelte:boundary>\`. This special element catches both errors and pending states from its children, including async components:
 
 \`\`\`svelte
-<!-- Parent.svelte -->
+<!-- App.svelte -->
+<script lang="ts">
+  import UserProfile from './UserProfile.svelte';
+</script>
+
 <svelte:boundary>
-  <UserProfile userId="123" />
+  <UserProfile userId={42} />
 
   {#snippet pending()}
-    <div class="skeleton">
-      <div class="skeleton-avatar"></div>
-      <div class="skeleton-text"></div>
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Loading user profile...</p>
     </div>
   {/snippet}
 
@@ -120,93 +129,274 @@ Async components need a boundary to display loading and error states. The \`<sve
 </svelte:boundary>
 \`\`\`
 
-The \`pending\` snippet renders while the async component is suspended (awaiting data). The \`failed\` snippet renders if the await rejects. This separation of concerns is powerful — the async component focuses on what to render, and the boundary handles loading/error states.
+The \`<svelte:boundary>\` element provides two snippet slots:
+
+- **\`pending()\`** -- Rendered while any child async component is suspended (awaiting data). This is your loading state.
+- **\`failed(error, reset)\`** -- Rendered when any child throws an error (including fetch failures). The \`error\` parameter is the thrown value. The \`reset\` function re-renders the children, retrying the async operation.
+
+This separation is powerful. The async component (\`UserProfile\`) only cares about rendering the user data. The parent (\`App\`) controls the loading and error experience. You can have a single boundary wrapping multiple async components, providing a unified loading experience.
 
 ### Nested Boundaries
 
-You can nest boundaries to create granular loading states:
+Boundaries can be nested for granular control:
 
 \`\`\`svelte
 <svelte:boundary>
-  <!-- Page-level loading -->
-  <header>
+  <!-- Outer boundary for the entire page -->
+  <div class="dashboard">
     <svelte:boundary>
-      <UserNav />
-      {#snippet pending()}<NavSkeleton />{/snippet}
+      <!-- Inner boundary for the header -->
+      <UserHeader userId={42} />
+      {#snippet pending()}<HeaderSkeleton />{/snippet}
+      {#snippet failed(error)}<p>Header failed</p>{/snippet}
     </svelte:boundary>
-  </header>
 
-  <main>
     <svelte:boundary>
-      <Dashboard />
-      {#snippet pending()}<DashboardSkeleton />{/snippet}
+      <!-- Inner boundary for the main content -->
+      <UserStats userId={42} />
+      <UserActivity userId={42} />
+      {#snippet pending()}<StatsSkeleton />{/snippet}
+      {#snippet failed(error, reset)}
+        <p>Stats failed. <button onclick={reset}>Retry</button></p>
+      {/snippet}
     </svelte:boundary>
-  </main>
+  </div>
 
-  {#snippet pending()}<FullPageLoader />{/snippet}
+  {#snippet pending()}<FullPageSpinner />{/snippet}
+  {#snippet failed(error)}<FullPageError {error} />{/snippet}
 </svelte:boundary>
 \`\`\`
 
-Each boundary catches the nearest suspended descendant, allowing independent loading states for different parts of the page.`
-		},
-		{
-			type: 'xray-prompt',
-			content: 'Consider the rendering sequence: parent renders boundary shell, async component starts fetching, pending snippet displays, data arrives, component renders, pending snippet replaced. On the server, the component awaits before sending HTML — no pending state is visible in the initial SSR output.'
-		},
-		{
-			type: 'text',
-			content: `## When to Use Async Components vs {#await} vs Load Functions
+The innermost boundary that wraps a suspended component handles its pending state. If no inner boundary exists, it bubbles up to the outer boundary.
 
-| Scenario | Best Approach | Why |
-|----------|--------------|-----|
-| Page-level data | SvelteKit \`load()\` | Runs before render, type-safe, cacheable |
-| Self-contained widget | Async component | Widget owns its data, reusable anywhere |
-| Single inline promise | \`{#await}\` block | Simple, no boundary needed |
-| Multiple related promises | Async component | Flat code, no nesting |
-| User-triggered fetch | \`{#await}\` with \`$state\` | Promise assigned on interaction |
-
-**The decision framework:**
-
-1. **Is it page data?** → Use SvelteKit load functions
-2. **Is the component reusable and self-contained?** → Use async component
-3. **Is it a simple one-off promise?** → Use {#await}
-4. **Do you need granular loading states?** → Use async component + boundaries
-
-## Lazy Loading with Dynamic Imports
-
-Async components combine powerfully with dynamic \`import()\` for code splitting:
-
-\`\`\`svelte
-<script>
-  const HeavyChart = (await import('./HeavyChart.svelte')).default;
-</script>
-
-<HeavyChart data={chartData} />
-\`\`\`
-
-The chart component's JavaScript is only loaded when this component renders. Combined with a \`<svelte:boundary>\` providing a loading skeleton, you get automatic code splitting with built-in loading states.
-
-## SSR Behavior
-
-On the server, async components work differently than on the client:
-
-- **Server**: Svelte awaits all promises before sending HTML. The client receives fully rendered content. No loading spinner flashes.
-- **Client hydration**: The client sees the already-rendered HTML and hydrates it. No re-fetching needed if data was serialized.
-- **Client navigation**: On subsequent navigations, the pending snippet shows while data loads.
-
-This gives you the best of both worlds: instant server-rendered content on first load, and smooth loading states on client navigations.
-
-**Your task:** Create an async UserCard component that fetches user data and displays it. Wrap it in a \`<svelte:boundary>\` with loading and error states. Use the provided mock API function.`
+**Your task:** Create an async \`UserCard\` component that fetches user data from an API endpoint. Wrap it with \`<svelte:boundary>\` to provide loading and error states. Include a retry button in the error state.`
 		},
 		{
 			type: 'checkpoint',
-			content: 'cp-async-components-1'
+			content: 'cp-1'
 		},
 		{
 			type: 'text',
-			content: `## Summary
+			content: `## The await Expression in Templates
 
-Async components and await expressions let Svelte components own their data fetching, creating self-contained widgets that compose naturally. Combined with \`<svelte:boundary>\` for loading and error states, they eliminate the need for complex state management around async operations. Use them for reusable widgets, code-split components, and any situation where a component needs to fetch its own data. For page-level data, continue using SvelteKit's load functions — they provide server-side execution, type safety, and caching that async components do not.`
+In addition to top-level await in scripts, Svelte 5 supports the \`await\` keyword directly in template expressions. This allows you to await promises inline:
+
+\`\`\`svelte
+<script lang="ts">
+  async function fetchUserName(id: number): Promise<string> {
+    const res = await fetch(\`/api/users/\${id}\`);
+    const user = await res.json();
+    return user.name;
+  }
+
+  const { userId }: { userId: number } = $props();
+</script>
+
+<p>Hello, {await fetchUserName(userId)}!</p>
+\`\`\`
+
+The \`await\` expression in the template suspends the component just like top-level await. The boundary above it handles the pending and error states.
+
+### Comparison: {#await} Blocks vs await Expressions vs Top-Level Await
+
+Svelte now offers three ways to handle async data. Here is when to use each:
+
+| Feature | \`{#await promise}\` block | Template \`{await expr}\` | Top-level \`await\` |
+|---|---|---|---|
+| Loading state | Inline in block | Via \`<svelte:boundary>\` | Via \`<svelte:boundary>\` |
+| Error state | Inline in block | Via \`<svelte:boundary>\` | Via \`<svelte:boundary>\` |
+| Suspends component | No | Yes | Yes |
+| SSR behavior | Re-runs on client | Server awaits | Server awaits |
+| Best for | Self-contained widgets | Inline async values | Component initialization |
+
+**\`{#await}\` blocks** are best when you want the loading and error states co-located with the data display. They are self-contained -- the component handles everything internally. Use them for optional data that should not block the entire component from rendering.
+
+**Template \`await\` expressions** are best for inline async values where you want the boundary to handle loading/error. They keep the template concise and push loading UX to the boundary.
+
+**Top-level \`await\`** is best when the component's entire existence depends on the data. If the component cannot render anything meaningful without the data, top-level await is the cleanest approach.
+
+### Reactive Async with $derived
+
+You can combine \`$derived\` with async functions to create reactive async values that re-fetch when dependencies change:
+
+\`\`\`svelte
+<script lang="ts">
+  let userId = $state(1);
+
+  async function fetchUser(id: number) {
+    const res = await fetch(\`/api/users/\${id}\`);
+    if (!res.ok) throw new Error('Failed to fetch');
+    return res.json();
+  }
+
+  // Re-fetches whenever userId changes
+  const userPromise = $derived(fetchUser(userId));
+</script>
+
+<button onclick={() => userId++}>Next User</button>
+
+{#await userPromise}
+  <p>Loading user {userId}...</p>
+{:then user}
+  <p>{user.name} ({user.email})</p>
+{:catch error}
+  <p>Error: {error.message}</p>
+{/await}
+\`\`\`
+
+When \`userId\` changes, \`$derived\` re-evaluates \`fetchUser(userId)\`, creating a new promise. The \`{#await}\` block detects the new promise and transitions back to the loading state. This is a powerful pattern for paginated data, search-as-you-type, and any UI where parameters change the data source.
+
+**Task:** Add navigation buttons (Previous / Next) to cycle through user IDs. Use \`$derived\` to create a reactive promise that re-fetches when the ID changes. Wrap the user display in a \`<svelte:boundary>\` with appropriate loading and error snippets.`
+		},
+		{
+			type: 'checkpoint',
+			content: 'cp-2'
+		},
+		{
+			type: 'xray-prompt',
+			content: `Analyze this component:
+
+\`\`\`svelte
+<script lang="ts">
+  let searchQuery = $state('');
+
+  async function search(query: string) {
+    const res = await fetch(\`/api/search?q=\${query}\`);
+    return res.json();
+  }
+
+  const results = $derived(search(searchQuery));
+</script>
+
+<input bind:value={searchQuery} />
+
+{#await results}
+  <p>Searching...</p>
+{:then items}
+  {#each items as item}
+    <p>{item.name}</p>
+  {/each}
+{:catch error}
+  <p>Error: {error.message}</p>
+{/await}
+\`\`\`
+
+What happens when the user types quickly? Identify the race condition. Explain how multiple rapid keystrokes create overlapping requests and how the results might arrive out of order. Propose two different solutions: one using debouncing and one using an AbortController pattern.`
+		},
+		{
+			type: 'text',
+			content: `## Error Handling Patterns
+
+### Typed Errors
+
+When using top-level await or the await expression, thrown errors propagate to the nearest \`<svelte:boundary>\`. You can throw custom error types for better error handling:
+
+\`\`\`typescript
+// errors.ts
+export class NotFoundError extends Error {
+  constructor(resource: string, id: string | number) {
+    super(\`\${resource} with id \${id} not found\`);
+    this.name = 'NotFoundError';
+  }
+}
+
+export class NetworkError extends Error {
+  constructor() {
+    super('Network request failed. Please check your connection.');
+    this.name = 'NetworkError';
+  }
+}
+\`\`\`
+
+\`\`\`svelte
+<!-- In the boundary -->
+<svelte:boundary>
+  <UserProfile userId={42} />
+
+  {#snippet failed(error, reset)}
+    {#if error instanceof NotFoundError}
+      <p>User not found. They may have been deleted.</p>
+    {:else if error instanceof NetworkError}
+      <p>Network error. <button onclick={reset}>Retry</button></p>
+    {:else}
+      <p>Unexpected error: {error.message}</p>
+    {/if}
+  {/snippet}
+</svelte:boundary>
+\`\`\`
+
+### Retry with Exponential Backoff
+
+The \`reset\` function provided by the boundary re-renders children from scratch, which re-triggers top-level awaits. You can build a retry mechanism with backoff:
+
+\`\`\`svelte
+<script lang="ts">
+  import UserProfile from './UserProfile.svelte';
+
+  let retryCount = $state(0);
+</script>
+
+<svelte:boundary>
+  {#key retryCount}
+    <UserProfile userId={42} />
+  {/key}
+
+  {#snippet pending()}
+    <p>Loading{retryCount > 0 ? \` (retry \${retryCount})\` : ''}...</p>
+  {/snippet}
+
+  {#snippet failed(error, reset)}
+    <div class="error">
+      <p>Failed: {error.message}</p>
+      {#if retryCount < 3}
+        <button onclick={() => { retryCount++; reset(); }}>
+          Retry ({3 - retryCount} attempts remaining)
+        </button>
+      {:else}
+        <p>Maximum retries exceeded. Please refresh the page.</p>
+      {/if}
+    </div>
+  {/snippet}
+</svelte:boundary>
+\`\`\`
+
+## Combining Multiple Async Components
+
+When multiple async components are children of the same boundary, the boundary shows the pending state until ALL children have resolved:
+
+\`\`\`svelte
+<svelte:boundary>
+  <!-- Both must resolve before content shows -->
+  <UserHeader userId={42} />
+  <UserActivity userId={42} />
+
+  {#snippet pending()}
+    <p>Loading complete profile...</p>
+  {/snippet}
+</svelte:boundary>
+\`\`\`
+
+If you want independent loading (each component shows as soon as its data arrives), wrap each in its own boundary:
+
+\`\`\`svelte
+<svelte:boundary>
+  <UserHeader userId={42} />
+  {#snippet pending()}<HeaderSkeleton />{/snippet}
+</svelte:boundary>
+
+<svelte:boundary>
+  <UserActivity userId={42} />
+  {#snippet pending()}<ActivitySkeleton />{/snippet}
+</svelte:boundary>
+\`\`\`
+
+## Summary
+
+Svelte 5 provides three complementary approaches to async data. Top-level \`await\` in component scripts lets a component declare its data dependencies and suspend until they resolve. Template \`await\` expressions provide inline async values. Both work with \`<svelte:boundary>\` which centralizes loading and error states through \`pending()\` and \`failed(error, reset)\` snippets. During SSR, the server awaits all promises and sends complete HTML -- the client hydrates without re-fetching. The classic \`{#await}\` block remains available for self-contained async handling where you want loading and error states co-located with the data display. Use \`$derived\` with async functions to create reactive promises that re-fetch when dependencies change, and consider debouncing or AbortController for rapid-fire scenarios like search inputs.`
+		},
+		{
+			type: 'concept-callout',
+			content: 'svelte5.async.boundary'
 		}
 	],
 
@@ -216,70 +406,170 @@ Async components and await expressions let Svelte components own their data fetc
 			path: '/App.svelte',
 			language: 'svelte',
 			content: `<script lang="ts">
-  // Mock API function — simulates network request
-  async function fetchUser(id: number) {
-    await new Promise(r => setTimeout(r, 1500));
-    if (id === 0) throw new Error('User not found');
+  import UserCard from './UserCard.svelte';
 
-    const users: Record<number, { name: string; email: string; role: string; avatar: string }> = {
-      1: { name: 'Alice Chen', email: 'alice@example.com', role: 'Engineer', avatar: 'AC' },
-      2: { name: 'Bob Smith', email: 'bob@example.com', role: 'Designer', avatar: 'BS' },
-      3: { name: 'Carol Diaz', email: 'carol@example.com', role: 'Product Manager', avatar: 'CD' },
-    };
-    return users[id] ?? { name: 'Unknown', email: 'n/a', role: 'n/a', avatar: '??' };
-  }
+  let userId = $state(1);
 
-  let selectedId = $state(1);
+  // TODO: Add Previous/Next navigation for userId
 </script>
 
 <div class="app">
-  <div class="controls">
-    <h2>Select a User</h2>
-    <div class="buttons">
-      <button class:active={selectedId === 1} onclick={() => selectedId = 1}>Alice</button>
-      <button class:active={selectedId === 2} onclick={() => selectedId = 2}>Bob</button>
-      <button class:active={selectedId === 3} onclick={() => selectedId = 3}>Carol</button>
-      <button class:active={selectedId === 0} onclick={() => selectedId = 0}>Invalid (Error)</button>
-    </div>
+  <h1>Async User Profile</h1>
+
+  <div class="nav-buttons">
+    <!-- TODO: Previous and Next buttons to change userId -->
+    <button disabled>Previous</button>
+    <span class="user-id">User #{userId}</span>
+    <button disabled>Next</button>
   </div>
 
-  <!-- TODO: Wrap in <svelte:boundary> with pending and failed snippets -->
-  <!-- TODO: Create an async user card that fetches and displays user data -->
-  <!-- For now, just show a placeholder: -->
-  <div class="card">
-    <p>Replace this with an async component that fetches user {selectedId}</p>
-  </div>
+  <!-- TODO: Wrap UserCard in <svelte:boundary> -->
+  <!-- TODO: Add {#snippet pending()} for loading state -->
+  <!-- TODO: Add {#snippet failed(error, reset)} for error state with retry -->
+  <UserCard {userId} />
 </div>
 
 <style>
-  .app { max-width: 500px; margin: 2rem auto; font-family: system-ui; }
-  .controls { margin-bottom: 2rem; }
-  h2 { margin-bottom: 1rem; color: #1f2937; }
-  .buttons { display: flex; gap: 0.5rem; }
-  .buttons button {
-    padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 6px;
-    background: white; cursor: pointer; font-size: 14px;
+  .app {
+    font-family: system-ui, sans-serif;
+    padding: 2rem;
+    max-width: 500px;
+    margin: 0 auto;
   }
-  .buttons button.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+
+  h1 {
+    color: #1e293b;
+  }
+
+  .nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .nav-buttons button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+
+  .nav-buttons button:hover:not(:disabled) {
+    background: #f1f5f9;
+  }
+
+  .nav-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .user-id {
+    font-weight: 600;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    color: #64748b;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .error {
+    text-align: center;
+    padding: 2rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #991b1b;
+  }
+
+  .error button {
+    margin-top: 1rem;
+    padding: 0.5rem 1.5rem;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+
+  .error button:hover {
+    background: #dc2626;
+  }
+</style>`
+		},
+		{
+			name: 'UserCard.svelte',
+			path: '/UserCard.svelte',
+			language: 'svelte',
+			content: `<script lang="ts">
+  // TODO: Define a User interface with id, name, email, phone, website
+  // TODO: Accept userId prop
+  // TODO: Use top-level await to fetch user from https://jsonplaceholder.typicode.com/users/{userId}
+  // TODO: Throw an error if the response is not ok
+</script>
+
+<!-- TODO: Display user information in a card layout -->
+<div class="card">
+  <p>Replace this with user data</p>
+</div>
+
+<style>
   .card {
-    padding: 2rem; background: white; border: 1px solid #e5e7eb;
-    border-radius: 12px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
-  .avatar {
-    width: 64px; height: 64px; border-radius: 50%; background: #4f46e5;
-    color: white; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700; margin-bottom: 1rem;
+
+  .card h2 {
+    margin-top: 0;
+    color: #1e293b;
   }
-  .name { font-size: 1.25rem; font-weight: 600; color: #1f2937; }
-  .email { color: #6b7280; font-size: 14px; }
-  .role { color: #4f46e5; font-size: 14px; font-weight: 500; margin-top: 0.5rem; }
-  .skeleton { animation: pulse 1.5s ease-in-out infinite; }
-  .skeleton-circle { width: 64px; height: 64px; border-radius: 50%; background: #e5e7eb; margin-bottom: 1rem; }
-  .skeleton-line { height: 16px; background: #e5e7eb; border-radius: 4px; margin-bottom: 0.5rem; }
-  .skeleton-line.short { width: 60%; }
-  .error { text-align: center; color: #991b1b; }
-  .error button { margin-top: 1rem; padding: 0.5rem 1rem; background: #fee2e2; border: none; border-radius: 6px; color: #991b1b; cursor: pointer; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .card .field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    color: #475569;
+    font-size: 0.9rem;
+  }
+
+  .card .field .label {
+    font-weight: 600;
+    color: #64748b;
+    min-width: 60px;
+  }
+
+  .card .website a {
+    color: #3b82f6;
+    text-decoration: none;
+  }
+
+  .card .website a:hover {
+    text-decoration: underline;
+  }
 </style>`
 		}
 	],
@@ -290,57 +580,44 @@ Async components and await expressions let Svelte components own their data fetc
 			path: '/App.svelte',
 			language: 'svelte',
 			content: `<script lang="ts">
-  async function fetchUser(id: number) {
-    await new Promise(r => setTimeout(r, 1500));
-    if (id === 0) throw new Error('User not found');
+  import UserCard from './UserCard.svelte';
 
-    const users: Record<number, { name: string; email: string; role: string; avatar: string }> = {
-      1: { name: 'Alice Chen', email: 'alice@example.com', role: 'Engineer', avatar: 'AC' },
-      2: { name: 'Bob Smith', email: 'bob@example.com', role: 'Designer', avatar: 'BS' },
-      3: { name: 'Carol Diaz', email: 'carol@example.com', role: 'Product Manager', avatar: 'CD' },
-    };
-    return users[id] ?? { name: 'Unknown', email: 'n/a', role: 'n/a', avatar: '??' };
-  }
-
-  let selectedId = $state(1);
+  let userId = $state(1);
 </script>
 
 <div class="app">
-  <div class="controls">
-    <h2>Select a User</h2>
-    <div class="buttons">
-      <button class:active={selectedId === 1} onclick={() => selectedId = 1}>Alice</button>
-      <button class:active={selectedId === 2} onclick={() => selectedId = 2}>Bob</button>
-      <button class:active={selectedId === 3} onclick={() => selectedId = 3}>Carol</button>
-      <button class:active={selectedId === 0} onclick={() => selectedId = 0}>Invalid (Error)</button>
-    </div>
+  <h1>Async User Profile</h1>
+
+  <div class="nav-buttons">
+    <button
+      disabled={userId <= 1}
+      onclick={() => userId--}
+    >
+      Previous
+    </button>
+    <span class="user-id">User #{userId}</span>
+    <button
+      disabled={userId >= 10}
+      onclick={() => userId++}
+    >
+      Next
+    </button>
   </div>
 
-  {#key selectedId}
+  {#key userId}
     <svelte:boundary>
-      {#await fetchUser(selectedId)}
-        <div class="card skeleton">
-          <div class="skeleton-circle"></div>
-          <div class="skeleton-line"></div>
-          <div class="skeleton-line short"></div>
+      <UserCard {userId} />
+
+      {#snippet pending()}
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Loading user {userId}...</p>
         </div>
-      {:then user}
-        <div class="card">
-          <div class="avatar">{user.avatar}</div>
-          <div class="name">{user.name}</div>
-          <div class="email">{user.email}</div>
-          <div class="role">{user.role}</div>
-        </div>
-      {:catch error}
-        <div class="card error">
-          <p>Failed: {error.message}</p>
-          <button onclick={() => selectedId = 1}>Try Alice</button>
-        </div>
-      {/await}
+      {/snippet}
 
       {#snippet failed(error, reset)}
-        <div class="card error">
-          <p>Component error: {error instanceof Error ? error.message : 'Unknown'}</p>
+        <div class="error">
+          <p>Failed to load user: {error.message}</p>
           <button onclick={reset}>Retry</button>
         </div>
       {/snippet}
@@ -349,58 +626,212 @@ Async components and await expressions let Svelte components own their data fetc
 </div>
 
 <style>
-  .app { max-width: 500px; margin: 2rem auto; font-family: system-ui; }
-  .controls { margin-bottom: 2rem; }
-  h2 { margin-bottom: 1rem; color: #1f2937; }
-  .buttons { display: flex; gap: 0.5rem; }
-  .buttons button {
-    padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 6px;
-    background: white; cursor: pointer; font-size: 14px;
+  .app {
+    font-family: system-ui, sans-serif;
+    padding: 2rem;
+    max-width: 500px;
+    margin: 0 auto;
   }
-  .buttons button.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+
+  h1 {
+    color: #1e293b;
+  }
+
+  .nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .nav-buttons button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+
+  .nav-buttons button:hover:not(:disabled) {
+    background: #f1f5f9;
+  }
+
+  .nav-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .user-id {
+    font-weight: 600;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    color: #64748b;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .error {
+    text-align: center;
+    padding: 2rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #991b1b;
+  }
+
+  .error button {
+    margin-top: 1rem;
+    padding: 0.5rem 1.5rem;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+
+  .error button:hover {
+    background: #dc2626;
+  }
+</style>`
+		},
+		{
+			name: 'UserCard.svelte',
+			path: '/UserCard.svelte',
+			language: 'svelte',
+			content: `<script lang="ts">
+  interface User {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    website: string;
+  }
+
+  const { userId }: { userId: number } = $props();
+
+  const response = await fetch(\`https://jsonplaceholder.typicode.com/users/\${userId}\`);
+  if (!response.ok) throw new Error(\`User not found (status \${response.status})\`);
+  const user: User = await response.json();
+</script>
+
+<div class="card">
+  <h2>{user.name}</h2>
+  <div class="field">
+    <span class="label">Email</span>
+    <span>{user.email}</span>
+  </div>
+  <div class="field">
+    <span class="label">Phone</span>
+    <span>{user.phone}</span>
+  </div>
+  <div class="field website">
+    <span class="label">Web</span>
+    <a href="https://{user.website}" target="_blank" rel="noopener">
+      {user.website}
+    </a>
+  </div>
+</div>
+
+<style>
   .card {
-    padding: 2rem; background: white; border: 1px solid #e5e7eb;
-    border-radius: 12px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
-  .avatar {
-    width: 64px; height: 64px; border-radius: 50%; background: #4f46e5;
-    color: white; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700; margin-bottom: 1rem;
+
+  .card h2 {
+    margin-top: 0;
+    color: #1e293b;
   }
-  .name { font-size: 1.25rem; font-weight: 600; color: #1f2937; }
-  .email { color: #6b7280; font-size: 14px; }
-  .role { color: #4f46e5; font-size: 14px; font-weight: 500; margin-top: 0.5rem; }
-  .skeleton { animation: pulse 1.5s ease-in-out infinite; }
-  .skeleton-circle { width: 64px; height: 64px; border-radius: 50%; background: #e5e7eb; margin-bottom: 1rem; }
-  .skeleton-line { height: 16px; background: #e5e7eb; border-radius: 4px; margin-bottom: 0.5rem; }
-  .skeleton-line.short { width: 60%; }
-  .error { text-align: center; color: #991b1b; }
-  .error button { margin-top: 1rem; padding: 0.5rem 1rem; background: #fee2e2; border: none; border-radius: 6px; color: #991b1b; cursor: pointer; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .card .field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    color: #475569;
+    font-size: 0.9rem;
+  }
+
+  .card .field .label {
+    font-weight: 600;
+    color: #64748b;
+    min-width: 60px;
+  }
+
+  .card .website a {
+    color: #3b82f6;
+    text-decoration: none;
+  }
+
+  .card .website a:hover {
+    text-decoration: underline;
+  }
 </style>`
 		}
 	],
 
 	checkpoints: [
 		{
-			id: 'cp-async-components-1',
-			description: 'Create an async user card with boundary-based loading and error handling',
+			id: 'cp-1',
+			description: 'Create an async UserCard component with top-level await and wrap it in svelte:boundary',
 			validation: {
 				type: 'code-pattern',
 				config: {
 					patterns: [
+						{ type: 'contains', value: 'await fetch' },
 						{ type: 'contains', value: 'svelte:boundary' },
-						{ type: 'contains', value: 'await' },
-						{ type: 'contains', value: 'fetchUser' }
+						{ type: 'contains', value: 'pending' }
 					]
 				}
 			},
 			hints: [
-				'Wrap the card area in <svelte:boundary> with {#snippet failed(error, reset)} for error recovery.',
-				'Use {#await fetchUser(selectedId)} with {:then user} and {:catch error} blocks to handle the async data.',
-				'Add {#key selectedId} around the boundary so it resets when the selected user changes, triggering a fresh fetch.'
+				'In UserCard.svelte, use `const response = await fetch(\`/api/users/${userId}\`)` at the top level of the script. Check `response.ok` and throw an error if the request failed. Then `const user = await response.json()`.',
+				'In App.svelte, wrap `<UserCard {userId} />` with `<svelte:boundary>`. Add `{#snippet pending()}` with a loading spinner and `{#snippet failed(error, reset)}` with an error message and retry button.',
+				'The `reset` function in the `failed` snippet re-renders the boundary children, which re-triggers the top-level await. Call it with `<button onclick={reset}>Retry</button>`. Wrap the boundary in `{#key userId}` to force re-render when the ID changes.'
 			],
-			conceptsTested: ['svelte5.async.await-expression', 'svelte5.async.boundary-integration']
+			conceptsTested: ['svelte5.async.top-level-await', 'svelte5.async.boundary']
+		},
+		{
+			id: 'cp-2',
+			description: 'Add Previous/Next navigation that reactively changes the displayed user',
+			validation: {
+				type: 'code-pattern',
+				config: {
+					patterns: [
+						{ type: 'contains', value: 'userId' },
+						{ type: 'contains', value: 'onclick' },
+						{ type: 'contains', value: '{#key' }
+					]
+				}
+			},
+			hints: [
+				'Create `let userId = $state(1)` and add Previous/Next buttons: `<button onclick={() => userId--} disabled={userId <= 1}>Previous</button>` and `<button onclick={() => userId++} disabled={userId >= 10}>Next</button>`.',
+				'Wrap the `<svelte:boundary>` in `{#key userId}` so that changing the userId destroys and recreates the UserCard component, triggering a new fetch.',
+				'Display the current user ID between the buttons: `<span>User #{userId}</span>`. The `{#key}` block ensures the boundary resets its state (including error state) when the userId changes.'
+			],
+			conceptsTested: ['svelte5.async.top-level-await', 'svelte5.async.await-expression']
 		}
 	]
 };
