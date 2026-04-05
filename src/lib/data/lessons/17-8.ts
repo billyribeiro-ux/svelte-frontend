@@ -157,6 +157,7 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
         <span class="dot red"></span>
         {'{@html userInput}'} — DANGER
       </div>
+      <!-- Intentional: this lesson demonstrates the XSS risk of @html on untrusted input -->
       <div class="xss-result">{@html userInput}</div>
       <p class="caption">Never use on untrusted input. Demo shows rendered result; malicious tags may execute in a real browser.</p>
     </div>
@@ -166,6 +167,7 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
         <span class="dot yellow"></span>
         {'{@html sanitize(userInput)}'} — SAFE
       </div>
+      <!-- Intentional: shows @html is safe ONLY after sanitization (use DOMPurify in production) -->
       <div class="xss-result">{@html sanitized}</div>
       <p class="caption">OK when sanitized (use DOMPurify in production).</p>
     </div>

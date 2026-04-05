@@ -50,7 +50,7 @@ This lesson provides a side-by-side comparison of every important change called 
 <h1>Legacy vs Modern Svelte</h1>
 
 <nav class="tabs">
-  {#each ['lifecycle', 'state', 'slots', 'events', 'modern'] as tab}
+  {#each ['lifecycle', 'state', 'slots', 'events', 'modern'] as tab (tab)}
     <button
       class:active={activeTab === tab}
       onclick={() => activeTab = tab as typeof activeTab}

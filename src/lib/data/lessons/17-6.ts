@@ -194,7 +194,9 @@ Snapshots solve a different problem: preserving form input, scroll position, or 
         class="modal"
         style="background: {selectedPhoto.color}"
         onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => { if (e.key === 'Escape') closePhoto(); }}
         role="dialog"
+        tabindex="-1"
       >
         <button class="close" onclick={closePhoto}>x</button>
         <h3>{selectedPhoto.title}</h3>

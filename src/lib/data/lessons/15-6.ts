@@ -124,7 +124,7 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
 
 <section>
   <h2>Spring — Follow Cursor</h2>
-  <div class="canvas" onmousemove={handleMouseMove}>
+  <div class="canvas" role="application" onmousemove={handleMouseMove}>
     <div
       class="follower"
       style="transform: translate({springX.current}px, {springY.current}px)"

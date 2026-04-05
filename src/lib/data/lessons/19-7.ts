@@ -31,8 +31,8 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
   let errors = $state<Record<string, string>>({});
 
   // Focus management
-  let nameInput: HTMLInputElement;
-  let successMessage: HTMLDivElement;
+  let nameInput = $state<HTMLInputElement | undefined>();
+  let successMessage = $state<HTMLDivElement | undefined>();
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -201,7 +201,7 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
         bind:this={successMessage}
         class="success"
         role="alert"
-        tabindex={-1}
+        tabindex="-1"
       >
         <p>Message sent successfully!</p>
         <button onclick={resetForm}>Send another</button>
@@ -267,7 +267,6 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
     {#if modalOpen}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="modal-backdrop" onclick={closeModal} onkeydown={handleModalKeydown}>
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           bind:this={modalEl}
           class="modal"

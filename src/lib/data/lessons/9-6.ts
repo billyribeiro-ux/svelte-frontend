@@ -168,6 +168,7 @@ This lesson builds three editors (rich HTML, plain text, mini-markdown) and a fu
     <h2>3. Mini markdown live preview</h2>
     <div class="split">
       <textarea bind:value={markdownish} rows="6"></textarea>
+      <!-- Intentional: {@html} is safe here because \`rendered\` is built from user input that we escaped ourselves in renderMarkdown() -->
       <div class="preview">{@html rendered}</div>
     </div>
     <p class="hint">
