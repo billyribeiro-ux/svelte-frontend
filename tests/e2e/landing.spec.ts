@@ -4,8 +4,10 @@ test.describe('landing page', () => {
 	test('renders hero, stats, and phase cards', async ({ page }) => {
 		await page.goto('/');
 
-		// Hero heading
-		await expect(page.getByRole('heading', { level: 1 })).toContainText('Svelte PE7 Mastery');
+		// Hero heading (scoped to <main> — the sidebar also has an <h1> with the app title)
+		await expect(
+			page.getByRole('main').getByRole('heading', { level: 1 })
+		).toContainText('Svelte PE7 Mastery');
 
 		// Subtitle / method
 		await expect(
