@@ -121,17 +121,23 @@ This lesson covers for, for...of, and while loops in script, plus a recursive co
 		{
 			filename: 'FileTree.svelte',
 			content: `<script>
+  // Import ourselves by name — the modern replacement for <svelte:self>.
+  // This is the April 2026 best practice: plain imports work anywhere,
+  // type-check cleanly, and make the recursion explicit.
+  import Self from './FileTree.svelte';
+
   let { items = [], depth = 0 } = $props();
 </script>
 
-<!-- Recursive component: renders itself for child folders -->
-{#each items as item}
+<!-- Recursive component: renders itself for child folders.
+     Use a keyed each block so Svelte can surgically update the DOM. -->
+{#each items as item (item.name + '-' + depth)}
   <div class="item" style="padding-left: {depth * 16}px">
     {#if item.type === 'folder'}
       <span class="folder">📁 {item.name}/</span>
       {#if item.children}
         <!-- Base case: recursion stops when there are no children -->
-        <svelte:self items={item.children} depth={depth + 1} />
+        <Self items={item.children} depth={depth + 1} />
       {/if}
     {:else}
       <span class="file">📄 {item.name}</span>

@@ -10,6 +10,8 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit gives you three rendering strategies — SSR (Server-Side Rendering), prerendering (static generation at build time), and CSR (Client-Side Rendering) — and you can mix them per route. The key architectural decision is matching each route to the right strategy: prerender blog posts for maximum speed, SSR search pages for dynamic content, and CSR for authenticated dashboards that don't need SEO.
 
+SEO note (kit@2.54+): when you enable experimental.handleRenderingErrors in svelte.config.js, SSR rendering errors are caught and routed to the nearest +error.svelte page instead of producing a generic 500 response. This means your crawlable error pages can contain proper metadata, headings, and navigation — a significant SEO win for high-traffic sites where occasional render failures are inevitable.
+
 This lesson teaches you to think architecturally about rendering, using SvelteKit's +page.ts exports to configure each route optimally.`,
 	objectives: [
 		'Compare SSR, prerendering, and CSR and when to use each rendering strategy',

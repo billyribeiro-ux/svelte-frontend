@@ -10,11 +10,14 @@ const lesson: LessonData = {
 	},
 	description: `When working with large datasets or integrating with external libraries, Svelte 5's default deep reactivity can introduce unnecessary overhead. $state.raw creates state that is only reactive at the top level — reassignments trigger updates, but mutations to properties within the object do not.
 
+The official Best Practices guide calls this out explicitly: use $state.raw for API responses that are reassigned wholesale rather than mutated. That's the most common case in SvelteKit apps — fetch returns a fresh object, you assign it once, you never mutate nested fields. See lessons 12-3, 12-6, and 12-7 for real-world examples in fetch and load functions.
+
 $state.snapshot takes a reactive proxy and returns a plain, non-reactive copy of its current value. This is essential when passing data to external libraries (like D3, chart libraries, or JSON.stringify) that cannot work with Svelte's reactive proxies.
 
 In this lesson, you'll compare $state vs $state.raw for a large dataset, and use $state.snapshot to safely export reactive data for external consumption.`,
 	objectives: [
 		'Understand when $state.raw is preferable over $state for performance',
+		'Apply $state.raw to API responses (the #1 best-practice use case)',
 		'Use $state.snapshot to extract plain data from reactive proxies',
 		'Compare mutation behaviour between $state and $state.raw',
 		'Integrate reactive Svelte data with external libraries safely'

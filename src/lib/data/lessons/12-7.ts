@@ -10,7 +10,7 @@ const lesson: LessonData = {
 	},
 	description: `Server load functions (+page.server.ts) run exclusively on the server. They have access to server-only resources like databases, environment variables, cookies, and file systems. The data they return is serialized and sent to the client, so only JSON-serializable values can be returned.
 
-This separation ensures sensitive operations like database queries and API key usage never leak to the browser.`,
+This separation ensures sensitive operations like database queries and API key usage never leak to the browser. When the page component receives the data via $props(), the payload is already a plain object — no need to wrap it in $state. Use $derived() to compute view state from data, and $state.raw() only when you need a local editable copy that's reassigned wholesale.`,
 	objectives: [
 		'Write a server load function in +page.server.ts',
 		'Access cookies, environment variables, and server-only resources',

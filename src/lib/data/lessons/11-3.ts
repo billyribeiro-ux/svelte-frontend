@@ -10,12 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `Dynamic routes let a single page component handle multiple URLs. Wrapping a folder name in brackets — like [slug] — creates a parameter that captures that part of the URL. SvelteKit passes these parameters to your load function and makes them available via the page state.
 
-You can also use rest parameters ([...rest]) to match multiple segments and optional parameters ([[optional]]) for flexible URL patterns.`,
+You can also use rest parameters ([...rest]) to match multiple segments and optional parameters ([[optional]]) for flexible URL patterns. Matchers (e.g. [id=integer]) constrain what strings are allowed.
+
+As of kit@2.55, params constrained by matchers are type-narrowed automatically in $app/types. Import RouteParams<'/blog/[slug]'> and LayoutParams to get fully typed params in load functions and components — no manual type assertions needed.`,
 	objectives: [
 		'Create dynamic routes with [param] folder naming',
 		'Access route parameters in load functions and page components',
 		'Use rest parameters [...rest] to match multiple URL segments',
-		'Understand optional parameters with [[optional]] syntax'
+		'Understand optional parameters with [[optional]] syntax',
+		'Use RouteParams and matchers for type-safe params (kit@2.55)'
 	],
 	files: [
 		{
@@ -117,12 +120,49 @@ You can also use rest parameters ([...rest]) to match multiple segments and opti
 // /        → params.lang = undefined
 // /en      → params.lang = "en"
 
-// You can also match specific patterns:
-// [id=integer] with a param matcher
+// Param matcher — constrains [id] to integers only
 // src/params/integer.ts:
-export function match(param: string) {
+import type { ParamMatcher } from '@sveltejs/kit';
+
+export const match: ParamMatcher = (param) => {
   return /^\\d+$/.test(param);
-}\`}</pre>
+};\`}</pre>
+  </section>
+
+  <section>
+    <h2>Type-Safe Params with $app/types (kit@2.55)</h2>
+    <p>
+      As of SvelteKit 2.55, params constrained by matchers are type-narrowed
+      automatically. Import <code>RouteParams</code> to get fully typed params.
+    </p>
+    <pre>{\`// src/routes/blog/[slug]/+page.ts
+import type { RouteParams } from '$app/types';
+import type { PageLoad } from './$types';
+
+// RouteParams<'/blog/[slug]'> resolves to { slug: string }
+type BlogParams = RouteParams<'/blog/[slug]'>;
+
+export const load: PageLoad = async ({ params }) => {
+  // params.slug is typed as string — no casting needed
+  const post: BlogParams = params;
+  return { slug: post.slug };
+};\`}</pre>
+    <pre>{\`// With a matcher, the type is narrowed further.
+// src/params/slug.ts:
+import type { ParamMatcher } from '@sveltejs/kit';
+
+export const match = ((param): param is \\\`\${string}-\${string}\\\` => {
+  return /^[a-z]+(-[a-z]+)+$/.test(param);
+}) satisfies ParamMatcher;
+
+// src/routes/blog/[slug=slug]/+page.ts
+// params.slug is now narrowed to \\\`\${string}-\${string}\\\`
+// — enforced at compile time AND runtime.\`}</pre>
+    <p class="note">
+      Matchers do double duty: at runtime they decide whether a URL segment is
+      valid (returning false sends a 404), and at build time SvelteKit uses them
+      to narrow the TypeScript type of <code>params</code>.
+    </p>
   </section>
 </main>
 
@@ -137,6 +177,17 @@ export function match(param: string) {
   .url { font-family: monospace; color: #666; }
   .param { font-family: monospace; color: #4a90d9; font-weight: bold; }
   .date { color: #888; }
+  .note {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    background: #fff7ed;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #78350f;
+  }
+  .note code { background: #fde68a; padding: 0.1rem 0.3rem; border-radius: 3px; }
+  code { background: #fef3c7; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
 </style>`,
 			language: 'svelte'
 		}

@@ -10,12 +10,17 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit provides built-in modules for accessing app configuration and environment info. $app/paths gives you base and assets paths for correct URL resolution. $app/environment exposes browser, dev, and version values. Static assets in the static/ folder are served as-is, while assets in src/ are processed by the bundler.
 
+As of svelte@5.54, svelte.config.js supports function forms for compiler options (css, runes, customElement) so you can vary behaviour per file from a single source of truth — see lesson 17-1 for the full pattern.
+
+For inline SVG icons and illustrations, the svg-to-svelte community library converts raw SVG strings directly into Svelte components with no build step — ideal when you have a pile of SVG markup and don't want a separate .svelte file for each one.
+
 This lesson covers how to reference assets correctly, detect the runtime environment, and configure your app's paths.`,
 	objectives: [
 		'Use $app/paths for base and assets path resolution',
 		'Detect runtime environment with $app/environment (browser, dev, version)',
 		'Reference static assets and understand the static/ vs src/ distinction',
-		'Configure app paths in svelte.config.js'
+		'Configure app paths with function-form options in svelte.config.js (svelte@5.54)',
+		'Know when to reach for svg-to-svelte for inline SVG assets'
 	],
 	files: [
 		{

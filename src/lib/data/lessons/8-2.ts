@@ -229,7 +229,7 @@ let {'{'} user, showEmail = true {'}'} = $props&lt;Props&gt;();</pre>
   .address { color: #666; font-size: 0.9rem; }
 </style>`,
 			language: 'svelte'
-		}
+		},
 		{
 			filename: 'ProfileCard.svelte',
 			content: `<script lang="ts">

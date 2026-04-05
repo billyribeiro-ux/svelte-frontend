@@ -10,7 +10,9 @@ const lesson: LessonData = {
 	},
 	description: `Accessibility (a11y) ensures your SvelteKit application is usable by everyone, including people using screen readers, keyboard navigation, and assistive technologies. Svelte's compiler includes built-in a11y warnings that catch common issues at build time — missing alt attributes, improper ARIA roles, and non-interactive elements with click handlers.
 
-WCAG (Web Content Accessibility Guidelines) provides the standard. Focus management, semantic HTML, proper ARIA attributes, and keyboard navigation are the pillars. SvelteKit's $props.id() helper generates unique IDs for form label associations.`,
+WCAG (Web Content Accessibility Guidelines) provides the standard. Focus management, semantic HTML, proper ARIA attributes, and keyboard navigation are the pillars. SvelteKit's $props.id() helper generates unique IDs for form label associations.
+
+For media-heavy apps, the svelte-audio-ui community library is a reference example of accessible, composable component design — players, waveforms, and volume sliders that ship with keyboard controls, ARIA wiring, and focus management out of the box. Worth studying even if you don't use it directly.`,
 	objectives: [
 		'Apply ARIA roles, labels, and attributes correctly to interactive elements',
 		'Implement keyboard navigation and focus management in Svelte components',

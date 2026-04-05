@@ -12,6 +12,8 @@ const lesson: LessonData = {
 
 We'll make sure you have Node.js installed, understand your code editor, and write your very first lines of HTML in a Svelte file.
 
+If you use an AI-assisted editor like Cursor, Claude Code, or OpenCode, note that the Svelte CLI (sv@0.12.6+) can now scaffold MCP integration files into an .opencode/ folder automatically — handy for AI tooling to "see" the Svelte docs.
+
 Don't worry if this feels basic — every expert started here. The important thing is that your environment works and you can see changes in real time.`,
 	objectives: [
 		'Understand what Node.js is and verify it is installed',

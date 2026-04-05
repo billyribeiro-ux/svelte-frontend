@@ -10,11 +10,14 @@ const lesson: LessonData = {
 	},
 	description: `Debugging reactive state can be tricky. console.log often shows a Proxy object instead of the actual value. Svelte provides $inspect() — a development-only rune that logs values whenever they change, automatically showing the unwrapped data.
 
+When an effect or derived re-runs more often than you expect, add $inspect.trace() (added in svelte@5.14) as the first line of the function body. Svelte will print exactly which reactive dependency triggered each run — the fastest way to diagnose "why did this update?" bugs.
+
 Svelte batches DOM updates for performance — when you change state, the DOM doesn't update instantly. If you need to force an immediate DOM update (for example, to scroll to a newly added item), use flushSync from 'svelte'.
 
 Understanding the event loop helps you reason about when your code runs relative to DOM updates: synchronous code -> microtasks (Promises) -> DOM paint -> macrotasks (setTimeout).`,
 	objectives: [
 		'Use $inspect() to debug reactive values without Proxy confusion',
+		'Use $inspect.trace() to discover which dependency triggered a re-run',
 		'Force immediate DOM updates with flushSync when needed',
 		'Understand why DOM reads after state changes may see stale values',
 		'Know the event loop order: sync, microtasks, paint, macrotasks'
@@ -38,6 +41,18 @@ Understanding the event loop helps you reason about when your code runs relative
     count++;
     user.score += 10;
   }
+
+  // === $inspect.trace demo ===
+  // When an effect/derived fires more than expected, $inspect.trace()
+  // (added in svelte@5.14) prints exactly which dependency caused it.
+  let a = $state(1);
+  let b = $state(2);
+  let c = $state(3);
+
+  let mysterious = $derived.by(() => {
+    $inspect.trace('mysterious');
+    return a + b + c;
+  });
 
   // === flushSync demo ===
   let messages = $state(['Hello!', 'Welcome to the chat']);
@@ -107,6 +122,29 @@ console.log(user) → Proxy {'{'}name: 'Alice', score: 0{'}'}
 // What $inspect shows:
 $inspect(user)    → init {'{'}name: 'Alice', score: 0{'}'}
                   → update {'{'}name: 'Alice', score: 10{'}'}
+  </pre>
+</section>
+
+<section>
+  <h2>$inspect.trace — Find the Culprit</h2>
+  <p>Change any of these values. The console will print which one caused <code>mysterious</code> to recompute.</p>
+  <div class="trace-controls">
+    <button onclick={() => a++}>a = {a}</button>
+    <button onclick={() => b++}>b = {b}</button>
+    <button onclick={() => c++}>c = {c}</button>
+  </div>
+  <p>mysterious (a + b + c) = <strong>{mysterious}</strong></p>
+
+  <pre class="console-preview">
+// Put $inspect.trace() as the FIRST line of a derived or effect:
+let result = $derived.by(() => {'{'}
+  $inspect.trace('myDerived');
+  return computeStuff(a, b, c);
+{'}'});
+
+// Console output (when a changes):
+// myDerived
+//   a: 1 → 2
   </pre>
 </section>
 
@@ -257,6 +295,7 @@ container.scrollTop = container.scrollHeight;
   }
   .phase strong { display: block; font-size: 0.85rem; color: #4f46e5; }
   .phase span { font-size: 0.75rem; color: #888; }
+  .trace-controls { display: flex; gap: 0.5rem; margin: 0.5rem 0; }
 </style>`,
 			language: 'svelte'
 		}

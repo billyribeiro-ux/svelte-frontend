@@ -8,12 +8,15 @@ const lesson: LessonData = {
 		module: 19,
 		lessonIndex: 6
 	},
-	description: `Svelte 5 provides powerful debugging tools: $inspect() logs reactive state changes during development, {@debug} pauses execution in templates, and Svelte DevTools visualizes your component tree and state. For performance, $state.raw avoids deep reactivity overhead on large datasets, and Chrome DevTools Performance tab helps identify bottlenecks.
+	description: `Svelte 5 provides powerful debugging tools: $inspect() logs reactive state changes, $inspect.trace() reveals which dependency triggered a re-run (svelte@5.14+), {@debug} pauses execution in templates, and Svelte DevTools visualizes your component tree and state. For performance, $state.raw avoids deep reactivity overhead on large datasets, and Chrome DevTools Performance tab helps identify bottlenecks.
+
+The community tool Svelte Agentation is a dev-mode inspector that annotates elements in your browser with source-file locations — click an element and jump straight to the component that rendered it. Combined with $inspect.trace it gives you a complete picture of "what rendered and why."
 
 Targeting Lighthouse scores of 90+ across all categories ensures your SvelteKit app is fast, accessible, and SEO-friendly. This lesson teaches you to diagnose issues and optimize systematically.`,
 	objectives: [
 		'Use $inspect() and {@debug} to trace reactive state changes',
-		'Profile component rendering with Svelte DevTools and Chrome Performance tab',
+		'Use $inspect.trace() to identify unexpected reactive updates',
+		'Profile component rendering with Svelte DevTools, Svelte Agentation, and Chrome Performance',
 		'Apply $state.raw to optimize performance with large datasets',
 		'Achieve Lighthouse scores of 90+ across all categories'
 	],
@@ -30,10 +33,18 @@ Targeting Lighthouse scores of 90+ across all categories ensures your SvelteKit 
   $inspect(count);
   $inspect(items);
 
-  // Filtered items — $derived recomputes automatically
-  let filteredItems = $derived(
-    items.filter(item => item.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // $inspect.trace — since svelte@5.14. Add as the FIRST line of an
+  // $effect or $derived.by to print which dependency triggered the re-run.
+  // See the console when searchQuery changes.
+
+  // Filtered items — $derived recomputes automatically.
+  // $inspect.trace lets us see WHICH dep caused it to recompute.
+  let filteredItems = $derived.by(() => {
+    $inspect.trace('filteredItems');
+    return items.filter(item =>
+      item.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   // Performance: $state.raw for large datasets
   let largeDataset = $state.raw(
@@ -75,6 +86,14 @@ $inspect(count);
 // Logs with label using .with()
 $inspect(user).with((type, value) => {
   console.log(\\\`[\\\${type}]\\\`, JSON.stringify(value));
+});
+
+// $inspect.trace() — svelte@5.14+
+// Place as the FIRST line of an $effect or $derived.by.
+// Prints which dep caused the re-run. Perfect for performance debugging.
+$effect(() => {
+  $inspect.trace('myEffect');
+  doWork(a, b);
 });
 
 // Only runs in dev — stripped from production builds\`;
@@ -181,11 +200,28 @@ let sorted = $derived.by(() => {
         </ul>
       </div>
 
-      <h3>$inspect()</h3>
+      <h3>$inspect() & $inspect.trace()</h3>
       <pre><code>{inspectCode}</code></pre>
 
       <h3>{\`{@debug}\`}</h3>
       <pre><code>{debugCode}</code></pre>
+
+      <h3>Tool: Svelte Agentation</h3>
+      <div class="tool-card">
+        <p>
+          <strong>Svelte Agentation</strong> is a dev-mode Svelte inspector that
+          annotates DOM elements with their source-file origin. Click any element
+          in the browser and jump straight to the component that rendered it.
+          Pairs perfectly with <code>$inspect.trace()</code>: one tells you
+          <em>what</em> rendered, the other tells you <em>why</em> it re-rendered.
+        </p>
+        <pre><code>pnpm add -D svelte-agentation
+
+// src/routes/+layout.svelte
+{'<'}script{'>'}
+  import 'svelte-agentation/init';
+{'<'}/script{'>'}</code></pre>
+      </div>
     </section>
 
   {:else if activeTab === 'perf'}
@@ -237,6 +273,16 @@ let sorted = $derived.by(() => {
   }
 
   .subtitle { color: #666; margin-bottom: 1.5rem; }
+  .tool-card {
+    margin: 0.75rem 0;
+    padding: 0.9rem;
+    background: #f0f9ff;
+    border-left: 3px solid #0ea5e9;
+    border-radius: 6px;
+  }
+  .tool-card p { margin: 0 0 0.5rem; font-size: 0.9rem; color: #0c4a6e; }
+  .tool-card code { background: #bae6fd; padding: 0.1rem 0.3rem; border-radius: 3px; }
+  .tool-card pre { background: #0c4a6e; color: #bae6fd; margin-top: 0.5rem; }
 
   .tab-bar {
     display: flex;

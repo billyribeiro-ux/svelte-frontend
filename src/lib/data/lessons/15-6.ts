@@ -10,30 +10,59 @@ const lesson: LessonData = {
 	},
 	description: `Svelte 5 provides Spring and Tween classes as reactive motion primitives. Unlike transitions that animate enter/leave, these classes create continuously animated values that interpolate between targets over time.
 
-A Spring simulates physical spring dynamics with configurable stiffness, damping, and precision. A Tween interpolates linearly with a specified duration and easing function. Both expose .target (what you want) and .current (the animated value), and they integrate with Svelte's reactivity system. The MediaQuery class and prefersReducedMotion flag help you respect accessibility preferences.`,
+A Spring simulates physical spring dynamics with configurable stiffness, damping, and precision. A Tween interpolates linearly with a specified duration and easing function. Both expose .target (what you want) and .current (the animated value), and they integrate with Svelte's reactivity system.
+
+As of svelte@5.55, the public option types are exported directly from svelte/motion: TweenOptions, SpringOptions, SpringUpdateOptions, and Updater. Use them to type-check your configuration objects. For props-driven values, prefer the static Spring.of(fn) and Tween.of(fn) constructors — they re-run whenever the source function's dependencies change. prefersReducedMotion is a built-in MediaQuery that tells you whether the user wants minimal motion.`,
 	objectives: [
 		'Create animated values with new Spring() and new Tween()',
-		'Control spring physics with stiffness and damping parameters',
-		'Use .target and .current properties for reactive animations',
+		'Type configuration with SpringOptions, TweenOptions, SpringUpdateOptions',
+		'Bind animations to reactive sources using Spring.of() and Tween.of()',
+		'Use .set(value, { instant, preserveMomentum }) for fine-grained control',
 		'Respect reduced motion preferences with prefersReducedMotion'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  import { Spring, Tween, prefersReducedMotion } from 'svelte/motion';
+  import {
+    Spring,
+    Tween,
+    prefersReducedMotion,
+    type SpringOptions,
+    type TweenOptions,
+    type SpringUpdateOptions
+  } from 'svelte/motion';
+  import { cubicOut } from 'svelte/easing';
+
+  // Typed options — new in svelte@5.55 (previously inline-only)
+  const softSpring: SpringOptions = { stiffness: 0.1, damping: 0.4 };
+  const firmSpring: SpringOptions = { stiffness: 0.2, damping: 0.5 };
+  const slowTween: TweenOptions<number> = { duration: 1000, easing: cubicOut };
 
   // Spring for physics-based animation
-  const springX = new Spring(0, { stiffness: 0.1, damping: 0.4 });
-  const springY = new Spring(0, { stiffness: 0.1, damping: 0.4 });
-  const springScale = new Spring(1, { stiffness: 0.2, damping: 0.5 });
+  const springX = new Spring(0, softSpring);
+  const springY = new Spring(0, softSpring);
+  const springScale = new Spring(1, firmSpring);
 
   // Tween for duration-based animation
-  const tweenProgress = new Tween(0, { duration: 1000 });
+  const tweenProgress = new Tween(0, slowTween);
   const tweenRotation = new Tween(0, { duration: 600 });
 
   // Spring for color slider
   const springColor = new Spring(180, { stiffness: 0.05, damping: 0.3 });
+
+  // Spring.of() — binds to a reactive source. The spring chases whatever
+  // the function returns, including derived and prop values.
+  let sliderValue: number = $state(50);
+  const followSpring = Spring.of(() => sliderValue, firmSpring);
+
+  // Force an instant update (bypassing the animation) with .set() options
+  function snap() {
+    // SpringUpdateOptions: { instant?: boolean; preserveMomentum?: number }
+    const opts: SpringUpdateOptions = { instant: true };
+    springX.set(0, opts);
+    springY.set(0, opts);
+  }
 
   let reducedMotion: boolean = $derived(prefersReducedMotion.current);
 
@@ -74,6 +103,22 @@ A Spring simulates physical spring dynamics with configurable stiffness, damping
     ></div>
     <p class="canvas-label">Move your mouse here</p>
   </div>
+  <button onclick={snap}>Snap to Origin (instant)</button>
+</section>
+
+<section>
+  <h2>Spring.of() — React to a Source</h2>
+  <p>Drag the slider — <code>followSpring</code> chases it automatically:</p>
+  <input
+    type="range"
+    min="0"
+    max="200"
+    bind:value={sliderValue}
+  />
+  <div class="followbar">
+    <div class="dot" style="transform: translateX({followSpring.current}px)"></div>
+  </div>
+  <p class="value">target: {sliderValue} • current: {followSpring.current.toFixed(2)}</p>
 </section>
 
 <section>
@@ -181,6 +226,15 @@ A Spring simulates physical spring dynamics with configurable stiffness, damping
     padding: 1rem; border-radius: 8px; color: white;
     font-family: monospace; font-weight: 600; text-align: center;
   }
+  .followbar {
+    position: relative; height: 24px; background: #f8f9fa;
+    border-radius: 12px; border: 1px solid #dfe6e9; margin-top: 0.5rem;
+  }
+  .followbar .dot {
+    position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+    background: #e17055; border-radius: 50%;
+  }
+  code { background: #fde68a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
 </style>`,
 			language: 'svelte'
 		}

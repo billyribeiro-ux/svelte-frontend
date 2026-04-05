@@ -8,7 +8,7 @@ const lesson: LessonData = {
 		module: 15,
 		lessonIndex: 9
 	},
-	description: `Svelte 5 offers expressive ways to apply dynamic classes and styles to elements. The class={[...]} array syntax lets you conditionally include class names by mixing strings, booleans, and expressions — falsy values are automatically filtered out.
+	description: `Svelte 5 offers expressive ways to apply dynamic classes and styles to elements. The class={[...]} array syntax lets you conditionally include class names by mixing strings, booleans, and expressions — falsy values are automatically filtered out. This is the April 2026 best practice and fully replaces the older class:directive={condition} form, which is now considered legacy.
 
 The style: directive applies individual CSS properties reactively, and you can pass CSS custom properties to child components using --prop syntax directly on the component tag. Together, these features eliminate the need for class name utility libraries and make component theming straightforward.`,
 	objectives: [
@@ -45,6 +45,14 @@ The style: directive applies individual CSS properties reactively, and you can p
 </script>
 
 <h1>Dynamic Classes & Styles</h1>
+
+<div class="best-practice">
+  <strong>Best practice (April 2026):</strong> Prefer
+  <code>class=&#123;[cond1 &amp;&amp; 'a', cond2 &amp;&amp; 'b']&#125;</code> arrays over the
+  legacy <code>class:a=&#123;cond1&#125; class:b=&#123;cond2&#125;</code> directive.
+  The array form composes with props, supports spread, and matches the
+  standard clsx pattern developers already know.
+</div>
 
 <section>
   <h2>class=&#123;[...]&#125; Array Syntax</h2>
@@ -174,6 +182,16 @@ The style: directive applies individual CSS properties reactively, and you can p
   }
   .nav-item:hover:not(.active) { background: #f0f0f0; }
   .hint { font-size: 0.85rem; color: #636e72; margin-top: 0.5rem; }
+  .best-practice {
+    margin: 0 0 1rem;
+    padding: 0.75rem 0.9rem;
+    background: #f0fdf4;
+    border-left: 3px solid #16a34a;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    color: #14532d;
+  }
+  .best-practice code { background: #bbf7d0; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
 </style>`,
 			language: 'svelte'
 		}

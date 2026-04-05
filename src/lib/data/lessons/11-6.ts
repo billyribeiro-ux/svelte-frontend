@@ -10,12 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `Errors are inevitable — network failures, invalid data, bugs. Svelte 5 introduces <svelte:boundary> as an error boundary that catches runtime errors in child components. It renders a "failed" snippet when an error occurs and provides a reset function to retry. This replaces SvelteKit's +error.svelte for component-level error handling.
 
-This lesson covers both <svelte:boundary> for component errors and SvelteKit's error page conventions for route-level errors.`,
+As of SvelteKit 2.54 and Svelte 5.53, error boundaries can now catch rendering errors on the SERVER as well. Enable the experimental.handleRenderingErrors flag in svelte.config.js to wrap your route components in an error boundary that routes SSR errors to the nearest +error.svelte page — previously these became generic 500 pages.
+
+This lesson covers <svelte:boundary> for component errors, +error.svelte for route errors, and the new server-side rendering error pathway.`,
 	objectives: [
 		'Use <svelte:boundary> to catch and handle component errors',
 		'Render a fallback UI with the failed snippet when errors occur',
 		'Use the reset function to retry after an error',
-		'Understand how SvelteKit +error.svelte pages work for route errors'
+		'Understand how SvelteKit +error.svelte pages work for route errors',
+		'Enable handleRenderingErrors for server-side error boundaries (kit@2.54)'
 	],
 	files: [
 		{
@@ -63,7 +66,7 @@ This lesson covers both <svelte:boundary> for component errors and SvelteKit's e
         <p>This content is inside the error boundary.</p>
       </div>
 
-      {#snippet failed(error: Error, reset: () => void)}
+      {#snippet failed(error: App.Error, reset: () => void)}
         <div class="error-ui">
           <h3>Something Broke</h3>
           <p class="error-msg">{error.message}</p>
@@ -76,6 +79,37 @@ This lesson covers both <svelte:boundary> for component errors and SvelteKit's e
         </div>
       {/snippet}
     </svelte:boundary>
+  </section>
+
+  <section>
+    <h2>Server-Side Rendering Errors (new in kit@2.54)</h2>
+    <pre>{\`// svelte.config.js — opt in to server-side error boundaries
+export default {
+  kit: {
+    experimental: {
+      handleRenderingErrors: true
+    }
+  }
+};\`}</pre>
+    <p class="note">
+      Before kit@2.54, errors thrown during SSR (inside component &lt;script&gt; blocks or
+      templates) produced a generic 500 page. With <code>handleRenderingErrors</code>,
+      SvelteKit wraps every route in an error boundary so rendering errors route to the
+      nearest <code>+error.svelte</code> just like load errors.
+    </p>
+    <pre>{\`<!-- +error.svelte — now receives error as a prop -->
+<script lang="ts">
+  // For rendering errors, the error is passed as a prop
+  // (page.error is NOT updated for rendering errors).
+  let { error } = $props<{ error: App.Error }>();
+</script>
+
+<h1>{error.message}</h1>\`}</pre>
+    <p class="note">
+      Rendering errors first pass through <code>handleError</code> in
+      <code>hooks.server.ts</code>, so you can report them and transform them into
+      <code>App.Error</code> objects before they reach the UI.
+    </p>
   </section>
 
   <section>
@@ -129,6 +163,16 @@ export function load({ params }) {
   .error-msg { color: #d32f2f; font-family: monospace; }
   label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 1rem; }
   button { padding: 0.5rem 1rem; cursor: pointer; margin-right: 0.5rem; }
+  .note {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    background: #fff7ed;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #78350f;
+  }
+  .note code { background: #fde68a; padding: 0.1rem 0.3rem; border-radius: 3px; }
 </style>`,
 			language: 'svelte'
 		}

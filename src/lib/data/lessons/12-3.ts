@@ -10,12 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `The fetch API is the modern way to make HTTP requests in JavaScript. It returns a Promise that resolves to a Response object. You then parse the body with .json(), .text(), or other methods. Understanding fetch is critical because SvelteKit's load functions use the same API.
 
-This lesson covers making GET requests, parsing responses, handling errors (including the common gotcha that fetch doesn't reject on HTTP errors), and displaying fetched data reactively.`,
+Best practice: store fetch results in $state.raw() rather than $state(). API responses are almost always reassigned wholesale (never mutated), so you don't need the deep proxy — and $state.raw is significantly faster for large payloads.
+
+Beyond request/response: when you need push-style updates, the Svelte ecosystem offers itty-sockets (a 466-byte WebSocket client that needs no API keys, ideal for prototypes) and svelte-realtime (RPC + reactive subscriptions built on svelte-adapter-uws for production apps).`,
 	objectives: [
 		'Make GET requests with fetch() and parse JSON responses',
+		'Use $state.raw() for API responses (best practice)',
 		'Handle HTTP errors properly (check response.ok)',
 		'Display loading, success, and error states in the UI',
-		'Understand fetch options for headers and request configuration'
+		'Know when to reach for WebSockets (itty-sockets, svelte-realtime)'
 	],
 	files: [
 		{
@@ -28,7 +31,9 @@ This lesson covers making GET requests, parsing responses, handling errors (incl
     company: { name: string };
   }
 
-  let users: User[] = $state([]);
+  // Best practice: $state.raw for API responses — they're replaced
+  // wholesale, never mutated, so we don't need the deep proxy.
+  let users: User[] = $state.raw([]);
   let loading: boolean = $state(false);
   let error: string = $state('');
   let selectedUserId: number = $state(1);
@@ -59,8 +64,8 @@ This lesson covers making GET requests, parsing responses, handling errors (incl
     }
   }
 
-  // Fetch a single user
-  let singleUser: User | null = $state(null);
+  // Fetch a single user — $state.raw again, since we replace it wholesale.
+  let singleUser: User | null = $state.raw(null);
 
   async function fetchSingleUser() {
     try {
@@ -145,6 +150,33 @@ This lesson covers making GET requests, parsing responses, handling errors (incl
   </section>
 
   <section>
+    <h2>Beyond HTTP: Realtime Alternatives</h2>
+    <p>When request/response isn't enough, Svelte has two community libraries worth knowing:</p>
+    <div class="lib-grid">
+      <div class="lib-card">
+        <h3>itty-sockets</h3>
+        <p class="lib-desc">~466 B WebSocket client with an optional public relay. No API keys, no accounts.</p>
+        <pre class="lib-code">{\`import { connect } from 'itty-sockets';
+
+const room = connect('my-channel');
+room.on('message', (msg) => {
+  console.log(msg);
+});
+room.send({ hello: 'world' });\`}</pre>
+      </div>
+      <div class="lib-card">
+        <h3>svelte-realtime</h3>
+        <p class="lib-desc">Realtime RPC + reactive subscriptions for SvelteKit, built on svelte-adapter-uws.</p>
+        <pre class="lib-code">{\`import { subscribe } from 'svelte-realtime';
+
+// Reactive subscription — updates push into $state
+const posts = subscribe('posts');
+// posts.current is fully reactive\`}</pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2>Common Gotchas</h2>
     <pre>{\`// fetch does NOT throw on 404 or 500!
 const res = await fetch('/not-found');
@@ -182,6 +214,11 @@ try {
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   label { display: flex; flex-direction: column; gap: 0.25rem; }
   input[type="number"] { padding: 0.4rem; width: 5rem; }
+  .lib-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .lib-card { padding: 0.8rem; background: #f0f9ff; border-left: 3px solid #0ea5e9; border-radius: 6px; }
+  .lib-card h3 { margin: 0 0 0.25rem; color: #0c4a6e; font-size: 0.95rem; }
+  .lib-desc { font-size: 0.8rem; color: #0c4a6e; margin-bottom: 0.5rem; }
+  .lib-code { background: #0c4a6e; color: #bae6fd; padding: 0.6rem; border-radius: 4px; font-size: 0.72rem; }
 </style>`,
 			language: 'svelte'
 		}

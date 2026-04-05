@@ -10,12 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit's load functions run before a page renders, providing data that the page component receives as props. Universal load functions (+page.js or +page.ts) run on both the server during SSR and in the browser during client-side navigation. They receive a context object with params, fetch, url, and more.
 
+Best practice: the data prop from $props() is already a plain object — if you need to derive reactive state from it inside the component, prefer a $derived over copying into $state. When you must copy (e.g. to hold editable form drafts), prefer $state.raw for anything reassigned wholesale.
+
 This lesson covers writing load functions, returning data, and consuming it in page components with the data prop.`,
 	objectives: [
 		'Write a universal load function in +page.ts',
 		'Access params, fetch, and url from the load context',
 		'Return data from load and receive it in the page via $props()',
-		'Understand that universal load runs on both server and client'
+		'Understand that universal load runs on both server and client',
+		'Use $derived over copying data into $state in the receiving component'
 	],
 	files: [
 		{

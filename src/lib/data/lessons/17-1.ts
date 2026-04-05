@@ -10,12 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit hooks are middleware functions that intercept requests and responses at the server level. The handle hook runs on every request, letting you modify the request, add data to event.locals (shared state for the request lifetime), protect routes, and transform responses.
 
-handleError catches unexpected errors and lets you log them or return user-friendly error messages. The init hook runs once when the server starts, perfect for initializing database connections or configuration. Multiple handle functions can be composed with sequence() for clean middleware chains.`,
+handleError catches unexpected errors and lets you log them or return user-friendly error messages. The init hook runs once when the server starts, perfect for initializing database connections or configuration. Multiple handle functions can be composed with sequence() for clean middleware chains.
+
+As of svelte@5.54, svelte.config.js supports function forms for css, runes, and customElement options — giving you a single source of truth for per-file configuration. And as of kit@2.54, the experimental.handleRenderingErrors flag lets error boundaries catch SSR errors (see lesson 11-6).`,
 	objectives: [
 		'Implement the handle hook for request middleware in hooks.server.ts',
 		'Attach shared request data using event.locals',
 		'Compose multiple handlers with sequence() for modular middleware',
-		'Use handleError for centralized server error logging'
+		'Use handleError for centralized server error logging',
+		'Configure svelte.config.js with function-form compiler options (svelte@5.54)'
 	],
 	files: [
 		{
@@ -38,7 +41,7 @@ handleError catches unexpected errors and lets you log them or return user-frien
   }
 
   let requests: { event: RequestEvent; result: ResolveResult; middleware: string[] }[] = $state([]);
-  let showCode: 'handle' | 'sequence' | 'error' | 'init' = $state('handle');
+  let showCode: 'handle' | 'sequence' | 'error' | 'init' | 'config' = $state('handle');
 
   // Simulate handle hook
   async function simulateHandle(
@@ -167,6 +170,33 @@ export const init: ServerInit = async () => {
 
   console.log('Server initialized');
 };\`,
+
+    config: \`// svelte.config.js — function-form options (svelte@5.54)
+// Options can now be functions called per-file, giving you a
+// single source of truth for conditional compilation.
+import adapter from '@sveltejs/adapter-auto';
+
+export default {
+  compilerOptions: {
+    // runes can be a function: enable runes mode for all files
+    // except ones marked legacy
+    runes: (filename) => !filename.includes('/legacy/'),
+
+    // customElement — only compile certain files as web components
+    customElement: (filename) => filename.endsWith('.ce.svelte'),
+
+    // css — per-file CSS handling strategy
+    css: (filename) => filename.includes('/admin/') ? 'external' : 'injected'
+  },
+
+  kit: {
+    adapter: adapter(),
+    experimental: {
+      // New in kit@2.54 — SSR errors now route to +error.svelte
+      handleRenderingErrors: true
+    }
+  }
+};\`,
   };
 </script>
 
@@ -206,9 +236,9 @@ export const init: ServerInit = async () => {
 <section>
   <h2>Hook Examples</h2>
   <div class="code-tabs">
-    {#each ['handle', 'sequence', 'error', 'init'] as tab}
+    {#each ['handle', 'sequence', 'error', 'init', 'config'] as tab}
       <button class:active={showCode === tab} onclick={() => showCode = tab as typeof showCode}>
-        {tab === 'error' ? 'handleError' : tab}
+        {tab === 'error' ? 'handleError' : tab === 'config' ? 'svelte.config.js' : tab}
       </button>
     {/each}
   </div>
