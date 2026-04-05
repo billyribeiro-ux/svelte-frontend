@@ -8,186 +8,359 @@ const lesson: LessonData = {
 		module: 12,
 		lessonIndex: 4
 	},
-	description: `When you need data from multiple independent sources, running requests in parallel is far faster than sequential execution. Promise.all waits for all promises to resolve but fails entirely if any one rejects. Promise.allSettled waits for all to complete and reports each result individually — perfect when you want partial data even if some requests fail.
+	description: `When you have multiple independent async operations, running them concurrently instead of sequentially is free performance — as long as you pick the right combinator.
 
-This lesson teaches you to choose the right strategy for parallel async operations and handle partial failures gracefully.`,
+JavaScript gives you four: Promise.all (all must succeed), Promise.allSettled (collect every outcome), Promise.race (first to settle wins), and Promise.any (first to succeed wins, failures ignored until all fail). Choosing the wrong one turns an elegant dashboard into a brittle page that goes fully blank if any single widget fails.
+
+This lesson covers all four combinators and the partial-failure pattern that real production dashboards depend on.`,
 	objectives: [
-		'Use Promise.all to run multiple async operations in parallel',
-		'Use Promise.allSettled to handle partial failures gracefully',
-		'Display mixed success/failure results to the user',
-		'Choose between Promise.all and Promise.allSettled based on requirements'
+		'Use Promise.all for "all must succeed" workloads',
+		'Use Promise.allSettled to collect every outcome (partial failure tolerance)',
+		'Use Promise.race for timeouts and "first response wins"',
+		'Use Promise.any for redundant backends (first success wins)',
+		'Build a dashboard that degrades gracefully when one widget fails',
+		'Know when Promise.all fail-fast is a feature, not a bug'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  interface ApiResult {
-    source: string;
-    status: 'success' | 'error';
-    data?: string;
-    error?: string;
+  // ---------------------------------------------------------------
+  // The four Promise combinators at a glance
+  //
+  //                 | resolves when        | rejects when
+  //   --------------|----------------------|-----------------
+  //   Promise.all   | ALL fulfil           | ANY rejects (fail-fast)
+  //   allSettled    | ALL settle           | NEVER rejects
+  //   Promise.race  | FIRST settles        | first settles with rejection
+  //   Promise.any   | FIRST fulfils        | ALL reject (AggregateError)
+  //
+  // Pick based on what "success" means for your use case.
+  // ---------------------------------------------------------------
+
+  type Widget = 'profile' | 'stats' | 'feed' | 'ads';
+  type WidgetStatus = 'idle' | 'loading' | 'ok' | 'error';
+
+  interface WidgetData {
+    status: WidgetStatus;
+    value: string;
+    error: string;
   }
 
-  let results: ApiResult[] = $state([]);
-  let loading: boolean = $state(false);
-  let method: string = $state('');
+  let log: string[] = $state([]);
+  let widgets: Record<Widget, WidgetData> = $state({
+    profile: { status: 'idle', value: '', error: '' },
+    stats: { status: 'idle', value: '', error: '' },
+    feed: { status: 'idle', value: '', error: '' },
+    ads: { status: 'idle', value: '', error: '' }
+  });
 
-  function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  function addLog(msg: string): void {
+    log = [...log, msg];
   }
 
-  // Simulated API calls — one will fail
-  async function fetchWeather(): Promise<string> {
-    await delay(600);
-    return 'Sunny, 22°C';
+  function clearLog(): void {
+    log = [];
   }
 
-  async function fetchNews(): Promise<string> {
-    await delay(800);
-    throw new Error('News API rate limited');
+  function resetWidgets(): void {
+    (Object.keys(widgets) as Widget[]).forEach((k) => {
+      widgets[k] = { status: 'loading', value: '', error: '' };
+    });
   }
 
-  async function fetchStocks(): Promise<string> {
-    await delay(500);
-    return 'SVLT: $142.50 (+2.3%)';
+  // A simulated API call: either resolves after \`ms\` with \`value\`,
+  // or rejects with an Error after \`ms\` if \`shouldFail\` is true.
+  function call<T>(
+    label: string,
+    ms: number,
+    value: T,
+    shouldFail: boolean = false
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (shouldFail) {
+          reject(new Error(label + ' failed'));
+        } else {
+          resolve(value);
+        }
+      }, ms);
+    });
   }
 
-  // Demo: Promise.all — fails if ANY promise rejects
-  async function demoPromiseAll() {
-    loading = true;
-    results = [];
-    method = 'Promise.all';
-
+  // -------------------------------------------------------------
+  // Demo 1 — Promise.all (fail-fast)
+  //
+  // Resolves with [v1, v2, v3] when ALL resolve.
+  // If ANY rejects, the whole Promise.all rejects immediately
+  // with that one error — the others keep running but their
+  // results are discarded.
+  // -------------------------------------------------------------
+  async function demoAll(): Promise<void> {
+    clearLog();
+    addLog('Promise.all: launching 3 calls (one will fail)');
     try {
-      const [weather, news, stocks] = await Promise.all([
-        fetchWeather(),
-        fetchNews(),    // This will throw!
-        fetchStocks()
+      const results = await Promise.all([
+        call('profile', 400, 'Alice'),
+        call('stats', 600, { posts: 42 }, true),
+        call('feed', 800, ['post 1', 'post 2'])
       ]);
-      results = [
-        { source: 'Weather', status: 'success', data: weather },
-        { source: 'News', status: 'success', data: news },
-        { source: 'Stocks', status: 'success', data: stocks }
-      ];
+      addLog('All succeeded: ' + JSON.stringify(results));
     } catch (err) {
-      const e = err as Error;
-      results = [
-        { source: 'ALL', status: 'error', error: 'Promise.all rejected: ' + e.message + ' — no results available!' }
-      ];
-    } finally {
-      loading = false;
+      addLog('REJECTED: ' + (err as Error).message);
+      addLog('(the other promises continued but results were thrown away)');
     }
   }
 
-  // Demo: Promise.allSettled — always completes, reports each result
-  async function demoPromiseAllSettled() {
-    loading = true;
-    results = [];
-    method = 'Promise.allSettled';
+  // -------------------------------------------------------------
+  // Demo 2 — Promise.allSettled (partial failure)
+  //
+  // NEVER rejects. Returns an array of { status, value } or
+  // { status, reason } — one per input, in order.
+  // -------------------------------------------------------------
+  async function demoAllSettled(): Promise<void> {
+    clearLog();
+    resetWidgets();
+    addLog('Promise.allSettled: 4 widgets, 1 will fail');
 
-    const outcomes = await Promise.allSettled([
-      fetchWeather(),
-      fetchNews(),    // This will throw, but others still complete
-      fetchStocks()
+    const results = await Promise.allSettled([
+      call<string>('profile', 400, 'Alice'),
+      call<{ posts: number }>('stats', 600, { posts: 42 }),
+      call<string[]>('feed', 800, ['post 1', 'post 2'], true),
+      call<string>('ads', 300, 'Buy stuff!')
     ]);
 
-    const sources = ['Weather', 'News', 'Stocks'];
-    results = outcomes.map((outcome, i) => {
-      if (outcome.status === 'fulfilled') {
-        return { source: sources[i], status: 'success' as const, data: outcome.value };
+    const keys: Widget[] = ['profile', 'stats', 'feed', 'ads'];
+    results.forEach((r, i) => {
+      const key = keys[i];
+      if (r.status === 'fulfilled') {
+        widgets[key] = {
+          status: 'ok',
+          value: JSON.stringify(r.value),
+          error: ''
+        };
+        addLog('  ok ' + key + ' -> ' + JSON.stringify(r.value));
       } else {
-        return { source: sources[i], status: 'error' as const, error: outcome.reason.message };
+        widgets[key] = {
+          status: 'error',
+          value: '',
+          error: (r.reason as Error).message
+        };
+        addLog('  FAIL ' + key + ' -> ' + (r.reason as Error).message);
       }
     });
-
-    loading = false;
+    addLog('Page still renders — failed widgets show errors in place');
   }
+
+  // -------------------------------------------------------------
+  // Demo 3 — Promise.race (first settles wins)
+  // -------------------------------------------------------------
+  async function demoRace(): Promise<void> {
+    clearLog();
+    addLog('Promise.race: slow fetch vs 500ms timeout');
+
+    const slowFetch = call('api', 1200, 'api response');
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Timed out after 500ms')), 500)
+    );
+
+    try {
+      const winner = await Promise.race([slowFetch, timeout]);
+      addLog('Winner: ' + winner);
+    } catch (err) {
+      addLog('Race rejected: ' + (err as Error).message);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Demo 4 — Promise.any (first success wins)
+  // -------------------------------------------------------------
+  async function demoAny(): Promise<void> {
+    clearLog();
+    addLog('Promise.any: 3 mirrors (first 2 fail, third succeeds)');
+
+    try {
+      const fastest = await Promise.any([
+        call('mirror-eu', 200, 'eu', true),
+        call('mirror-us', 400, 'us', true),
+        call('mirror-asia', 600, 'asia response')
+      ]);
+      addLog('Got response from: ' + fastest);
+    } catch (err) {
+      const agg = err as AggregateError;
+      addLog('All mirrors failed:');
+      agg.errors.forEach((e) => addLog('  - ' + (e as Error).message));
+    }
+  }
+
+  let widgetEntries = $derived(
+    (Object.keys(widgets) as Widget[]).map((k) => ({ key: k, w: widgets[k] }))
+  );
 </script>
 
 <main>
   <h1>Parallel Async & Partial Failures</h1>
 
   <section>
-    <h2>Promise.all vs Promise.allSettled</h2>
-    <pre>{\`// Promise.all — all or nothing
-const [a, b, c] = await Promise.all([
-  fetchA(),  // if ANY fails, entire Promise.all rejects
-  fetchB(),  // you get nothing — not even successful results
-  fetchC()
-]);
+    <h2>Four Combinators, One Chart</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Combinator</th>
+          <th>Resolves</th>
+          <th>Rejects</th>
+          <th>Use case</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>Promise.all</code></td>
+          <td>ALL fulfil</td>
+          <td>ANY rejects</td>
+          <td>All-or-nothing workloads</td>
+        </tr>
+        <tr>
+          <td><code>Promise.allSettled</code></td>
+          <td>ALL settle</td>
+          <td>Never</td>
+          <td>Dashboards, partial failure</td>
+        </tr>
+        <tr>
+          <td><code>Promise.race</code></td>
+          <td>First settles</td>
+          <td>First settles (reject)</td>
+          <td>Timeouts</td>
+        </tr>
+        <tr>
+          <td><code>Promise.any</code></td>
+          <td>First fulfils</td>
+          <td>ALL reject</td>
+          <td>Redundant backends</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
 
-// Promise.allSettled — always completes
-const results = await Promise.allSettled([
-  fetchA(),  // each result is { status, value } or { status, reason }
-  fetchB(),  // failed ones don't prevent others from completing
-  fetchC()
+  <section>
+    <h2>1. Promise.all — Fail Fast</h2>
+    <button onclick={demoAll}>Run</button>
+    <pre>{\`// ALL must succeed. One failure throws the whole thing away.
+const [user, posts, comments] = await Promise.all([
+  fetchUser(),
+  fetchPosts(),
+  fetchComments()
 ]);\`}</pre>
   </section>
 
   <section>
-    <h2>Live Demo</h2>
-    <p><em>The News API will fail. Watch how each method handles it:</em></p>
-    <div class="button-row">
-      <button onclick={demoPromiseAll} disabled={loading}>
-        Promise.all (all-or-nothing)
-      </button>
-      <button onclick={demoPromiseAllSettled} disabled={loading}>
-        Promise.allSettled (partial OK)
-      </button>
+    <h2>2. Promise.allSettled — Partial Failure</h2>
+    <button onclick={demoAllSettled}>Run Dashboard Demo</button>
+
+    <div class="dashboard">
+      {#each widgetEntries as entry (entry.key)}
+        <div
+          class="widget"
+          class:ok={entry.w.status === 'ok'}
+          class:error={entry.w.status === 'error'}
+          class:loading={entry.w.status === 'loading'}
+        >
+          <div class="widget-name">{entry.key}</div>
+          {#if entry.w.status === 'loading'}
+            <div class="widget-body">loading...</div>
+          {:else if entry.w.status === 'ok'}
+            <div class="widget-body">{entry.w.value}</div>
+          {:else if entry.w.status === 'error'}
+            <div class="widget-body err">{entry.w.error}</div>
+          {:else}
+            <div class="widget-body muted">idle</div>
+          {/if}
+        </div>
+      {/each}
     </div>
 
-    {#if loading}
-      <p class="loading">Fetching from 3 APIs in parallel...</p>
-    {/if}
+    <pre>{\`const results = await Promise.allSettled([
+  fetchProfile(),
+  fetchStats(),
+  fetchFeed(),
+  fetchAds()
+]);
 
-    {#if results.length > 0}
-      <h3>Results ({method}):</h3>
-      <div class="results">
-        {#each results as result}
-          <div class="result" class:success={result.status === 'success'} class:error={result.status === 'error'}>
-            <strong>{result.source}</strong>
-            {#if result.status === 'success'}
-              <span class="data">{result.data}</span>
-            {:else}
-              <span class="err">{result.error}</span>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
+// results is always an array — never throws.
+for (const r of results) {
+  if (r.status === 'fulfilled') use(r.value);
+  else                          showError(r.reason);
+}\`}</pre>
   </section>
 
   <section>
-    <h2>When to Use Which</h2>
-    <table>
-      <thead><tr><th></th><th>Promise.all</th><th>Promise.allSettled</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Behavior</strong></td><td>Rejects on first failure</td><td>Always resolves</td></tr>
-        <tr><td><strong>Use when</strong></td><td>All data is required</td><td>Partial data is OK</td></tr>
-        <tr><td><strong>Example</strong></td><td>Loading page that needs all data</td><td>Dashboard with independent widgets</td></tr>
-        <tr><td><strong>Error handling</strong></td><td>try/catch the whole thing</td><td>Check each result.status</td></tr>
-      </tbody>
-    </table>
+    <h2>3. Promise.race — Timeouts</h2>
+    <button onclick={demoRace}>Run</button>
+    <pre>{\`function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms)
+    )
+  ]);
+}
+
+// Usage:
+const data = await withTimeout(fetchData(), 5000);\`}</pre>
+  </section>
+
+  <section>
+    <h2>4. Promise.any — Redundant Backends</h2>
+    <button onclick={demoAny}>Run</button>
+    <pre>{\`// Try several mirrors, use whichever answers first.
+try {
+  const data = await Promise.any([
+    fetch('https://eu.api.example.com/data'),
+    fetch('https://us.api.example.com/data'),
+    fetch('https://asia.api.example.com/data')
+  ]);
+} catch (err) {
+  // Only reached if EVERY mirror fails
+  const agg = err as AggregateError;
+  agg.errors.forEach(e => console.error(e));
+}\`}</pre>
+  </section>
+
+  <section>
+    <h2>Console</h2>
+    <div class="console">
+      {#each log as entry, i (i)}
+        <div class="log-entry">{entry}</div>
+      {/each}
+      {#if log.length === 0}
+        <div class="empty">Run a demo to see output...</div>
+      {/if}
+    </div>
+    <button onclick={clearLog}>Clear</button>
   </section>
 </main>
 
 <style>
-  main { max-width: 650px; margin: 0 auto; font-family: sans-serif; }
+  main { max-width: 680px; margin: 0 auto; font-family: sans-serif; }
   section { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
-  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }
-  .button-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  button { padding: 0.5rem 1rem; cursor: pointer; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .loading { color: #1565c0; font-style: italic; }
-  .results { display: flex; flex-direction: column; gap: 0.5rem; }
-  .result { padding: 0.75rem 1rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
-  .result.success { background: #e8f5e9; border: 1px solid #4caf50; }
-  .result.error { background: #ffebee; border: 1px solid #f44336; }
-  .data { color: #2e7d32; }
-  .err { color: #d32f2f; font-style: italic; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; font-size: 0.9rem; }
+  h2 { margin-top: 0; }
+  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; }
+  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
   th { background: #f5f5f5; }
+  .console { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.82rem; min-height: 80px; max-height: 220px; overflow-y: auto; margin-bottom: 0.5rem; }
+  .log-entry { padding: 0.15rem 0; }
+  .empty { color: #666; font-style: italic; }
+  button { padding: 0.5rem 1rem; cursor: pointer; }
+  .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.75rem 0; }
+  .widget { border: 1px solid #ddd; border-radius: 6px; padding: 0.75rem; background: #fafafa; }
+  .widget.ok { border-color: #4caf50; background: #e8f5e9; }
+  .widget.error { border-color: #f44336; background: #ffebee; }
+  .widget.loading { border-color: #2196f3; background: #e3f2fd; }
+  .widget-name { font-weight: bold; font-size: 0.8rem; text-transform: uppercase; color: #555; }
+  .widget-body { margin-top: 0.25rem; font-size: 0.9rem; }
+  .widget-body.err { color: #c62828; }
+  .widget-body.muted { color: #999; font-style: italic; }
 </style>`,
 			language: 'svelte'
 		}

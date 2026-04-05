@@ -84,6 +84,34 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
   function spin(): void {
     tweenRotation.target += 360;
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // Extra demos
+  // ─────────────────────────────────────────────────────────────
+
+  // Chain of springs — each one follows the previous with lag
+  const chainA = new Spring(0, { stiffness: 0.1, damping: 0.5 });
+  const chainB = Spring.of(() => chainA.current, { stiffness: 0.08, damping: 0.5 });
+  const chainC = Spring.of(() => chainB.current, { stiffness: 0.06, damping: 0.5 });
+  const chainD = Spring.of(() => chainC.current, { stiffness: 0.04, damping: 0.5 });
+
+  function sweep(): void {
+    chainA.target = chainA.target === 0 ? 240 : 0;
+  }
+
+  // Spring of a derived — value chases a computed source
+  let multiplier: number = $state(1);
+  let base: number = $state(50);
+  const derivedSpring = Spring.of(() => base * multiplier, firmSpring);
+
+  // Scroll-linked tween — manual scroll handler drives a tween
+  const scrollTween = new Tween(0, { duration: 250, easing: cubicOut });
+  let trackEl: HTMLDivElement | undefined = $state();
+  function onTrackScroll(): void {
+    if (!trackEl) return;
+    const pct = trackEl.scrollLeft / (trackEl.scrollWidth - trackEl.clientWidth);
+    scrollTween.target = Math.round(pct * 100);
+  }
 </script>
 
 <h1>Spring & Tween Motion</h1>
@@ -156,6 +184,39 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
     </div>
     <button onclick={spin}>Spin +360</button>
   </div>
+</section>
+
+<section>
+  <h2>Spring Chain — each stage lags the previous</h2>
+  <div class="chain">
+    <div class="chip a" style="transform: translateX({chainA.current}px)">A</div>
+    <div class="chip b" style="transform: translateX({chainB.current}px)">B</div>
+    <div class="chip c" style="transform: translateX({chainC.current}px)">C</div>
+    <div class="chip d" style="transform: translateX({chainD.current}px)">D</div>
+  </div>
+  <button onclick={sweep}>Sweep</button>
+</section>
+
+<section>
+  <h2>Spring.of a derived source</h2>
+  <label>base: <input type="range" min="0" max="100" bind:value={base} /> {base}</label>
+  <label>× multiplier: <input type="range" min="1" max="5" bind:value={multiplier} /> {multiplier}</label>
+  <div class="derived-bar">
+    <div class="derived-fill" style="width: {derivedSpring.current}px"></div>
+  </div>
+  <p class="value">target: {base * multiplier} • current: {derivedSpring.current.toFixed(1)}</p>
+</section>
+
+<section>
+  <h2>Scroll-linked Tween</h2>
+  <p class="hint">Scroll the track horizontally. The indicator below smoothly tweens to the current scroll percentage.</p>
+  <div class="track" bind:this={trackEl} onscroll={onTrackScroll}>
+    <div class="track-inner"></div>
+  </div>
+  <div class="scroll-indicator">
+    <div class="scroll-fill" style="width: {scrollTween.current}%"></div>
+  </div>
+  <p class="value">{scrollTween.current.toFixed(0)}%</p>
 </section>
 
 <section>
@@ -235,6 +296,30 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
     background: #e17055; border-radius: 50%;
   }
   code { background: #fde68a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+
+  .chain { position: relative; height: 60px; margin-bottom: 0.5rem; }
+  .chip {
+    position: absolute; width: 40px; height: 40px; border-radius: 8px;
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+  }
+  .chip.a { top: 0; background: #e17055; }
+  .chip.b { top: 0; left: 50px; background: #fdcb6e; }
+  .chip.c { top: 0; left: 100px; background: #00b894; }
+  .chip.d { top: 0; left: 150px; background: #0984e3; }
+
+  .derived-bar { height: 24px; background: #dfe6e9; border-radius: 12px; overflow: hidden; margin: 0.5rem 0; }
+  .derived-fill { height: 100%; background: linear-gradient(90deg, #e17055, #fdcb6e); border-radius: 12px; }
+
+  .track {
+    width: 100%; height: 60px; overflow-x: auto; background: #f1f3f5;
+    border-radius: 8px; margin-bottom: 0.5rem;
+  }
+  .track-inner { width: 2000px; height: 100%; background: repeating-linear-gradient(90deg, #e17055 0 20px, #fdcb6e 20px 40px); }
+  .scroll-indicator { height: 10px; background: #dfe6e9; border-radius: 5px; overflow: hidden; }
+  .scroll-fill { height: 100%; background: #e17055; }
+  .hint { font-size: 0.82rem; color: #636e72; margin: 0 0 0.5rem; }
+  label { display: block; margin-bottom: 0.25rem; font-size: 0.85rem; }
 </style>`,
 			language: 'svelte'
 		}

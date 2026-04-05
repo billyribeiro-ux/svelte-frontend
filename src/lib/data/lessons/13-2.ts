@@ -8,169 +8,290 @@ const lesson: LessonData = {
 		module: 13,
 		lessonIndex: 2
 	},
-	description: `SvelteKit form actions are functions that handle POST requests on the server. A page can have a default action (handles plain POST) or named actions (handles POST to specific action URLs like ?/login or ?/register). This lets you have multiple forms on a single page, each routed to a different handler.
+	description: `SvelteKit's form actions let a single +page.server.ts expose one or more server-side mutation handlers. A default action handles forms that POST to the page URL; named actions let a single page expose multiple mutations (login, register, delete, etc.) and pick between them with '?/action' in the form action attribute.
 
-Named actions are invoked by setting the form's action attribute to "?/actionName". This simple URL convention keeps your forms clean and your server logic organized.`,
+This is the sweet spot: your HTML forms still work without JavaScript, and your server logic lives right next to the page it serves. No more scattered /api/ routes that exist only to back one form.`,
 	objectives: [
-		'Create a default action in +page.server.ts for simple forms',
-		'Define named actions for multiple forms on one page',
-		'Use the ?/actionName URL pattern in form action attributes',
-		'Return data from actions to the page component'
+		'Write a default action with export const actions',
+		'Write multiple named actions on a single route',
+		'Target a named action with action="?/actionName"',
+		'Pick an action per-button with formaction on the submit button',
+		'Understand the difference between actions and +server.ts routes'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  let activeTab: string = $state('default');
+  // ---------------------------------------------------------------
+  // In a real SvelteKit app, the forms below would POST to real
+  // actions declared in +page.server.ts. Here we simulate the
+  // server locally so you can see each action run and what
+  // formData.get('...') would return.
+  // ---------------------------------------------------------------
+
+  type ActionName = 'default' | 'login' | 'register' | 'delete' | 'upgrade';
+
+  interface ActionLog {
+    action: ActionName;
+    fields: Record<string, string>;
+    result: string;
+    ok: boolean;
+  }
+
+  let logs: ActionLog[] = $state([]);
+
+  function runFakeAction(action: ActionName, fields: Record<string, string>): void {
+    // Simulate what a real action body might do.
+    let result = '';
+    let ok = true;
+    if (action === 'login') {
+      if (fields.email && fields.password) {
+        result = 'Logged in as ' + fields.email;
+      } else {
+        result = 'Missing credentials';
+        ok = false;
+      }
+    } else if (action === 'register') {
+      result = 'Account created for ' + fields.email;
+    } else if (action === 'delete') {
+      result = 'Deleted item #' + fields.id;
+    } else if (action === 'upgrade') {
+      result = 'Upgraded to ' + fields.plan;
+    } else {
+      result = 'Default action ran with ' + Object.keys(fields).length + ' fields';
+    }
+    logs = [{ action, fields, result, ok }, ...logs].slice(0, 10);
+  }
+
+  function onSubmit(action: ActionName, e: SubmitEvent): void {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const data = new FormData(form);
+    const fields: Record<string, string> = {};
+    for (const [k, v] of data.entries()) {
+      fields[k] = v instanceof File ? v.name : v.toString();
+    }
+    runFakeAction(action, fields);
+  }
 </script>
 
 <main>
   <h1>Default & Named Actions</h1>
 
-  <nav>
-    {#each ['default', 'named', 'multiple'] as tab}
-      <button class:active={activeTab === tab} onclick={() => activeTab = tab}>
-        {tab}
-      </button>
-    {/each}
-  </nav>
-
-  {#if activeTab === 'default'}
-    <section>
-      <h2>Default Action</h2>
-      <pre>{\`// +page.server.ts
+  <section>
+    <h2>1. The Default Action</h2>
+    <p class="hint">
+      One action per page. Submit any <code>&lt;form method="POST"&gt;</code> on the page
+      and it runs.
+    </p>
+    <pre>{\`// src/routes/contact/+page.server.ts
 import type { Actions } from './$types';
 
 export const actions: Actions = {
   default: async ({ request }) => {
     const data = await request.formData();
-    const message = data.get('message') as string;
+    const email   = data.get('email')?.toString()   ?? '';
+    const message = data.get('message')?.toString() ?? '';
 
-    // Save to database, send email, etc.
-    await db.messages.create({ data: { message } });
-
+    await sendContactEmail({ email, message });
     return { success: true };
   }
 };\`}</pre>
-      <pre>{\`<!-- +page.svelte -->
-<!-- No action attribute needed for default -->
+    <pre>{\`<!-- src/routes/contact/+page.svelte -->
 <form method="POST">
-  <input name="message" required />
+  <input name="email" type="email"  required />
+  <textarea name="message" required></textarea>
   <button>Send</button>
 </form>\`}</pre>
-      <div class="demo-box">
-        <p>The <strong>default</strong> action handles any POST to this page without a specific action URL.</p>
-      </div>
-    </section>
+  </section>
 
-  {:else if activeTab === 'named'}
-    <section>
-      <h2>Named Actions</h2>
-      <pre>{\`// +page.server.ts
+  <section>
+    <h2>2. Named Actions — One Page, Many Mutations</h2>
+    <p class="hint">
+      When you need more than one mutation on a page (login + register, edit + delete,
+      etc.), give each action a name and target it with <code>action="?/name"</code>.
+    </p>
+    <pre>{\`// src/routes/auth/+page.server.ts
 import type { Actions } from './$types';
+import { fail } from '@sveltejs/kit';
 
 export const actions: Actions = {
-  login: async ({ request }) => {
+  login: async ({ request, cookies }) => {
     const data = await request.formData();
-    const email = data.get('email') as string;
-    const password = data.get('password') as string;
+    const user = await authenticate(
+      data.get('email'),
+      data.get('password')
+    );
+    if (!user) return fail(401, { error: 'Invalid credentials' });
 
-    const user = await authenticate(email, password);
-    if (!user) {
-      return { success: false, error: 'Invalid credentials' };
-    }
+    cookies.set('session', user.sessionId, { path: '/' });
     return { success: true };
   },
 
   register: async ({ request }) => {
     const data = await request.formData();
-    const email = data.get('email') as string;
-    const password = data.get('password') as string;
-    const name = data.get('name') as string;
-
-    await createUser({ email, password, name });
+    await createUser({
+      email: data.get('email'),
+      password: data.get('password')
+    });
     return { success: true };
   }
 };\`}</pre>
-      <pre>{\`<!-- +page.svelte -->
-<!-- action="?/login" targets the "login" action -->
+    <pre>{\`<!-- src/routes/auth/+page.svelte -->
 <form method="POST" action="?/login">
-  <input name="email" type="email" />
+  <input name="email" />
   <input name="password" type="password" />
-  <button>Log In</button>
+  <button>Log in</button>
 </form>
 
-<!-- action="?/register" targets the "register" action -->
 <form method="POST" action="?/register">
-  <input name="name" />
-  <input name="email" type="email" />
+  <input name="email" />
   <input name="password" type="password" />
-  <button>Register</button>
+  <button>Sign up</button>
 </form>\`}</pre>
-    </section>
+    <div class="demo-block">
+      <strong>Try it:</strong> two forms, two different named actions on the same page.
+      <div class="forms">
+        <form onsubmit={(e) => onSubmit('login', e)} class="mini">
+          <strong>Login</strong>
+          <input name="email" type="email" placeholder="email" value="ada@x.com" />
+          <input name="password" type="password" placeholder="password" value="secret" />
+          <button>Log in</button>
+        </form>
+        <form onsubmit={(e) => onSubmit('register', e)} class="mini">
+          <strong>Register</strong>
+          <input name="email" type="email" placeholder="email" value="new@x.com" />
+          <input name="password" type="password" placeholder="password" value="secret" />
+          <button>Register</button>
+        </form>
+      </div>
+    </div>
+  </section>
 
-  {:else if activeTab === 'multiple'}
-    <section>
-      <h2>Multiple Forms Example</h2>
-      <pre>{\`// +page.server.ts — a settings page
-export const actions: Actions = {
-  updateProfile: async ({ request }) => {
-    const data = await request.formData();
-    const name = data.get('name');
-    await db.users.update({ name });
-    return { profileUpdated: true };
-  },
+  <section>
+    <h2>3. Multiple Buttons, One Form (formaction)</h2>
+    <p class="hint">
+      When actions share most fields, skip the duplicate form — use <code>formaction</code>
+      on each submit button to pick which action runs.
+    </p>
+    <pre>{\`<form method="POST">
+  <input name="id" value={item.id} hidden />
+  <input name="title" value={item.title} />
 
-  changePassword: async ({ request }) => {
-    const data = await request.formData();
-    const current = data.get('current_password');
-    const next = data.get('new_password');
-    await updatePassword(current, next);
-    return { passwordChanged: true };
-  },
+  <!-- Save uses the 'save' action -->
+  <button formaction="?/save">Save</button>
 
-  deleteAccount: async ({ request, cookies }) => {
-    const data = await request.formData();
-    const confirm = data.get('confirm');
-    if (confirm !== 'DELETE') {
-      return { error: 'Type DELETE to confirm' };
-    }
-    await db.users.delete({ id: locals.userId });
-    cookies.delete('session', { path: '/' });
-    redirect(303, '/goodbye');
-  }
-};\`}</pre>
-      <pre>{\`<!-- Three separate forms, three separate actions -->
-<h2>Profile</h2>
-<form method="POST" action="?/updateProfile">
-  <input name="name" value={data.user.name} />
-  <button>Save Profile</button>
-</form>
-
-<h2>Password</h2>
-<form method="POST" action="?/changePassword">
-  <input name="current_password" type="password" />
-  <input name="new_password" type="password" />
-  <button>Change Password</button>
-</form>
-
-<h2>Danger Zone</h2>
-<form method="POST" action="?/deleteAccount">
-  <input name="confirm" placeholder='Type "DELETE"' />
-  <button class="danger">Delete Account</button>
+  <!-- Delete uses the 'delete' action with the same data -->
+  <button formaction="?/delete">Delete</button>
 </form>\`}</pre>
-    </section>
-  {/if}
+    <div class="demo-block">
+      <strong>Try it:</strong> same form, two submit buttons targeting different actions.
+      <form
+        onsubmit={(e) => {
+          const submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null;
+          const which = (submitter?.value as ActionName) ?? 'default';
+          onSubmit(which, e);
+        }}
+        class="mini"
+      >
+        <input name="id" value="42" readonly />
+        <input name="title" value="My item" />
+        <div class="row">
+          <button type="submit" name="which" value="upgrade">Upgrade</button>
+          <button type="submit" name="which" value="delete">Delete</button>
+        </div>
+      </form>
+      <p class="note">
+        (In real SvelteKit you'd use <code>formaction="?/upgrade"</code> and
+        <code>formaction="?/delete"</code>; this playground simulates by reading
+        the clicked button.)
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Actions vs +server.ts API Routes</h2>
+    <table>
+      <thead>
+        <tr><th></th><th>Actions</th><th>+server.ts</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Lives next to</td>
+          <td>A page (+page.server.ts)</td>
+          <td>Its own URL</td>
+        </tr>
+        <tr>
+          <td>Works without JS</td>
+          <td>yes (classic form POST)</td>
+          <td>no — you need fetch</td>
+        </tr>
+        <tr>
+          <td>Input</td>
+          <td>FormData</td>
+          <td>Anything (JSON, FormData, bytes)</td>
+        </tr>
+        <tr>
+          <td>Callable from outside</td>
+          <td>only via the page URL</td>
+          <td>yes — mobile app, webhook, etc.</td>
+        </tr>
+        <tr>
+          <td>Best for</td>
+          <td>Forms that mutate the current page's data</td>
+          <td>Reusable JSON APIs / webhooks</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Action Log (simulated)</h2>
+    {#if logs.length === 0}
+      <p class="muted">Submit a form above to see what the server would receive.</p>
+    {:else}
+      <ul class="log">
+        {#each logs as entry, i (i)}
+          <li class:ok={entry.ok} class:fail={!entry.ok}>
+            <strong>{entry.action}</strong> —
+            {entry.result}
+            <div class="fields">
+              {#each Object.entries(entry.fields) as [k, v] (k)}
+                <code>{k}={v}</code>
+              {/each}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 </main>
 
 <style>
-  main { max-width: 650px; margin: 0 auto; font-family: sans-serif; }
+  main { max-width: 720px; margin: 0 auto; font-family: sans-serif; }
   section { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
-  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; margin-bottom: 0.75rem; }
-  nav { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  nav button { padding: 0.5rem 1rem; cursor: pointer; border: 1px solid #ddd; border-radius: 4px; background: white; }
-  nav button.active { background: #4a90d9; color: white; border-color: #4a90d9; }
-  .demo-box { background: #e8f5e9; padding: 0.75rem 1rem; border-radius: 4px; }
+  h2 { margin-top: 0; }
+  .hint { color: #555; font-size: 0.9rem; margin: 0 0 0.75rem; }
+  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; }
+  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.82rem; }
+  .demo-block { margin-top: 0.75rem; padding: 0.75rem; background: #f0f7ff; border-radius: 6px; font-size: 0.9rem; }
+  .forms { display: flex; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .mini { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: white; border: 1px solid #cce; border-radius: 4px; flex: 1; min-width: 220px; }
+  .mini strong { font-size: 0.85rem; color: #1565c0; }
+  .mini input { padding: 0.35rem; font-size: 0.85rem; }
+  .mini button { padding: 0.4rem; cursor: pointer; background: #1565c0; color: white; border: none; border-radius: 3px; }
+  .row { display: flex; gap: 0.5rem; }
+  .note { font-size: 0.75rem; color: #666; margin: 0.4rem 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; vertical-align: top; }
+  th { background: #f5f5f5; }
+  .log { list-style: none; padding: 0; margin: 0; }
+  .log li { padding: 0.5rem 0.75rem; margin-bottom: 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+  .log li.ok { background: #e8f5e9; border-left: 3px solid #4caf50; }
+  .log li.fail { background: #ffebee; border-left: 3px solid #f44336; }
+  .fields { margin-top: 0.3rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .fields code { font-size: 0.75rem; }
+  .muted { color: #888; font-style: italic; }
 </style>`,
 			language: 'svelte'
 		}

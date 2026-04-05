@@ -10,236 +10,414 @@ const lesson: LessonData = {
 	},
 	description: `Technical SEO in SvelteKit starts with <svelte:head> — the gateway to setting page titles, meta descriptions, canonical URLs, and Open Graph tags. Best practices demand titles under 60 characters, meta descriptions under 160, and a proper heading hierarchy (one <h1> per page, logical <h2>–<h6> nesting).
 
-SvelteKit makes this seamless because each +page.svelte can set its own head content, and layout-level defaults cascade down. Dynamic data from load functions feeds directly into SEO tags, ensuring every page is fully optimized at render time.`,
+SvelteKit makes this seamless because each +page.svelte can set its own head content, and layout-level defaults cascade down. Dynamic data from load functions feeds directly into SEO tags, ensuring every page is fully optimized at render time.
+
+This lesson provides a live meta editor with character counting, SERP previews for Google / Twitter / Facebook, a heading hierarchy validator, and a full +page.svelte example you can copy into production.`,
 	objectives: [
 		'Use <svelte:head> to set dynamic title, meta, and OG tags per page',
 		'Apply best practices for title length (<60 chars) and meta descriptions (<160 chars)',
 		'Implement canonical URLs to prevent duplicate content issues',
-		'Structure heading hierarchy correctly for accessibility and SEO'
+		'Structure heading hierarchy correctly for accessibility and SEO',
+		'Configure Open Graph and Twitter Card metadata for rich social previews'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  type PageData = {
-    title: string;
-    description: string;
-    url: string;
-    image: string;
-    author: string;
-    publishedAt: string;
-    type: 'article' | 'website';
-  };
+  // Live meta editor state
+  let title = $state('SvelteKit SEO Guide: Meta, OG & Canonical Tags');
+  let description = $state(
+    'Master technical SEO in SvelteKit with svelte:head, meta tags, Open Graph, and canonical URLs. Practical examples and best practices.'
+  );
+  let url = $state('https://example.com/blog/sveltekit-seo');
+  let image = $state('https://example.com/og/sveltekit-seo.png');
+  let siteName = $state('Svelte Mastery');
+  let twitterHandle = $state('@sveltejs');
 
-  // Simulated page data from a SvelteKit load function
-  let pageData = $state<PageData>({
-    title: 'Mastering SvelteKit SEO',
-    description: 'Learn how to optimize your SvelteKit application for search engines with proper meta tags, Open Graph, and structured data.',
-    url: 'https://example.com/blog/sveltekit-seo',
-    image: 'https://example.com/images/sveltekit-seo-og.jpg',
-    author: 'Jane Developer',
-    publishedAt: '2026-03-15',
-    type: 'article'
+  const titleLimit = 60;
+  const descLimit = 160;
+
+  const titleColor = $derived(title.length <= titleLimit ? '#16a34a' : '#ef4444');
+  const descColor = $derived(description.length <= descLimit ? '#16a34a' : '#ef4444');
+
+  type Preview = 'google' | 'twitter' | 'facebook';
+  let activePreview = $state<Preview>('google');
+
+  // Heading validator
+  let headingInput = $state(
+    '<h1>SvelteKit SEO Guide</h1>\\n<h2>Why technical SEO matters</h2>\\n<h3>Crawling vs indexing</h3>\\n<h2>Setting meta tags</h2>\\n<h3>Title best practices</h3>\\n<h3>Meta descriptions</h3>\\n<h2>Open Graph tags</h2>'
+  );
+
+  type Heading = { level: number; text: string; valid: boolean; reason: string };
+
+  const parsedHeadings = $derived.by<Heading[]>(() => {
+    const re = /<h([1-6])>([^<]+)<\\/h[1-6]>/g;
+    const list: Heading[] = [];
+    let prevLevel = 0;
+    let h1Count = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(headingInput)) !== null) {
+      const level = Number(match[1]);
+      const text = match[2];
+      let valid = true;
+      let reason = 'OK';
+      if (level === 1) {
+        h1Count++;
+        if (h1Count > 1) {
+          valid = false;
+          reason = 'Multiple h1 elements on page';
+        }
+      }
+      if (prevLevel > 0 && level > prevLevel + 1) {
+        valid = false;
+        reason = 'Level skipped from h' + prevLevel + ' to h' + level;
+      }
+      list.push({ level, text, valid, reason });
+      prevLevel = level;
+    }
+    return list;
   });
 
-  // Validation helpers
-  let titleLength = $derived(pageData.title.length);
-  let descLength = $derived(pageData.description.length);
-  let titleValid = $derived(titleLength > 0 && titleLength <= 60);
-  let descValid = $derived(descLength > 0 && descLength <= 160);
+  const headingsValid = $derived(parsedHeadings.every((h) => h.valid));
 
-  // Generate the <svelte:head> code preview
-  let headCode = $derived(\`<svelte:head>
-  <title>\${pageData.title}</title>
-  <meta name="description" content="\${pageData.description}" />
-  <link rel="canonical" href="\${pageData.url}" />
+  // Full +page.svelte example (displayed as a string)
+  const pageExample = [
+    '<!-- src/routes/blog/[slug]/+page.svelte -->',
+    '<script lang="ts">',
+    "  import type { PageData } from './$types';",
+    '  let { data }: { data: PageData } = $props();',
+    '  const canonical = \`https://example.com/blog/\${data.post.slug}\`;',
+    '</' + 'script>',
+    '',
+    '<svelte:head>',
+    '  <title>{data.post.title} | Svelte Mastery</title>',
+    '  <meta name="description" content={data.post.excerpt} />',
+    '  <link rel="canonical" href={canonical} />',
+    '',
+    '  <!-- Open Graph -->',
+    '  <meta property="og:type" content="article" />',
+    '  <meta property="og:title" content={data.post.title} />',
+    '  <meta property="og:description" content={data.post.excerpt} />',
+    '  <meta property="og:url" content={canonical} />',
+    '  <meta property="og:image" content={data.post.coverImage} />',
+    '  <meta property="og:site_name" content="Svelte Mastery" />',
+    '',
+    '  <!-- Twitter -->',
+    '  <meta name="twitter:card" content="summary_large_image" />',
+    '  <meta name="twitter:site" content="@sveltejs" />',
+    '  <meta name="twitter:title" content={data.post.title} />',
+    '  <meta name="twitter:description" content={data.post.excerpt} />',
+    '  <meta name="twitter:image" content={data.post.coverImage} />',
+    '',
+    '  <!-- Article-specific -->',
+    '  <meta property="article:published_time" content={data.post.publishedAt} />',
+    '  <meta property="article:author" content={data.post.author.name} />',
+    '</svelte:head>',
+    '',
+    '<article>',
+    '  <h1>{data.post.title}</h1>',
+    '  <time datetime={data.post.publishedAt}>{data.post.publishedAt}</time>',
+    '  {@html data.post.html}',
+    '</article>'
+  ].join('\\n');
 
-  <!-- Open Graph -->
-  <meta property="og:title" content="\${pageData.title}" />
-  <meta property="og:description" content="\${pageData.description}" />
-  <meta property="og:url" content="\${pageData.url}" />
-  <meta property="og:image" content="\${pageData.image}" />
-  <meta property="og:type" content="\${pageData.type}" />
+  const layoutExample = [
+    '<!-- src/routes/+layout.svelte -->',
+    '<svelte:head>',
+    '  <meta charset="utf-8" />',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
+    '  <meta name="robots" content="index, follow" />',
+    '  <meta name="theme-color" content="#ff3e00" />',
+    '  <link rel="icon" href="/favicon.svg" />',
+    '</svelte:head>'
+  ].join('\\n');
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="\${pageData.title}" />
-  <meta name="twitter:description" content="\${pageData.description}" />
-  <meta name="twitter:image" content="\${pageData.image}" />
-</svelte:head>\`);
+  const generatedHead = $derived(
+    [
+      '<svelte:head>',
+      '  <title>' + title + '</title>',
+      '  <meta name="description" content="' + description + '" />',
+      '  <link rel="canonical" href="' + url + '" />',
+      '',
+      '  <meta property="og:type" content="article" />',
+      '  <meta property="og:title" content="' + title + '" />',
+      '  <meta property="og:description" content="' + description + '" />',
+      '  <meta property="og:url" content="' + url + '" />',
+      '  <meta property="og:image" content="' + image + '" />',
+      '  <meta property="og:site_name" content="' + siteName + '" />',
+      '',
+      '  <meta name="twitter:card" content="summary_large_image" />',
+      '  <meta name="twitter:site" content="' + twitterHandle + '" />',
+      '  <meta name="twitter:title" content="' + title + '" />',
+      '  <meta name="twitter:description" content="' + description + '" />',
+      '  <meta name="twitter:image" content="' + image + '" />',
+      '</svelte:head>'
+    ].join('\\n')
+  );
 
-  type HeadingRule = { tag: string; purpose: string; seoRole: string };
-
-  const headingHierarchy: HeadingRule[] = [
-    { tag: '<h1>', purpose: 'Page title — one per page', seoRole: 'Primary keyword target' },
-    { tag: '<h2>', purpose: 'Major sections', seoRole: 'Secondary keywords, structure' },
-    { tag: '<h3>', purpose: 'Subsections within <h2>', seoRole: 'Long-tail keywords' },
-    { tag: '<h4>–<h6>', purpose: 'Deeper nesting if needed', seoRole: 'Semantic structure only' }
-  ];
+  const domain = $derived(url.replace('https://', '').replace('http://', '').split('/')[0]);
 </script>
-
-<svelte:head>
-  <title>{pageData.title}</title>
-  <meta name="description" content={pageData.description} />
-</svelte:head>
 
 <main>
   <h1>Technical SEO in SvelteKit</h1>
+  <p class="subtitle">Live meta editor with SERP previews and heading validation</p>
 
   <section class="editor">
-    <h2>SEO Meta Editor</h2>
+    <h2>Live Meta Editor</h2>
 
     <label>
-      Title
-      <span class="counter" class:invalid={!titleValid}>
-        {titleLength}/60
-      </span>
-      <input type="text" bind:value={pageData.title} maxlength={80} />
+      <span>Page Title</span>
+      <input type="text" bind:value={title} />
+      <small style="color: {titleColor}">
+        {title.length} / {titleLimit} chars
+      </small>
     </label>
 
     <label>
-      Meta Description
-      <span class="counter" class:invalid={!descValid}>
-        {descLength}/160
-      </span>
-      <textarea bind:value={pageData.description} maxlength={200} rows={3}></textarea>
+      <span>Meta Description</span>
+      <textarea bind:value={description} rows="3"></textarea>
+      <small style="color: {descColor}">
+        {description.length} / {descLimit} chars
+      </small>
     </label>
 
     <label>
-      Canonical URL
-      <input type="url" bind:value={pageData.url} />
+      <span>Canonical URL</span>
+      <input type="text" bind:value={url} />
     </label>
 
     <label>
-      OG Image URL
-      <input type="url" bind:value={pageData.image} />
+      <span>OG Image URL</span>
+      <input type="text" bind:value={image} />
     </label>
 
-    <div class="row">
+    <div class="two-col">
       <label>
-        Author
-        <input type="text" bind:value={pageData.author} />
+        <span>Site Name</span>
+        <input type="text" bind:value={siteName} />
       </label>
       <label>
-        Type
-        <select bind:value={pageData.type}>
-          <option value="article">Article</option>
-          <option value="website">Website</option>
-        </select>
+        <span>Twitter Handle</span>
+        <input type="text" bind:value={twitterHandle} />
       </label>
     </div>
   </section>
 
-  <section class="preview">
-    <h2>Google Search Preview</h2>
-    <div class="serp-preview">
-      <cite>{pageData.url}</cite>
-      <h3 class="serp-title">{pageData.title}</h3>
-      <p class="serp-desc">{pageData.description}</p>
+  <section class="previews">
+    <h2>SERP &amp; Social Previews</h2>
+    <div class="preview-tabs">
+      <button class:active={activePreview === 'google'} onclick={() => (activePreview = 'google')}>
+        Google
+      </button>
+      <button class:active={activePreview === 'twitter'} onclick={() => (activePreview = 'twitter')}>
+        Twitter / X
+      </button>
+      <button class:active={activePreview === 'facebook'} onclick={() => (activePreview = 'facebook')}>
+        Facebook
+      </button>
     </div>
+
+    {#if activePreview === 'google'}
+      <div class="google-preview">
+        <div class="breadcrumb">{domain}</div>
+        <div class="g-title">{title}</div>
+        <div class="g-desc">{description}</div>
+      </div>
+    {:else if activePreview === 'twitter'}
+      <div class="twitter-preview">
+        <div class="tw-image"></div>
+        <div class="tw-body">
+          <div class="tw-domain">{domain}</div>
+          <div class="tw-title">{title}</div>
+          <div class="tw-desc">{description}</div>
+        </div>
+      </div>
+    {:else}
+      <div class="fb-preview">
+        <div class="fb-image"></div>
+        <div class="fb-body">
+          <div class="fb-domain">{domain}</div>
+          <div class="fb-title">{title}</div>
+          <div class="fb-desc">{description}</div>
+        </div>
+      </div>
+    {/if}
   </section>
 
-  <section class="code-output">
-    <h2>Generated &lt;svelte:head&gt;</h2>
-    <pre><code>{headCode}</code></pre>
+  <section class="generated">
+    <h2>Generated svelte:head</h2>
+    <pre><code>{generatedHead}</code></pre>
   </section>
 
-  <section class="hierarchy">
-    <h2>Heading Hierarchy</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Tag</th>
-          <th>Purpose</th>
-          <th>SEO Role</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each headingHierarchy as rule}
-          <tr>
-            <td><code>{rule.tag}</code></td>
-            <td>{rule.purpose}</td>
-            <td>{rule.seoRole}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+  <section class="headings">
+    <h2>Heading Hierarchy Validator</h2>
+    <p>Edit the markup; we check for a single h1 and sequential nesting.</p>
+    <textarea bind:value={headingInput} rows="8"></textarea>
+    <div class="heading-result" class:valid={headingsValid} class:invalid={!headingsValid}>
+      {headingsValid ? 'Heading hierarchy is valid' : 'Heading hierarchy has issues'}
+    </div>
+    <ul class="heading-list">
+      {#each parsedHeadings as h, i (i)}
+        <li class:bad={!h.valid} style="padding-left: {(h.level - 1) * 1.5}rem">
+          <code>h{h.level}</code>
+          {h.text}
+          {#if !h.valid}<span class="reason">&mdash; {h.reason}</span>{/if}
+        </li>
+      {/each}
+    </ul>
+  </section>
+
+  <section class="code-example">
+    <h2>Complete +page.svelte Example</h2>
+    <pre><code>{pageExample}</code></pre>
+  </section>
+
+  <section class="code-example">
+    <h2>Default Meta in +layout.svelte</h2>
+    <pre><code>{layoutExample}</code></pre>
   </section>
 </main>
 
 <style>
   main {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 2rem;
     font-family: system-ui, sans-serif;
   }
 
+  .subtitle {
+    color: #666;
+    margin-bottom: 2rem;
+  }
+
+  section {
+    margin-bottom: 2.5rem;
+  }
+
   .editor label {
     display: block;
     margin-bottom: 1rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #333;
   }
 
-  input, textarea, select {
+  .editor label span {
     display: block;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+
+  .editor input,
+  .editor textarea {
     width: 100%;
-    padding: 0.5rem;
-    margin-top: 0.25rem;
+    padding: 0.6rem;
+    font-size: 0.95rem;
     border: 1px solid #ccc;
     border-radius: 6px;
-    font-size: 0.95rem;
     font-family: inherit;
+    box-sizing: border-box;
   }
 
-  .counter {
-    float: right;
-    font-weight: 400;
-    color: #16a34a;
+  .editor small {
+    font-size: 0.75rem;
+    font-weight: 600;
   }
 
-  .counter.invalid {
-    color: #dc2626;
-  }
-
-  .row {
+  .two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
   }
 
-  .serp-preview {
-    background: white;
-    padding: 1.25rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    margin-top: 1rem;
+  .preview-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
   }
 
-  .serp-preview cite {
+  .preview-tabs button {
+    flex: 1;
+    padding: 0.5rem;
+    border: 2px solid #e0e0e0;
+    background: #f8f9fa;
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .preview-tabs button.active {
+    border-color: #4a90d9;
+    background: #eef4fb;
+  }
+
+  .google-preview {
+    background: white;
+    padding: 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: Arial, sans-serif;
+  }
+
+  .breadcrumb {
     color: #202124;
     font-size: 0.8rem;
-    font-style: normal;
   }
 
-  .serp-title {
+  .g-title {
     color: #1a0dab;
-    font-size: 1.2rem;
-    margin: 0.25rem 0;
-    cursor: pointer;
+    font-size: 1.25rem;
+    margin: 0.2rem 0;
+    font-weight: 400;
   }
 
-  .serp-title:hover {
-    text-decoration: underline;
-  }
-
-  .serp-desc {
+  .g-desc {
     color: #4d5156;
-    font-size: 0.9rem;
-    margin: 0;
-    line-height: 1.5;
+    font-size: 0.85rem;
+  }
+
+  .twitter-preview,
+  .fb-preview {
+    border: 1px solid #cfd9de;
+    border-radius: 16px;
+    overflow: hidden;
+    max-width: 500px;
+  }
+
+  .tw-image,
+  .fb-image {
+    height: 200px;
+    background: linear-gradient(135deg, #ff3e00, #4a90d9);
+  }
+
+  .tw-body,
+  .fb-body {
+    padding: 0.75rem;
+    background: white;
+  }
+
+  .tw-domain,
+  .fb-domain {
+    color: #536471;
+    font-size: 0.8rem;
+  }
+
+  .tw-title,
+  .fb-title {
+    font-weight: 600;
+    margin: 0.25rem 0;
+  }
+
+  .tw-desc,
+  .fb-desc {
+    color: #536471;
+    font-size: 0.85rem;
+  }
+
+  .fb-preview {
+    border-radius: 8px;
+  }
+
+  .fb-body {
+    background: #f0f2f5;
   }
 
   pre {
@@ -248,40 +426,59 @@ SvelteKit makes this seamless because each +page.svelte can set its own head con
     padding: 1rem;
     border-radius: 8px;
     overflow-x: auto;
-    font-size: 0.8rem;
-    line-height: 1.5;
+    font-size: 0.78rem;
   }
 
-  table {
+  .headings textarea {
     width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
-  }
-
-  th, td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  th {
-    background: #f0f0f0;
-  }
-
-  code {
-    background: #f0f0f0;
-    padding: 0.15rem 0.4rem;
-    border-radius: 4px;
+    padding: 0.5rem;
+    font-family: monospace;
     font-size: 0.85rem;
+    border-radius: 6px;
+    box-sizing: border-box;
   }
 
-  pre code {
-    background: none;
+  .heading-result {
+    padding: 0.6rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    font-weight: 700;
+  }
+
+  .heading-result.valid {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .heading-result.invalid {
+    background: #fecaca;
+    color: #991b1b;
+  }
+
+  .heading-list {
+    list-style: none;
     padding: 0;
   }
 
-  section {
-    margin-bottom: 2.5rem;
+  .heading-list li {
+    padding: 0.3rem 0;
+    font-size: 0.9rem;
+  }
+
+  .heading-list li.bad {
+    color: #991b1b;
+  }
+
+  .heading-list code {
+    background: #f0f0f0;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    margin-right: 0.4rem;
+  }
+
+  .reason {
+    color: #991b1b;
+    font-size: 0.8rem;
   }
 </style>`,
 			language: 'svelte'

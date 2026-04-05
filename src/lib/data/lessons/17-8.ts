@@ -8,275 +8,404 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 8
 	},
-	description: `Web security is critical for any production application. Cross-Site Scripting (XSS) occurs when malicious scripts are injected into your pages — Svelte prevents this by default by escaping all template expressions, but the {@html} tag bypasses this protection.
+	description: `Svelte and SvelteKit give you secure defaults — template interpolation escapes HTML, form actions require a same-origin token, and CSP is configurable out of the box. But real apps still have to handle hostile input, authenticate requests, and lock down third-party scripts. This lesson covers the three biggest web-security concerns and their SvelteKit-specific mitigations.
 
-Cross-Site Request Forgery (CSRF) tricks authenticated users into making unwanted requests. SvelteKit automatically protects against CSRF by checking the Origin header on form submissions. Content Security Policy (CSP) headers restrict which resources browsers can load, providing defense-in-depth. Understanding these protections helps you build secure applications and avoid common vulnerabilities.`,
+XSS (Cross-Site Scripting): by default Svelte escapes everything you interpolate with {expression}. The escape hatch {@html raw} injects raw HTML — ONLY use it on content you've sanitized (ideally with DOMPurify). Markdown, rich-text editors, and user-generated HTML are the classic footguns.
+
+CSRF (Cross-Site Request Forgery): SvelteKit's default form action handler checks that the request's origin matches the host — a same-origin policy enforced for every non-GET form submission. You can configure allowed origins in svelte.config.js.
+
+CSP (Content Security Policy): an HTTP header that tells the browser which scripts, styles, images, and connections are allowed. SvelteKit's kit.csp config generates the header for you, including nonces for inline scripts so your strict CSP doesn't break hydration.`,
 	objectives: [
-		'Understand how Svelte auto-escapes output to prevent XSS attacks',
-		'Recognize the dangers of {@html} and how to sanitize user content',
-		'Learn how SvelteKit handles CSRF protection automatically',
-		'Configure Content Security Policy headers for defense-in-depth'
+		"Understand Svelte's automatic escaping and when {@html} is safe",
+		'Sanitize user HTML with DOMPurify before rendering',
+		'Know how SvelteKit protects form actions against CSRF',
+		'Configure Content-Security-Policy via kit.csp in svelte.config.js',
+		'Use nonces for inline scripts under a strict CSP'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  let userInput: string = $state('<img src=x onerror="alert(1)"> Hello <b>world</b>');
-  let showUnsafe: boolean = $state(false);
-  let activeTab: 'xss' | 'csrf' | 'csp' = $state('xss');
-
-  // Simple HTML sanitizer (in production, use DOMPurify)
-  function sanitizeHtml(html: string): string {
-    const allowedTags = ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'li'];
-    return html.replace(/<\\/?([a-zA-Z]+)[^>]*>/g, (match, tag) => {
-      const lowerTag = tag.toLowerCase();
-      if (allowedTags.includes(lowerTag)) {
-        // Only allow the tag itself, strip attributes
-        return match.startsWith('</') ? \`</\${lowerTag}>\` : \`<\${lowerTag}>\`;
-      }
-      return ''; // Strip disallowed tags
-    });
+  // ============================================================
+  // 1) XSS demo — escaped vs {@html} vs sanitized
+  // ============================================================
+  // Tiny sanitizer for demo purposes. In production use DOMPurify:
+  //   import DOMPurify from 'isomorphic-dompurify';
+  //   const clean = DOMPurify.sanitize(dirty, {
+  //     ALLOWED_TAGS: ['b','i','em','strong','a','p','br'],
+  //     ALLOWED_ATTR: ['href']
+  //   });
+  function sanitize(html: string): string {
+    // Strip script tags and any on* event handlers
+    return html
+      .replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '')
+      .replace(/\\son\\w+\\s*=\\s*"[^"]*"/gi, '')
+      .replace(/\\son\\w+\\s*=\\s*'[^']*'/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/<iframe\\b[^>]*>/gi, '')
+      .replace(/<object\\b[^>]*>/gi, '');
   }
 
-  let sanitized = $derived(sanitizeHtml(userInput));
+  const attackSamples = [
+    '<b>Hello</b> <i>world</i>',
+    '<img src=x onerror="alert(1)">',
+    '<a href="javascript:alert(1)">click</a>',
+    '<script>alert("xss")</script><p>after</p>',
+    '<iframe src="https://evil.example"></iframe>'
+  ];
 
-  const csrfExample = \`// SvelteKit CSRF protection (automatic)
-// 1. Form submissions check Origin header
-// 2. Rejects requests from different origins
+  let userInput: string = $state(attackSamples[1]);
+  let sanitized = $derived(sanitize(userInput));
 
-// In svelte.config.js — customize if needed:
-const config = &#123;
-  kit: &#123;
-    csrf: &#123;
-      checkOrigin: true,  // default: true
-    &#125;
-  &#125;
-&#125;;\`;
+  // ============================================================
+  // 2) CSRF simulator
+  // ============================================================
+  type RequestAttempt = {
+    id: number;
+    origin: string;
+    method: string;
+    result: 'accepted' | 'blocked-csrf' | 'accepted-get';
+  };
+  let attempts: RequestAttempt[] = $state([]);
+  let attemptId: number = $state(0);
 
-  const cspExample = \`// src/hooks.server.ts
-import type &#123; Handle &#125; from '@sveltejs/kit';
+  const myOrigin = 'https://app.example.com';
 
-export const handle: Handle = async (&#123; event, resolve &#125;) => &#123;
-  const response = await resolve(event);
+  function simulateRequest(origin: string, method: string): void {
+    let result: RequestAttempt['result'];
+    if (method === 'GET') {
+      result = 'accepted-get'; // GET is never CSRF-protected
+    } else if (origin === myOrigin) {
+      result = 'accepted';
+    } else {
+      result = 'blocked-csrf';
+    }
+    attempts = [{ id: attemptId++, origin, method, result }, ...attempts].slice(0, 8);
+  }
 
-  // Content Security Policy header
-  response.headers.set(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      "script-src 'self' 'strict-dynamic'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
-      "font-src 'self'",
-      "connect-src 'self'",
-      "frame-ancestors 'none'",
-    ].join('; ')
-  );
+  // ============================================================
+  // 3) CSP directive builder
+  // ============================================================
+  type CspMode = 'strict' | 'moderate' | 'loose';
+  let cspMode: CspMode = $state('strict');
 
-  // Additional security headers
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin');
+  const cspDirectives: Record<CspMode, Record<string, string[]>> = {
+    strict: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'nonce-{NONCE}'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'"],
+      'frame-ancestors': ["'none'"],
+      'base-uri': ["'self'"],
+      'form-action': ["'self'"]
+    },
+    moderate: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'nonce-{NONCE}'", 'https://cdn.example.com'],
+      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      'img-src': ["'self'", 'data:', 'https:'],
+      'connect-src': ["'self'", 'https://api.example.com'],
+      'font-src': ["'self'", 'https://fonts.gstatic.com'],
+      'frame-ancestors': ["'self'"]
+    },
+    loose: {
+      'default-src': ["'self'", 'https:'],
+      'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https:'],
+      'style-src': ["'self'", "'unsafe-inline'", 'https:'],
+      'img-src': ['*', 'data:', 'blob:'],
+      'connect-src': ['*']
+    }
+  };
 
-  return response;
-&#125;;\`;
+  let cspHeader = $derived.by(() => {
+    return Object.entries(cspDirectives[cspMode])
+      .map(([directive, sources]) => \`\${directive} \${sources.join(' ')}\`)
+      .join('; ');
+  });
 </script>
 
-<h1>Security: XSS, CSRF & CSP</h1>
+<h1>Security: XSS, CSRF &amp; CSP</h1>
 
-<div class="tabs">
-  <button class:active={activeTab === 'xss'} onclick={() => activeTab = 'xss'}>XSS</button>
-  <button class:active={activeTab === 'csrf'} onclick={() => activeTab = 'csrf'}>CSRF</button>
-  <button class:active={activeTab === 'csp'} onclick={() => activeTab = 'csp'}>CSP</button>
-</div>
+<section>
+  <h2>1. XSS — escaped vs {'{@html}'} vs sanitized</h2>
+  <div class="row">
+    <label>Input (user-provided HTML):</label>
+    <textarea bind:value={userInput} rows="3"></textarea>
+  </div>
+  <div class="attack-samples">
+    <span>Load sample:</span>
+    {#each attackSamples as s, i (i)}
+      <button onclick={() => (userInput = s)}>#{i + 1}</button>
+    {/each}
+  </div>
 
-{#if activeTab === 'xss'}
-  <section>
-    <h2>Cross-Site Scripting (XSS)</h2>
-
-    <div class="input-area">
-      <label>User input (try injecting HTML/script):</label>
-      <textarea bind:value={userInput} rows="3"></textarea>
+  <div class="xss-grid">
+    <div class="xss-box safe">
+      <div class="xss-label">
+        <span class="dot green"></span>
+        Default: {'{userInput}'} (escaped)
+      </div>
+      <div class="xss-result">{userInput}</div>
+      <p class="caption">Always safe. HTML is escaped to text.</p>
     </div>
 
-    <div class="comparison">
-      <div class="safe-box">
-        <h3>Safe: Template expression &#123;value&#125;</h3>
-        <div class="output">{userInput}</div>
-        <p class="note">Svelte auto-escapes — HTML tags render as text.</p>
+    <div class="xss-box danger">
+      <div class="xss-label">
+        <span class="dot red"></span>
+        {'{@html userInput}'} — DANGER
       </div>
-
-      <div class="danger-box">
-        <h3>Dangerous: &#123;@html value&#125;</h3>
-        <label class="toggle">
-          <input type="checkbox" bind:checked={showUnsafe} />
-          Show raw HTML output
-        </label>
-        {#if showUnsafe}
-          <div class="output">
-            {@html userInput}
-          </div>
-          <p class="warning">This renders raw HTML — XSS vulnerability!</p>
-        {:else}
-          <div class="output blocked">Blocked for safety in this demo</div>
-        {/if}
-      </div>
-
-      <div class="sanitized-box">
-        <h3>Safe: Sanitized &#123;@html sanitize(value)&#125;</h3>
-        <div class="output">
-          {@html sanitized}
-        </div>
-        <p class="note">Only allows safe tags: b, i, em, strong, p, br, ul, li.</p>
-      </div>
+      <div class="xss-result">{@html userInput}</div>
+      <p class="caption">Never use on untrusted input. Demo shows rendered result; malicious tags may execute in a real browser.</p>
     </div>
 
-    <pre class="code"><code>&lt;!-- SAFE: auto-escaped --&gt;
-&lt;p&gt;&#123;userInput&#125;&lt;/p&gt;
-
-&lt;!-- DANGEROUS: raw HTML --&gt;
-&lt;p&gt;&#123;@html userInput&#125;&lt;/p&gt;
-
-&lt;!-- SAFE: sanitized first --&gt;
-&lt;p&gt;&#123;@html DOMPurify.sanitize(userInput)&#125;&lt;/p&gt;</code></pre>
-  </section>
-
-{:else if activeTab === 'csrf'}
-  <section>
-    <h2>Cross-Site Request Forgery (CSRF)</h2>
-
-    <div class="info-card">
-      <h3>How CSRF Works</h3>
-      <div class="attack-flow">
-        <div class="flow-step">
-          <span class="step-num">1</span>
-          <p>User logs into your-app.com</p>
-        </div>
-        <div class="flow-step danger">
-          <span class="step-num">2</span>
-          <p>User visits evil-site.com</p>
-        </div>
-        <div class="flow-step danger">
-          <span class="step-num">3</span>
-          <p>Evil site sends POST to your-app.com/delete-account</p>
-        </div>
-        <div class="flow-step">
-          <span class="step-num">4</span>
-          <p>Browser includes your-app cookies automatically</p>
-        </div>
+    <div class="xss-box sanitized">
+      <div class="xss-label">
+        <span class="dot yellow"></span>
+        {'{@html sanitize(userInput)}'} — SAFE
       </div>
+      <div class="xss-result">{@html sanitized}</div>
+      <p class="caption">OK when sanitized (use DOMPurify in production).</p>
     </div>
+  </div>
+</section>
 
-    <div class="info-card safe">
-      <h3>SvelteKit's Protection</h3>
-      <ul>
-        <li>Automatically checks the <code>Origin</code> header on non-GET requests</li>
-        <li>Rejects requests where Origin doesn't match the app's URL</li>
-        <li>Enabled by default — no configuration needed</li>
-        <li>Works for both form actions and API endpoints</li>
-      </ul>
+<section>
+  <h2>2. CSRF — origin check on non-GET form actions</h2>
+  <p class="note">
+    SvelteKit's default CSRF guard rejects POST/PUT/DELETE/PATCH/... form submissions
+    whose <code>Origin</code> header does not match the app host.
+    Our origin is <strong>{myOrigin}</strong>.
+  </p>
+
+  <div class="csrf-buttons">
+    <button onclick={() => simulateRequest(myOrigin, 'POST')}>
+      POST from same origin
+    </button>
+    <button onclick={() => simulateRequest('https://evil.example.com', 'POST')}>
+      POST from evil.example.com
+    </button>
+    <button onclick={() => simulateRequest('https://evil.example.com', 'GET')}>
+      GET from evil.example.com
+    </button>
+    <button onclick={() => simulateRequest(myOrigin, 'DELETE')}>
+      DELETE from same origin
+    </button>
+  </div>
+
+  {#if attempts.length > 0}
+    <div class="attempts">
+      {#each attempts as a (a.id)}
+        <div
+          class="attempt"
+          class:accepted={a.result === 'accepted' || a.result === 'accepted-get'}
+          class:blocked={a.result === 'blocked-csrf'}
+        >
+          <span class="method">{a.method}</span>
+          <code>{a.origin}</code>
+          <span class="result">
+            {#if a.result === 'accepted'}accepted (same origin)
+            {:else if a.result === 'accepted-get'}accepted (GET exempt)
+            {:else}BLOCKED (CSRF){/if}
+          </span>
+        </div>
+      {/each}
     </div>
+  {/if}
+</section>
 
-    <pre class="code"><code>{csrfExample}</code></pre>
-  </section>
+<section>
+  <h2>3. CSP builder</h2>
+  <div class="csp-modes">
+    {#each ['strict', 'moderate', 'loose'] as m (m)}
+      <button
+        class:active={cspMode === m}
+        onclick={() => (cspMode = m as CspMode)}
+      >
+        {m}
+      </button>
+    {/each}
+  </div>
 
-{:else}
-  <section>
-    <h2>Content Security Policy (CSP)</h2>
+  <div class="directives">
+    {#each Object.entries(cspDirectives[cspMode]) as [directive, sources] (directive)}
+      <div class="directive">
+        <strong>{directive}</strong>
+        <div class="sources">
+          {#each sources as src (src)}
+            <code class:nonce={src.includes('nonce')}>{src}</code>
+          {/each}
+        </div>
+      </div>
+    {/each}
+  </div>
 
-    <div class="csp-rules">
-      <div class="rule">
-        <code>default-src 'self'</code>
-        <p>Only load resources from same origin</p>
-      </div>
-      <div class="rule">
-        <code>script-src 'self'</code>
-        <p>Only run scripts from same origin</p>
-      </div>
-      <div class="rule">
-        <code>style-src 'self' 'unsafe-inline'</code>
-        <p>Allow same-origin styles and inline styles</p>
-      </div>
-      <div class="rule">
-        <code>img-src 'self' data: https:</code>
-        <p>Allow images from same origin, data URLs, and HTTPS</p>
-      </div>
-      <div class="rule">
-        <code>frame-ancestors 'none'</code>
-        <p>Prevent site from being embedded in iframes</p>
-      </div>
-    </div>
+  <div class="header">
+    <div class="header-label">Content-Security-Policy header:</div>
+    <pre><code>{cspHeader}</code></pre>
+  </div>
+</section>
 
-    <pre class="code"><code>{cspExample}</code></pre>
-  </section>
-{/if}
+<section>
+  <h2>svelte.config.js — CSP + CSRF options</h2>
+  <pre class="code"><code>{\`// svelte.config.js
+export default {
+  kit: {
+    csp: {
+      mode: 'auto',  // 'auto' | 'hash' | 'nonce'
+      directives: {
+        'default-src': ['self'],
+        'script-src': ['self'],
+        'style-src': ['self', 'unsafe-inline'],
+        'img-src': ['self', 'data:'],
+        'connect-src': ['self'],
+        'frame-ancestors': ['none'],
+        'base-uri': ['self'],
+        'form-action': ['self']
+      },
+      // Report-only mode — browsers send violations to a URL
+      // but do NOT block anything. Perfect for rollouts.
+      reportOnly: {
+        'script-src': ['self'],
+        'report-uri': ['/api/csp-report']
+      }
+    },
+
+    csrf: {
+      // Default: true — blocks cross-site form submissions
+      // to any non-GET action. Disable only if your app
+      // intentionally accepts cross-origin form POSTs.
+      checkOrigin: true
+    }
+  }
+};
+
+// src/routes/+page.svelte — inline script under strict CSP
+// SvelteKit injects the nonce for you; don't do this manually.
+<svelte:head>
+  <script nonce="%sveltekit.nonce%">
+    // Your code here — only runs because the nonce matches.
+  </script>
+</svelte:head>
+
+// hooks.server.ts — also set HSTS and related headers
+export const handle: Handle = async ({ event, resolve }) => {
+  const response = await resolve(event);
+  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  return response;
+};
+\`}</code></pre>
+</section>
 
 <style>
   h1 { color: #2d3436; }
-  .tabs { display: flex; gap: 2px; margin-bottom: 0; }
-  .tabs button {
-    flex: 1; padding: 0.6rem; border: none; background: #dfe6e9;
-    cursor: pointer; font-weight: 700; border-radius: 4px 4px 0 0;
-    font-size: 1rem;
+  section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #d63031; font-size: 1.05rem; }
+  .note { font-size: 0.85rem; color: #636e72; margin: 0 0 0.75rem; }
+  .note code { background: #dfe6e9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+  .row { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; }
+  .row label { font-size: 0.8rem; font-weight: 600; color: #2d3436; }
+  .row textarea {
+    width: 100%; padding: 0.5rem; border: 1px solid #ddd;
+    border-radius: 4px; font-family: monospace; font-size: 0.85rem;
+    box-sizing: border-box;
   }
-  .tabs button.active { background: #d63031; color: white; }
-  section { padding: 1rem; background: #f8f9fa; border-radius: 0 0 8px 8px; }
-  h2 { margin-top: 0; color: #d63031; font-size: 1.1rem; }
-  h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
-  .input-area { margin-bottom: 1rem; }
-  label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
-  textarea {
-    width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;
-    font-family: monospace; font-size: 0.9rem; box-sizing: border-box;
+  .attack-samples {
+    display: flex; gap: 0.25rem; align-items: center; margin-bottom: 0.75rem;
   }
-  .comparison { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
-  .safe-box, .danger-box, .sanitized-box {
-    padding: 0.75rem; border-radius: 6px;
+  .attack-samples span { font-size: 0.8rem; color: #636e72; }
+  .attack-samples button {
+    padding: 0.2rem 0.5rem; border: none; border-radius: 3px;
+    background: #dfe6e9; cursor: pointer; font-size: 0.75rem;
+    font-weight: 600;
   }
-  .safe-box { background: #e8f8f0; border: 1px solid #00b894; }
-  .danger-box { background: #fff5f5; border: 1px solid #ff7675; }
-  .sanitized-box { background: #f0f8ff; border: 1px solid #74b9ff; }
-  .output {
-    padding: 0.5rem; background: white; border-radius: 4px;
-    margin: 0.5rem 0; min-height: 30px; word-break: break-all;
+  .xss-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
   }
-  .output.blocked { color: #b2bec3; font-style: italic; }
-  .note { font-size: 0.8rem; color: #00b894; margin: 0; }
-  .warning { font-size: 0.8rem; color: #d63031; font-weight: 600; margin: 0; }
-  .toggle { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; font-size: 0.85rem; }
-  .info-card {
-    padding: 1rem; background: white; border-radius: 6px;
-    border: 1px solid #dfe6e9; margin-bottom: 0.75rem;
+  .xss-box {
+    background: white; padding: 0.75rem; border-radius: 6px;
+    border-left: 4px solid;
   }
-  .info-card.safe { border-color: #00b894; }
-  .attack-flow { display: flex; flex-direction: column; gap: 0.4rem; }
-  .flow-step {
-    display: flex; gap: 0.5rem; align-items: center;
-    padding: 0.4rem; border-radius: 4px; background: #f8f9fa;
+  .xss-box.safe { border-left-color: #00b894; }
+  .xss-box.danger { border-left-color: #d63031; }
+  .xss-box.sanitized { border-left-color: #fdcb6e; }
+  .xss-label {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-weight: 700; font-size: 0.75rem; color: #2d3436;
+    font-family: monospace; margin-bottom: 0.5rem;
   }
-  .flow-step.danger { background: #fff5f5; }
-  .step-num {
-    width: 24px; height: 24px; border-radius: 50%; background: #636e72;
-    color: white; display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
   }
-  .flow-step.danger .step-num { background: #d63031; }
-  .flow-step p { margin: 0; font-size: 0.9rem; }
-  ul { padding-left: 1.5rem; }
-  li { margin-bottom: 0.3rem; font-size: 0.9rem; }
-  .csp-rules { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-  .rule {
-    padding: 0.5rem 0.75rem; background: white; border-radius: 4px;
-    border-left: 3px solid #d63031;
+  .dot.green { background: #00b894; }
+  .dot.red { background: #d63031; }
+  .dot.yellow { background: #fdcb6e; }
+  .xss-result {
+    padding: 0.5rem; background: #f8f9fa; border-radius: 4px;
+    min-height: 2rem; word-break: break-word; font-size: 0.85rem;
   }
-  .rule code { color: #d63031; font-weight: 600; }
-  .rule p { margin: 0.2rem 0 0; font-size: 0.85rem; color: #636e72; }
-  button {
+  .caption { margin: 0.4rem 0 0; font-size: 0.7rem; color: #636e72; }
+  .csrf-buttons { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.75rem; }
+  .csrf-buttons button {
+    padding: 0.4rem 0.75rem; border: none; border-radius: 4px;
+    background: #0984e3; color: white; cursor: pointer;
+    font-weight: 600; font-size: 0.8rem;
+  }
+  .attempts { background: white; border-radius: 6px; overflow: hidden; }
+  .attempt {
+    display: grid; grid-template-columns: 80px 1fr auto;
+    gap: 0.75rem; align-items: center; padding: 0.5rem 0.75rem;
+    border-left: 4px solid; font-size: 0.85rem;
+  }
+  .attempt.accepted { border-color: #00b894; background: #f0fff4; }
+  .attempt.blocked { border-color: #d63031; background: #fff5f5; }
+  .attempt .method {
+    font-family: monospace; font-weight: 700;
+    padding: 0.1rem 0.4rem; background: #2d3436;
+    color: white; border-radius: 3px; font-size: 0.7rem; text-align: center;
+  }
+  .attempt code { font-family: monospace; font-size: 0.8rem; color: #2d3436; }
+  .attempt .result { font-weight: 600; font-size: 0.75rem; }
+  .attempt.blocked .result { color: #d63031; }
+  .attempt.accepted .result { color: #00b894; }
+  .csp-modes { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; }
+  .csp-modes button {
     padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
-    background: #d63031; color: white; cursor: pointer; font-weight: 600;
+    background: #dfe6e9; cursor: pointer; font-weight: 600;
+    font-size: 0.85rem; text-transform: capitalize;
   }
-  .code, pre { background: #2d3436; padding: 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0; }
-  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
+  .csp-modes button.active { background: #d63031; color: white; }
+  .directives { background: white; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem; }
+  .directive {
+    padding: 0.4rem 0; border-bottom: 1px solid #f1f2f6;
+    display: grid; grid-template-columns: 150px 1fr; gap: 0.5rem;
+    align-items: start;
+  }
+  .directive:last-child { border-bottom: none; }
+  .directive strong {
+    font-family: monospace; color: #6c5ce7; font-size: 0.8rem;
+  }
+  .sources { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .sources code {
+    padding: 0.1rem 0.4rem; background: #dfe6e9; border-radius: 3px;
+    font-size: 0.75rem; font-family: monospace;
+  }
+  .sources code.nonce { background: #fdcb6e; }
+  .header-label { font-size: 0.75rem; color: #636e72; margin-bottom: 0.25rem; text-transform: uppercase; }
+  .header pre {
+    margin: 0; padding: 0.75rem; background: #2d3436;
+    border-radius: 4px; overflow-x: auto;
+  }
+  .header code { color: #55efc4; font-size: 0.75rem; font-family: monospace; word-break: break-all; }
+  .code {
+    padding: 1rem; background: #2d3436; border-radius: 6px;
+    overflow-x: auto; margin: 0;
+  }
+  .code code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; font-family: monospace; }
 </style>`,
 			language: 'svelte'
 		}

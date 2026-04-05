@@ -10,187 +10,318 @@ const lesson: LessonData = {
 	},
 	description: `Core Web Vitals (CWV) are Google's key metrics for page experience: Largest Contentful Paint (LCP) measures loading speed, Interaction to Next Paint (INP) measures responsiveness, and Cumulative Layout Shift (CLS) measures visual stability. The March 2026 update introduced holistic site-wide CWV evaluation — poor pages can drag down your entire domain.
 
-Measuring with Lighthouse and Chrome DevTools, then optimizing images, fonts, layout, and JavaScript execution are essential skills for shipping performant SvelteKit applications.`,
+Measuring with Lighthouse and Chrome DevTools, then optimizing images, fonts, layout, and JavaScript execution are essential skills for shipping performant SvelteKit applications.
+
+This lesson provides a visual simulator for each metric, a Lighthouse-style scoring widget, SvelteKit-specific optimization recipes, and a breakdown of the March 2026 site-wide holistic metric.`,
 	objectives: [
-		'Define the three Core Web Vitals metrics and their passing thresholds',
+		'Define LCP, INP, and CLS and their passing thresholds',
 		'Measure CWV using Lighthouse and Chrome DevTools Performance tab',
 		'Apply optimization techniques for LCP, INP, and CLS in SvelteKit',
-		'Understand site-wide CWV evaluation from the March 2026 update'
+		'Understand site-wide CWV evaluation from the March 2026 update',
+		'Identify common SvelteKit pitfalls that hurt CWV scores'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  type CWVMetric = {
+  type Metric = {
+    key: 'LCP' | 'INP' | 'CLS';
     name: string;
-    fullName: string;
-    good: string;
-    needsWork: string;
-    poor: string;
+    full: string;
+    good: number;
+    poor: number;
     unit: string;
     description: string;
-    optimizations: string[];
+    fixes: string[];
   };
 
-  const metrics: CWVMetric[] = [
+  const metrics: Metric[] = [
     {
+      key: 'LCP',
       name: 'LCP',
-      fullName: 'Largest Contentful Paint',
-      good: '≤ 2.5s',
-      needsWork: '2.5s – 4.0s',
-      poor: '> 4.0s',
-      unit: 'seconds',
-      description: 'Time until the largest visible content element is rendered.',
-      optimizations: [
-        'Optimize and compress images (WebP/AVIF)',
-        'Preload critical resources with <link rel="preload">',
-        'Use SSR to deliver HTML with content immediately',
-        'Inline critical CSS, defer non-critical stylesheets',
-        'Use SvelteKit prerendering for static pages'
+      full: 'Largest Contentful Paint',
+      good: 2500,
+      poor: 4000,
+      unit: 'ms',
+      description:
+        'Time until the largest visible element (hero image, main heading) finishes rendering.',
+      fixes: [
+        'Preload hero images with <link rel="preload">',
+        'Use SvelteKit prerender for static routes',
+        'Serve images as AVIF/WebP with srcset',
+        'Remove render-blocking third-party scripts',
+        'Upgrade to HTTP/3 and a CDN at the edge'
       ]
     },
     {
+      key: 'INP',
       name: 'INP',
-      fullName: 'Interaction to Next Paint',
-      good: '≤ 200ms',
-      needsWork: '200ms – 500ms',
-      poor: '> 500ms',
-      unit: 'milliseconds',
-      description: 'Responsiveness — time from user interaction to the next visual update.',
-      optimizations: [
-        'Keep event handlers fast, avoid blocking the main thread',
-        'Use $state.raw for large non-reactive datasets',
-        'Break long tasks with requestAnimationFrame or setTimeout',
-        'Minimize DOM size and avoid excessive re-renders',
-        'Use Svelte transitions instead of JS animations'
+      full: 'Interaction to Next Paint',
+      good: 200,
+      poor: 500,
+      unit: 'ms',
+      description:
+        'Latency from a user interaction (click, tap, key press) to the next rendered frame.',
+      fixes: [
+        'Break long tasks (>50ms) with scheduler.yield()',
+        'Avoid giant event handlers in onclick',
+        'Use Svelte 5 runes which batch updates efficiently',
+        'Defer non-critical JS with type="module" and async',
+        'Move heavy computation into Web Workers'
       ]
     },
     {
+      key: 'CLS',
       name: 'CLS',
-      fullName: 'Cumulative Layout Shift',
-      good: '≤ 0.1',
-      needsWork: '0.1 – 0.25',
-      poor: '> 0.25',
-      unit: 'score',
-      description: 'Visual stability — how much content shifts unexpectedly during loading.',
-      optimizations: [
-        'Set explicit width/height on images and videos',
-        'Reserve space for dynamic content with min-height',
-        'Use CSS contain on components with dynamic sizing',
+      full: 'Cumulative Layout Shift',
+      good: 0.1,
+      poor: 0.25,
+      unit: '',
+      description:
+        'Sum of layout shift scores as content moves around during loading. Lower is better.',
+      fixes: [
+        'Always specify width and height on <img> elements',
+        'Reserve space for ads and embeds with CSS aspect-ratio',
+        'Use font-display: optional to avoid FOIT/FOUT shifts',
         'Avoid inserting content above existing content',
-        'Preload fonts with font-display: swap'
+        'Animate with transform, not top/left/width/height'
       ]
     }
   ];
 
   let activeMetric = $state(0);
 
-  // Simulated scores
-  let scores = $state({
-    lcp: 1.8,
-    inp: 145,
-    cls: 0.05,
-    performance: 94,
-    accessibility: 98,
-    seo: 100,
-    bestPractices: 95
-  });
+  // Interactive simulator values
+  let lcp = $state(2100);
+  let inp = $state(180);
+  let cls = $state(0.08);
 
-  function getStatus(metric: string, value: number): 'good' | 'needs-work' | 'poor' {
-    if (metric === 'lcp') return value <= 2.5 ? 'good' : value <= 4 ? 'needs-work' : 'poor';
-    if (metric === 'inp') return value <= 200 ? 'good' : value <= 500 ? 'needs-work' : 'poor';
-    if (metric === 'cls') return value <= 0.1 ? 'good' : value <= 0.25 ? 'needs-work' : 'poor';
-    return 'good';
+  function ratingOf(value: number, m: Metric): 'good' | 'needs' | 'poor' {
+    if (value <= m.good) return 'good';
+    if (value <= m.poor) return 'needs';
+    return 'poor';
   }
 
-  const statusColors = {
-    'good': '#16a34a',
-    'needs-work': '#ca8a04',
-    'poor': '#dc2626'
+  const lcpRating = $derived(ratingOf(lcp, metrics[0]));
+  const inpRating = $derived(ratingOf(inp, metrics[1]));
+  const clsRating = $derived(ratingOf(cls, metrics[2]));
+
+  const ratingColors: Record<string, string> = {
+    good: '#16a34a',
+    needs: '#f59e0b',
+    poor: '#ef4444'
   };
+
+  const ratingLabels: Record<string, string> = {
+    good: 'Good',
+    needs: 'Needs Improvement',
+    poor: 'Poor'
+  };
+
+  // Lighthouse-style score (weighted average, simplified)
+  const performanceScore = $derived.by(() => {
+    const lcpScore = lcp <= 2500 ? 100 : lcp <= 4000 ? 75 : lcp <= 6000 ? 50 : 25;
+    const inpScore = inp <= 200 ? 100 : inp <= 500 ? 75 : inp <= 800 ? 50 : 25;
+    const clsScore = cls <= 0.1 ? 100 : cls <= 0.25 ? 75 : cls <= 0.5 ? 50 : 25;
+    return Math.round(lcpScore * 0.35 + inpScore * 0.35 + clsScore * 0.3);
+  });
+
+  const scoreColor = $derived(
+    performanceScore >= 90 ? '#16a34a' : performanceScore >= 50 ? '#f59e0b' : '#ef4444'
+  );
+
+  // Optimization code examples
+  const preloadExample = [
+    '<!-- src/routes/+layout.svelte -->',
+    '<svelte:head>',
+    '  <link',
+    '    rel="preload"',
+    '    as="image"',
+    '    href="/hero.avif"',
+    '    type="image/avif"',
+    '    fetchpriority="high"',
+    '  />',
+    '  <link rel="preconnect" href="https://cdn.example.com" crossorigin />',
+    '</svelte:head>'
+  ].join('\\n');
+
+  const imageExample = [
+    '<!-- Responsive image with explicit dimensions -->',
+    '<img',
+    '  src="/hero-800.avif"',
+    '  srcset="/hero-400.avif 400w, /hero-800.avif 800w, /hero-1600.avif 1600w"',
+    '  sizes="(max-width: 768px) 100vw, 800px"',
+    '  width="800"',
+    '  height="450"',
+    '  alt="Hero image"',
+    '  loading="eager"',
+    '  fetchpriority="high"',
+    '/>'
+  ].join('\\n');
+
+  const inpExample = [
+    '<script lang="ts">',
+    '  // Break up long tasks to improve INP',
+    '  async function handleClick() {',
+    '    const items = computeFirstBatch();',
+    '    render(items);',
+    '    await scheduler.yield();',
+    '    const more = computeSecondBatch();',
+    '    render(more);',
+    '  }',
+    '</' + 'script>'
+  ].join('\\n');
+
+  // March 2026 site-wide metric
+  const holisticStats = [
+    { label: 'Pages scoring Good', value: 72 },
+    { label: 'Pages needing improvement', value: 20 },
+    { label: 'Pages scoring Poor', value: 8 }
+  ];
+
+  const sitewideGood = $derived(holisticStats[0].value >= 75);
 </script>
 
 <main>
   <h1>Core Web Vitals</h1>
-  <p class="subtitle">LCP · INP · CLS — March 2026 site-wide evaluation</p>
+  <p class="subtitle">LCP &middot; INP &middot; CLS &mdash; and the March 2026 holistic metric</p>
 
-  <section class="metrics-overview">
-    {#each metrics as metric, i}
-      {@const value = i === 0 ? scores.lcp : i === 1 ? scores.inp : scores.cls}
-      {@const key = i === 0 ? 'lcp' : i === 1 ? 'inp' : 'cls'}
-      {@const status = getStatus(key, value)}
-      <button
-        class="metric-card"
-        class:active={activeMetric === i}
-        onclick={() => activeMetric = i}
-        style="border-left: 4px solid {statusColors[status]}"
-      >
-        <h2>{metric.name}</h2>
-        <p class="metric-value" style="color: {statusColors[status]}">
-          {value}{i === 2 ? '' : i === 0 ? 's' : 'ms'}
-        </p>
-        <p class="threshold">{metric.good}</p>
+  <section class="metric-picker">
+    {#each metrics as m, i (m.key)}
+      <button class="metric-btn" class:active={activeMetric === i} onclick={() => (activeMetric = i)}>
+        <strong>{m.name}</strong>
+        <small>{m.full}</small>
       </button>
     {/each}
   </section>
 
   <section class="metric-detail">
-    <h2>{metrics[activeMetric].fullName} ({metrics[activeMetric].name})</h2>
+    <h2>{metrics[activeMetric].full}</h2>
     <p>{metrics[activeMetric].description}</p>
 
     <div class="thresholds">
-      <div class="threshold-bar good">Good: {metrics[activeMetric].good}</div>
-      <div class="threshold-bar needs-work">Needs Work: {metrics[activeMetric].needsWork}</div>
-      <div class="threshold-bar poor">Poor: {metrics[activeMetric].poor}</div>
+      <div class="threshold good">
+        <strong>Good</strong>
+        <span>&le; {metrics[activeMetric].good}{metrics[activeMetric].unit}</span>
+      </div>
+      <div class="threshold needs">
+        <strong>Needs Improvement</strong>
+        <span>&le; {metrics[activeMetric].poor}{metrics[activeMetric].unit}</span>
+      </div>
+      <div class="threshold poor">
+        <strong>Poor</strong>
+        <span>&gt; {metrics[activeMetric].poor}{metrics[activeMetric].unit}</span>
+      </div>
     </div>
 
-    <h3>Optimization Techniques</h3>
+    <h3>How to fix it in SvelteKit</h3>
     <ul>
-      {#each metrics[activeMetric].optimizations as opt}
-        <li>{opt}</li>
+      {#each metrics[activeMetric].fixes as fix (fix)}
+        <li>{fix}</li>
       {/each}
     </ul>
   </section>
 
-  <section class="lighthouse">
-    <h2>Lighthouse Scores</h2>
-    <div class="score-grid">
-      {#each [
-        { label: 'Performance', score: scores.performance },
-        { label: 'Accessibility', score: scores.accessibility },
-        { label: 'SEO', score: scores.seo },
-        { label: 'Best Practices', score: scores.bestPractices }
-      ] as item}
-        {@const color = item.score >= 90 ? '#16a34a' : item.score >= 50 ? '#ca8a04' : '#dc2626'}
-        <div class="score-circle">
-          <svg viewBox="0 0 100 100" width="80" height="80">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#e0e0e0" stroke-width="6" />
-            <circle
-              cx="50" cy="50" r="45" fill="none"
-              stroke={color} stroke-width="6"
-              stroke-dasharray="{item.score * 2.83} 283"
-              stroke-linecap="round"
-              transform="rotate(-90 50 50)"
-            />
-            <text x="50" y="55" text-anchor="middle" font-size="20" font-weight="bold" fill={color}>
-              {item.score}
-            </text>
-          </svg>
-          <span>{item.label}</span>
+  <section class="simulator">
+    <h2>Lighthouse Score Simulator</h2>
+    <p>Drag the sliders to see how each metric affects your performance score.</p>
+
+    <div class="sliders">
+      <label>
+        <span>LCP: {lcp}ms</span>
+        <input type="range" min="500" max="8000" step="100" bind:value={lcp} />
+        <div class="rating" style="color: {ratingColors[lcpRating]}">
+          {ratingLabels[lcpRating]}
         </div>
-      {/each}
+      </label>
+
+      <label>
+        <span>INP: {inp}ms</span>
+        <input type="range" min="50" max="1000" step="10" bind:value={inp} />
+        <div class="rating" style="color: {ratingColors[inpRating]}">
+          {ratingLabels[inpRating]}
+        </div>
+      </label>
+
+      <label>
+        <span>CLS: {cls}</span>
+        <input type="range" min="0" max="0.6" step="0.01" bind:value={cls} />
+        <div class="rating" style="color: {ratingColors[clsRating]}">
+          {ratingLabels[clsRating]}
+        </div>
+      </label>
+    </div>
+
+    <div class="score-circle" style="--score-color: {scoreColor}">
+      <div class="score-number">{performanceScore}</div>
+      <div class="score-label">Performance</div>
     </div>
   </section>
 
-  <section class="note">
-    <h3>March 2026: Site-Wide CWV</h3>
-    <p>Google now evaluates Core Web Vitals <strong>holistically across your entire site</strong>. A few poorly performing pages can negatively affect rankings for your whole domain. Ensure every route — not just the homepage — meets passing thresholds.</p>
+  <section class="visual-demo">
+    <h2>CLS Visual Example</h2>
+    <p>This is what a bad CLS looks like: content jumps as images load without dimensions.</p>
+    <div class="cls-demo">
+      <div class="cls-bad">
+        <strong>Bad (no width/height)</strong>
+        <div class="cls-text">Content above the image</div>
+        <div class="cls-img-bad"></div>
+        <div class="cls-text">Content below shifts down</div>
+      </div>
+      <div class="cls-good">
+        <strong>Good (reserved space)</strong>
+        <div class="cls-text">Content above the image</div>
+        <div class="cls-img-good"></div>
+        <div class="cls-text">Content stays in place</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="code-section">
+    <h2>Image Preload (LCP)</h2>
+    <pre><code>{preloadExample}</code></pre>
+
+    <h2>Responsive Image (LCP + CLS)</h2>
+    <pre><code>{imageExample}</code></pre>
+
+    <h2>Break Long Tasks (INP)</h2>
+    <pre><code>{inpExample}</code></pre>
+  </section>
+
+  <section class="holistic">
+    <h2>March 2026: Site-wide Holistic CWV</h2>
+    <p>
+      Google now evaluates CWV at the origin level. If too many pages on your domain score Poor,
+      the entire site suffers a ranking penalty &mdash; even on pages that individually pass.
+      The threshold is roughly 75% of pages scoring Good.
+    </p>
+
+    <div class="site-stats">
+      {#each holisticStats as stat (stat.label)}
+        <div class="stat">
+          <div class="stat-value">{stat.value}%</div>
+          <div class="stat-label">{stat.label}</div>
+        </div>
+      {/each}
+    </div>
+
+    <div class="site-verdict" class:ok={sitewideGood} class:bad={!sitewideGood}>
+      {sitewideGood
+        ? 'Site passes the 75% Good threshold'
+        : 'Site falls below the 75% Good threshold — ranking penalty applies'}
+    </div>
+
+    <div class="callout">
+      <strong>SvelteKit tip:</strong> use \`adapter-static\` or \`adapter-cloudflare\` with
+      prerendered routes to eliminate server latency on low-traffic pages. A single slow page
+      template with thousands of URLs can tank your holistic score.
+    </div>
   </section>
 </main>
 
 <style>
   main {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 2rem;
     font-family: system-ui, sans-serif;
@@ -201,108 +332,258 @@ Measuring with Lighthouse and Chrome DevTools, then optimizing images, fonts, la
     margin-bottom: 2rem;
   }
 
-  .metrics-overview {
+  section {
+    margin-bottom: 2.5rem;
+  }
+
+  .metric-picker {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 2rem;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
   }
 
-  .metric-card {
+  .metric-btn {
+    padding: 1rem;
     background: #f8f9fa;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 1.25rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
     cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
-  .metric-card.active {
-    background: #eef4fb;
+  .metric-btn.active {
     border-color: #4a90d9;
+    background: #eef4fb;
   }
 
-  .metric-card h2 {
-    margin: 0;
-    font-size: 1.2rem;
+  .metric-btn strong {
+    font-size: 1.4rem;
+    color: #4a90d9;
   }
 
-  .metric-value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin: 0.5rem 0 0.25rem;
-  }
-
-  .threshold {
-    color: #888;
+  .metric-btn small {
+    color: #666;
     font-size: 0.8rem;
-    margin: 0;
+    margin-top: 0.2rem;
   }
 
   .metric-detail {
-    background: #f0f7ff;
+    background: #fafafa;
     padding: 1.5rem;
-    border-radius: 8px;
-    margin-bottom: 2rem;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
   }
 
   .thresholds {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.5rem;
     margin: 1rem 0;
   }
 
-  .threshold-bar {
-    flex: 1;
-    padding: 0.5rem;
+  .threshold {
+    padding: 0.6rem;
     border-radius: 6px;
     text-align: center;
     font-size: 0.85rem;
-    font-weight: 500;
   }
 
-  .threshold-bar.good { background: #dcfce7; color: #166534; }
-  .threshold-bar.needs-work { background: #fef9c3; color: #854d0e; }
-  .threshold-bar.poor { background: #fecaca; color: #991b1b; }
-
-  .metric-detail ul {
-    padding-left: 1.2rem;
+  .threshold.good {
+    background: #dcfce7;
+    color: #166534;
   }
 
-  .metric-detail li {
-    margin-bottom: 0.4rem;
-  }
-
-  .score-grid {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 1rem;
-  }
-
-  .score-circle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .note {
-    background: #fffbeb;
-    border: 1px solid #f59e0b;
-    padding: 1.25rem;
-    border-radius: 8px;
-  }
-
-  .note h3 {
-    margin-top: 0;
+  .threshold.needs {
+    background: #fef3c7;
     color: #92400e;
   }
 
-  section {
-    margin-bottom: 2rem;
+  .threshold.poor {
+    background: #fecaca;
+    color: #991b1b;
+  }
+
+  .threshold strong {
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .simulator {
+    background: #fafafa;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    align-items: center;
+  }
+
+  .simulator h2 {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .simulator > p {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .sliders label {
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  .sliders label span {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .sliders input[type='range'] {
+    width: 100%;
+  }
+
+  .rating {
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .score-circle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 10px solid var(--score-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+  }
+
+  .score-number {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--score-color);
+  }
+
+  .score-label {
+    font-size: 0.8rem;
+    color: #666;
+  }
+
+  .cls-demo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .cls-bad,
+  .cls-good {
+    padding: 0.8rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+  }
+
+  .cls-bad strong {
+    color: #991b1b;
+  }
+
+  .cls-good strong {
+    color: #166534;
+  }
+
+  .cls-text {
+    padding: 0.3rem 0;
+    font-size: 0.85rem;
+  }
+
+  .cls-img-bad {
+    width: 100%;
+    height: 100px;
+    background: linear-gradient(135deg, #fecaca, #fca5a5);
+    animation: grow 3s ease-in-out infinite;
+  }
+
+  .cls-img-good {
+    width: 100%;
+    height: 100px;
+    background: linear-gradient(135deg, #dcfce7, #86efac);
+  }
+
+  @keyframes grow {
+    0%,
+    50% {
+      height: 0;
+    }
+    100% {
+      height: 100px;
+    }
+  }
+
+  pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.78rem;
+  }
+
+  .site-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .stat {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #4a90d9;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: #666;
+  }
+
+  .site-verdict {
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .site-verdict.ok {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .site-verdict.bad {
+    background: #fecaca;
+    color: #991b1b;
+  }
+
+  .callout {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
   }
 </style>`,
 			language: 'svelte'

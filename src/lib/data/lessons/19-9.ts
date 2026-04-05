@@ -8,261 +8,263 @@ const lesson: LessonData = {
 		module: 19,
 		lessonIndex: 9
 	},
-	description: `@sveltejs/package transforms your $lib directory into a publishable npm package. It compiles .svelte files, generates TypeScript declarations, and creates a clean package ready for npm publish. The exports field in package.json controls what consumers can import, and svelte field tells bundlers where to find the source.
+	description: `@sveltejs/package transforms your $lib directory into a publishable npm package. It compiles .svelte files (keeping them as .svelte for downstream compilation), generates .d.ts declaration files, and produces a clean dist/ that npm can consume. The exports field in package.json controls what consumers can import, the svelte field tells bundlers where to find source components, and peerDependencies keeps Svelte itself out of your bundle.
 
-Building a component library lets you share UI components across projects, within your team, or with the open-source community. This lesson covers the full workflow from setup to publishing.`,
+Building a component library is how you share UI across projects or publish to npm. This lesson walks the full workflow: scaffold, develop, package, version, publish.`,
 	objectives: [
-		'Configure @sveltejs/package for library compilation',
-		'Set up package.json exports field for clean import paths',
-		'Generate TypeScript declarations for library consumers',
-		'Publish a Svelte component library to npm'
+		'Scaffold a SvelteKit library project with `sv create --template library`',
+		'Configure package.json exports, svelte, and peerDependencies fields',
+		'Run pnpm package to compile .svelte files and emit .d.ts declarations',
+		'Publish to npm with the correct access and version semantics',
+		'Consume the published library from another SvelteKit project'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  let activeStep = $state(0);
+  type Tab = 'scaffold' | 'structure' | 'exports' | 'publish' | 'wizard';
+  let activeTab = $state<Tab>('scaffold');
 
-  type Step = {
-    title: string;
-    description: string;
-    code: string;
-  };
+  // Publish wizard
+  type Step = { title: string; description: string; cmd?: string; done: boolean };
+  let steps = $state<Step[]>([
+    { title: 'Scaffold', description: 'Create a library project', cmd: 'pnpm dlx sv create my-ui --template library --types ts', done: false },
+    { title: 'Install', description: 'Install dependencies', cmd: 'cd my-ui && pnpm install', done: false },
+    { title: 'Develop', description: 'Build components in src/lib/', done: false },
+    { title: 'Test', description: 'Preview components in /routes against src/lib/', cmd: 'pnpm dev', done: false },
+    { title: 'svelte-check', description: 'Type check before packaging', cmd: 'pnpm check', done: false },
+    { title: 'Package', description: 'Compile src/lib/ into dist/', cmd: 'pnpm package', done: false },
+    { title: 'Version', description: 'Bump semver (major/minor/patch)', cmd: 'npm version minor', done: false },
+    { title: 'Login', description: 'Authenticate to npm', cmd: 'npm login', done: false },
+    { title: 'Publish', description: 'Publish to the registry', cmd: 'npm publish --access public', done: false }
+  ]);
 
-  const steps: Step[] = [
-    {
-      title: '1. Project Setup',
-      description: 'Create a SvelteKit library project using the official template.',
-      code: \`# Create a library project
-pnpm create svelte@latest my-ui-lib
-# Select "Library project" option
+  let progress = $derived(
+    Math.round((steps.filter((s) => s.done).length / steps.length) * 100)
+  );
 
-# Or add to existing project:
-pnpm add -D @sveltejs/package\`
-    },
-    {
-      title: '2. Package Configuration',
-      description: 'Configure package.json with proper exports, svelte field, and metadata.',
-      code: \`// package.json
-{
-  "name": "@myorg/ui-lib",
-  "version": "1.0.0",
+  function toggleStep(i: number) {
+    const next = [...steps];
+    next[i] = { ...next[i], done: !next[i].done };
+    steps = next;
+  }
+
+  const packageJson = \`{
+  "name": "@acme/ui",
+  "version": "0.1.0",
+  "type": "module",
   "license": "MIT",
+
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build && pnpm package",
+    "package": "svelte-kit sync && svelte-package && publint",
+    "prepublishOnly": "pnpm package",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+
+  "files": ["dist", "!dist/**/*.test.*", "!dist/**/*.spec.*"],
   "svelte": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "type": "module",
+
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "svelte": "./dist/index.js"
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./Button.svelte": {
       "types": "./dist/Button.svelte.d.ts",
       "svelte": "./dist/Button.svelte"
     },
-    "./styles": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css"
   },
-  "files": ["dist", "!dist/**/*.test.*"],
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build && pnpm package",
-    "package": "svelte-package -o dist",
-    "prepublishOnly": "pnpm package"
-  },
+
   "peerDependencies": {
     "svelte": "^5.0.0"
   },
+
   "devDependencies": {
-    "@sveltejs/package": "^2.3.0",
-    "svelte": "^5.0.0"
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/package": "^2.0.0",
+    "svelte": "^5.0.0",
+    "publint": "^0.2.0"
   }
-}\`
-    },
-    {
-      title: '3. Library Source Code',
-      description: 'Components go in src/lib/ with a barrel export in index.ts.',
-      code: \`// src/lib/index.ts — barrel export
+}\`;
+
+  const libStructure = \`my-ui/
+├── src/
+│   ├── lib/                    ← published contents
+│   │   ├── Button.svelte
+│   │   ├── Card.svelte
+│   │   ├── Input.svelte
+│   │   ├── styles.css
+│   │   └── index.ts            ← public API
+│   └── routes/                 ← dev-only preview app
+│       └── +page.svelte
+├── dist/                       ← generated by svelte-package
+│   ├── Button.svelte
+│   ├── Button.svelte.d.ts
+│   ├── Card.svelte
+│   ├── Card.svelte.d.ts
+│   ├── index.js
+│   └── index.d.ts
+├── package.json
+└── svelte.config.js\`;
+
+  const indexTs = \`// src/lib/index.ts — public API surface
 export { default as Button } from './Button.svelte';
 export { default as Card } from './Card.svelte';
 export { default as Input } from './Input.svelte';
+export { default as Modal } from './Modal.svelte';
 
-// Re-export types
-export type { ButtonVariant, CardProps } from './types.js';
+// Types too — consumers can import them
+export type { ButtonProps } from './Button.svelte';
+export type { CardProps } from './Card.svelte';\`;
 
-// src/lib/Button.svelte
+  const consumerCode = \`// Consumer project — install
+$ pnpm add @acme/ui
+
+// In app.css — import library styles
+@import '@acme/ui/styles.css';
+
+// In a component — import components
 <script lang="ts">
-  import type { Snippet } from 'svelte';
-
-  type Variant = 'primary' | 'secondary' | 'ghost';
-
-  let {
-    variant = 'primary',
-    disabled = false,
-    onclick,
-    children
-  }: {
-    variant?: Variant;
-    disabled?: boolean;
-    onclick?: (e: MouseEvent) => void;
-    children: Snippet;
-  } = $props();
+  import { Button, Card } from '@acme/ui';
 <\\/script>
 
-<button data-variant={variant} {disabled} {onclick}>
-  {@render children()}
-</button>\`
-    },
-    {
-      title: '4. Build & Publish',
-      description: 'Run svelte-package to compile, then publish to npm.',
-      code: \`# Build the package
-pnpm package
-# Creates dist/ with compiled .svelte, .js, .d.ts files
+<Card>
+  <Button variant="primary">Hello from @acme/ui</Button>
+</Card>\`;
 
-# Preview what will be published
-pnpm pack --dry-run
+  const publishFlow = \`# Full publish workflow
+$ pnpm check                 # typecheck passes
+$ pnpm test                  # unit tests pass
+$ pnpm package               # emits dist/
+$ pnpm exec publint          # validates package.json + dist/
 
-# Publish to npm
-pnpm publish --access public
+$ npm version patch          # 0.1.0 -> 0.1.1
+                             # creates a git tag v0.1.1
 
-# Or publish as scoped package
-pnpm publish --access public --registry https://registry.npmjs.org
+$ npm publish --access public
 
-# Consumer usage:
-pnpm add @myorg/ui-lib
-
-// In their component:
-import { Button, Card } from '@myorg/ui-lib';
-// or cherry-pick:
-import Button from '@myorg/ui-lib/Button.svelte';\`
-    }
-  ];
-
-  const bestPractices = [
-    { practice: 'Peer Dependencies', detail: 'List svelte as peerDependency, not dependency — avoids duplicate Svelte runtimes' },
-    { practice: 'Tree Shaking', detail: 'Use individual exports so consumers only bundle what they use' },
-    { practice: 'TypeScript', detail: 'Always generate .d.ts files — consumers get autocomplete and type safety' },
-    { practice: 'CSS Strategy', detail: 'Scoped styles are included automatically; global styles need explicit export' },
-    { practice: 'Documentation', detail: 'Include a README with examples, a demo site (Storybook or custom), and JSDoc' },
-    { practice: 'Versioning', detail: 'Follow semver — breaking changes = major, new features = minor, fixes = patch' },
-    { practice: 'Testing', detail: 'Test components with Vitest + @testing-library/svelte before publishing' }
-  ];
-
-  // What svelte-package produces
-  const outputStructure = \`dist/
-  index.js          # Barrel export (compiled)
-  index.d.ts        # TypeScript declarations
-  Button.svelte     # Compiled component
-  Button.svelte.d.ts # Component type declarations
-  Card.svelte
-  Card.svelte.d.ts
-  Input.svelte
-  Input.svelte.d.ts
-  types.js          # Exported types
-  types.d.ts\`;
+# CI: publish from GitHub Actions on tag
+# .github/workflows/publish.yml
+name: publish
+on:
+  push:
+    tags: ['v*']
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}\`;
 </script>
 
 <main>
   <h1>Building Component Libraries</h1>
-  <p class="subtitle">@sveltejs/package — from $lib to npm</p>
+  <p class="subtitle">@sveltejs/package — from $lib to published npm package</p>
 
-  <section class="steps">
-    <div class="step-nav">
-      {#each steps as step, i}
-        <button
-          class="step-btn"
-          class:active={activeStep === i}
-          onclick={() => activeStep = i}
-        >
-          <span class="step-num">{i + 1}</span>
-          {step.title.replace(/^\d+\.\s/, '')}
-        </button>
-      {/each}
-    </div>
+  <nav class="tabs" aria-label="Sections">
+    <button class:active={activeTab === 'scaffold'} onclick={() => (activeTab = 'scaffold')}>Scaffold</button>
+    <button class:active={activeTab === 'structure'} onclick={() => (activeTab = 'structure')}>Structure</button>
+    <button class:active={activeTab === 'exports'} onclick={() => (activeTab = 'exports')}>Exports</button>
+    <button class:active={activeTab === 'publish'} onclick={() => (activeTab = 'publish')}>Publish</button>
+    <button class:active={activeTab === 'wizard'} onclick={() => (activeTab = 'wizard')}>Wizard</button>
+  </nav>
 
-    <div class="step-content">
-      <h2>{steps[activeStep].title}</h2>
-      <p>{steps[activeStep].description}</p>
-      <pre><code>{steps[activeStep].code}</code></pre>
-    </div>
-  </section>
+  {#if activeTab === 'scaffold'}
+    <section>
+      <h2>Scaffold a Library Project</h2>
+      <p>The SvelteKit CLI ships a library template that configures <code>svelte-package</code> out of the box.</p>
+      <pre><code>$ pnpm dlx sv create my-ui --template library --types ts
+$ cd my-ui
+$ pnpm install
+$ pnpm dev              # runs /routes as a dev preview
+$ pnpm package          # compiles src/lib/ into dist/</code></pre>
 
-  <section>
-    <h2>Output Structure</h2>
-    <pre class="tree"><code>{outputStructure}</code></pre>
-  </section>
+      <h3>What the template gives you</h3>
+      <ul>
+        <li><code>src/lib/</code> for components — <strong>anything here is published</strong></li>
+        <li><code>src/routes/</code> for a dev-only preview app — <strong>not published</strong></li>
+        <li><code>svelte.config.js</code> with package hooks</li>
+        <li><code>publint</code> wired in to validate your package.json</li>
+      </ul>
+    </section>
+  {:else if activeTab === 'structure'}
+    <section>
+      <h2>Project Structure</h2>
+      <pre><code>{libStructure}</code></pre>
 
-  <section>
-    <h2>Best Practices</h2>
-    <div class="practices">
-      {#each bestPractices as bp}
-        <div class="practice-card">
-          <h4>{bp.practice}</h4>
-          <p>{bp.detail}</p>
-        </div>
-      {/each}
-    </div>
-  </section>
+      <h3>src/lib/index.ts — public API</h3>
+      <pre><code>{indexTs}</code></pre>
+    </section>
+  {:else if activeTab === 'exports'}
+    <section>
+      <h2>package.json</h2>
+      <p>The <code>exports</code> field declares every entry point. Bundlers resolve the <code>svelte</code> condition to get uncompiled source; TypeScript reads the <code>types</code> condition.</p>
+      <pre><code>{packageJson}</code></pre>
+    </section>
+  {:else if activeTab === 'publish'}
+    <section>
+      <h2>Publishing to npm</h2>
+      <pre><code>{publishFlow}</code></pre>
+
+      <h3>Consumer usage</h3>
+      <pre><code>{consumerCode}</code></pre>
+    </section>
+  {:else}
+    <section>
+      <h2>Publish Wizard</h2>
+      <p>Work through the checklist. Click each step to mark it complete.</p>
+
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" style="width: {progress}%"></div></div>
+        <span class="progress-num">{progress}%</span>
+      </div>
+
+      <div class="steps">
+        {#each steps as step, i (step.title)}
+          <button class="step-card" class:done={step.done} onclick={() => toggleStep(i)}>
+            <span class="step-num">{i + 1}</span>
+            <div class="step-body">
+              <div class="step-title">{step.title}</div>
+              <div class="step-desc">{step.description}</div>
+              {#if step.cmd}<code class="step-cmd">{step.cmd}</code>{/if}
+            </div>
+            <span class="step-check">{step.done ? '✓' : ''}</span>
+          </button>
+        {/each}
+      </div>
+
+      {#if progress === 100}
+        <div class="done-banner">Your library is published. Share the npm link.</div>
+      {/if}
+    </section>
+  {/if}
 </main>
 
 <style>
-  main {
-    max-width: 850px;
-    margin: 0 auto;
-    padding: 2rem;
-    font-family: system-ui, sans-serif;
-  }
+  main { max-width: 900px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
+  .subtitle { color: #666; margin-bottom: 1.5rem; }
 
-  .subtitle { color: #666; margin-bottom: 2rem; }
+  .tabs { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap; }
+  .tabs button { padding: 0.55rem 1rem; border: none; background: transparent; border-radius: 6px 6px 0 0; font-weight: 500; cursor: pointer; }
+  .tabs button.active { background: #eef4fb; color: #1e40af; }
 
-  .step-nav {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .step-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 1rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    background: #f8f9fa;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .step-btn.active {
-    border-color: #4a90d9;
-    background: #eef4fb;
-  }
-
-  .step-num {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #4a90d9;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-
-  .step-content {
-    background: #f8f9fa;
-    padding: 1.5rem;
-    border-radius: 12px;
-  }
-
-  .step-content p {
-    color: #555;
-    margin-bottom: 1rem;
-  }
+  section { margin-bottom: 2rem; }
+  h2 { margin-top: 0; }
 
   pre {
     background: #1e1e1e;
@@ -270,41 +272,67 @@ import Button from '@myorg/ui-lib/Button.svelte';\`
     padding: 1rem;
     border-radius: 8px;
     overflow-x: auto;
-    font-size: 0.78rem;
-    line-height: 1.4;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    max-height: 600px;
   }
+  pre code { background: none; padding: 0; }
+  code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.82rem; }
 
-  pre.tree {
-    font-size: 0.85rem;
-    line-height: 1.6;
-  }
+  ul li { margin: 0.35rem 0; }
 
-  .practices {
+  .progress-wrap { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+  .progress-bar { flex: 1; background: #e5e7eb; border-radius: 999px; height: 10px; overflow: hidden; }
+  .progress-fill { background: #16a34a; height: 100%; transition: width 200ms; }
+  .progress-num { font-weight: 700; font-family: monospace; }
+
+  .steps { display: flex; flex-direction: column; gap: 0.5rem; }
+  .step-card {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 32px 1fr 24px;
     gap: 0.75rem;
-  }
-
-  .practice-card {
-    padding: 1rem;
+    align-items: center;
+    padding: 0.8rem 1rem;
     background: #f8f9fa;
     border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
   }
-
-  .practice-card h4 {
-    margin: 0 0 0.3rem;
-    color: #1a5bb5;
-    font-size: 0.9rem;
-  }
-
-  .practice-card p {
-    margin: 0;
+  .step-card.done { background: #dcfce7; border-color: #16a34a; }
+  .step-num {
+    width: 28px; height: 28px;
+    background: #4a90d9;
+    color: white;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
     font-size: 0.85rem;
-    color: #555;
   }
+  .step-card.done .step-num { background: #16a34a; }
+  .step-title { font-weight: 600; font-size: 0.95rem; }
+  .step-desc { font-size: 0.82rem; color: #555; }
+  .step-cmd {
+    display: block;
+    margin-top: 0.25rem;
+    background: #111;
+    color: #9ae6b4;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+  }
+  .step-check { color: #16a34a; font-size: 1.2rem; font-weight: bold; }
 
-  section { margin-bottom: 2.5rem; }
+  .done-banner {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #dcfce7;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 700;
+    color: #166534;
+  }
 </style>`,
 			language: 'svelte'
 		}

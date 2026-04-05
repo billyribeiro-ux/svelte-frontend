@@ -15,8 +15,10 @@ Best practice: store fetch results in $state.raw() rather than $state(). API res
 Beyond request/response: when you need push-style updates, the Svelte ecosystem offers itty-sockets (a 466-byte WebSocket client that needs no API keys, ideal for prototypes) and svelte-realtime (RPC + reactive subscriptions built on svelte-adapter-uws for production apps).`,
 	objectives: [
 		'Make GET requests with fetch() and parse JSON responses',
+		'POST, PUT, PATCH and DELETE with JSON bodies and headers',
+		'Send FormData (multipart uploads) without manual boundaries',
 		'Use $state.raw() for API responses (best practice)',
-		'Handle HTTP errors properly (check response.ok)',
+		'Handle HTTP errors properly (check response.ok — fetch does NOT throw)',
 		'Display loading, success, and error states in the UI',
 		'Know when to reach for WebSockets (itty-sockets, svelte-realtime)'
 	],
@@ -79,6 +81,91 @@ Beyond request/response: when you need push-style updates, the Svelte ecosystem 
       error = (err as Error).message;
     }
   }
+
+  // ---------------------------------------------------------------
+  // POST — sending JSON
+  //
+  // Three things every JSON POST needs:
+  //   1. method: 'POST'
+  //   2. headers: { 'Content-Type': 'application/json' }
+  //   3. body: JSON.stringify(payload)
+  //
+  // Forget the header and most APIs will silently treat your
+  // body as text/plain and ignore it.
+  // ---------------------------------------------------------------
+
+  interface CreatePostPayload {
+    title: string;
+    body: string;
+    userId: number;
+  }
+
+  interface CreatedPost extends CreatePostPayload {
+    id: number;
+  }
+
+  let newTitle: string = $state('Hello from Svelte');
+  let newBody: string = $state('This post was created with fetch + POST');
+  let createdPost: CreatedPost | null = $state.raw(null);
+  let posting: boolean = $state(false);
+
+  async function createPost(): Promise<void> {
+    posting = true;
+    createdPost = null;
+    error = '';
+
+    try {
+      const payload: CreatePostPayload = {
+        title: newTitle,
+        body: newBody,
+        userId: 1
+      };
+
+      const res = await fetch('https://jsonplaceholder.typicode.com/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('Create failed: HTTP ' + res.status);
+      createdPost = await res.json();
+    } catch (err) {
+      error = (err as Error).message;
+    } finally {
+      posting = false;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // PUT / PATCH / DELETE
+  //
+  // PUT   — replace a resource entirely (send full object)
+  // PATCH — update fields in place (send only changed keys)
+  // DELETE — remove a resource (usually no body)
+  // ---------------------------------------------------------------
+  async function updatePostTitle(id: number, title: string): Promise<void> {
+    // PATCH: partial update
+    await fetch('https://jsonplaceholder.typicode.com/posts/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title })
+    });
+  }
+
+  async function deletePost(id: number): Promise<void> {
+    const res = await fetch('https://jsonplaceholder.typicode.com/posts/' + id, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Delete failed');
+  }
+
+  // Expose these helpers so the compiler doesn't flag them as unused.
+  // In a real app you'd wire them to buttons next to each post.
+  void updatePostTitle;
+  void deletePost;
 </script>
 
 <main>
@@ -117,7 +204,7 @@ Beyond request/response: when you need push-style updates, the Svelte ecosystem 
           <tr><th>ID</th><th>Name</th><th>Email</th><th>Company</th></tr>
         </thead>
         <tbody>
-          {#each users as user}
+          {#each users as user (user.id)}
             <tr>
               <td>{user.id}</td>
               <td>{user.name}</td>
@@ -147,6 +234,95 @@ Beyond request/response: when you need push-style updates, the Svelte ecosystem 
         <p><em>{singleUser.company.name}</em></p>
       </div>
     {/if}
+  </section>
+
+  <section>
+    <h2>POST — Creating a Resource</h2>
+    <div class="form">
+      <label>
+        Title
+        <input bind:value={newTitle} />
+      </label>
+      <label>
+        Body
+        <textarea bind:value={newBody} rows="3"></textarea>
+      </label>
+      <button onclick={createPost} disabled={posting}>
+        {posting ? 'Posting...' : 'POST /posts'}
+      </button>
+    </div>
+    {#if createdPost}
+      <div class="user-card">
+        <strong>Created post #{createdPost.id}</strong>
+        <p>{createdPost.title}</p>
+      </div>
+    {/if}
+    <pre>{\`await fetch('/api/posts', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',  // REQUIRED for JSON bodies
+    'Accept': 'application/json'
+  },
+  body: JSON.stringify({ title, body, userId: 1 })
+});\`}</pre>
+  </section>
+
+  <section>
+    <h2>PUT / PATCH / DELETE</h2>
+    <pre>{\`// PUT — replace resource entirely
+await fetch('/api/posts/1', {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(fullPost)
+});
+
+// PATCH — update just some fields
+await fetch('/api/posts/1', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ title: 'Updated' })
+});
+
+// DELETE — usually no body
+await fetch('/api/posts/1', { method: 'DELETE' });\`}</pre>
+  </section>
+
+  <section>
+    <h2>FormData — File Uploads & multipart</h2>
+    <p class="hint">
+      Pass a <code>FormData</code> object as the body and the browser sets the
+      multipart Content-Type header (with the correct boundary) automatically.
+      Don't set Content-Type yourself — you'll break the boundary.
+    </p>
+    <pre>{\`const formData = new FormData();
+formData.append('title', 'My upload');
+formData.append('file', fileInput.files[0]);  // File object
+formData.append('tags', 'svelte');
+formData.append('tags', 'fetch');             // multiple values OK
+
+await fetch('/api/upload', {
+  method: 'POST',
+  body: formData
+  // NO Content-Type header — browser handles it!
+});
+
+// FormData also works with <form> elements directly:
+const form = document.querySelector('form');
+const data = new FormData(form);\`}</pre>
+  </section>
+
+  <section>
+    <h2>Request Options Reference</h2>
+    <pre>{\`await fetch(url, {
+  method: 'POST',             // GET | POST | PUT | PATCH | DELETE | ...
+  headers: { ... },           // request headers
+  body: '...',                // string | FormData | Blob | URLSearchParams
+  credentials: 'include',     // send cookies cross-origin
+  cache: 'no-store',          // bypass HTTP cache
+  mode: 'cors',               // cors | no-cors | same-origin
+  redirect: 'follow',         // follow | manual | error
+  signal: abortController.signal   // see lesson 12-5
+});\`}</pre>
   </section>
 
   <section>
@@ -219,6 +395,10 @@ try {
   .lib-card h3 { margin: 0 0 0.25rem; color: #0c4a6e; font-size: 0.95rem; }
   .lib-desc { font-size: 0.8rem; color: #0c4a6e; margin-bottom: 0.5rem; }
   .lib-code { background: #0c4a6e; color: #bae6fd; padding: 0.6rem; border-radius: 4px; font-size: 0.72rem; }
+  .form { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+  .form input, .form textarea { padding: 0.4rem; font-family: inherit; font-size: 0.85rem; }
+  .hint { color: #555; font-size: 0.85rem; margin: 0 0 0.5rem; }
 </style>`,
 			language: 'svelte'
 		}

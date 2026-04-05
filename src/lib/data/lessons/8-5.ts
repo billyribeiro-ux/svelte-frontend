@@ -12,132 +12,208 @@ const lesson: LessonData = {
 
 When you write function first<T>(arr: T[]): T | undefined, TypeScript infers T from the argument. Call first([1, 2, 3]) and T becomes number. Call first(['a', 'b']) and T becomes string. Same function, fully type-safe.
 
-The unknown type is the safe alternative to any. Unlike any, unknown forces you to check the type before using it — making it perfect for catch blocks and data from external sources.`,
+The unknown type is the safe alternative to any. Unlike any, unknown forces you to check the type before using it — making it perfect for catch blocks, JSON parsing results, and data from external sources. If any is "trust me," unknown is "prove it."`,
 	objectives: [
 		'Write generic functions with type parameters like <T>',
 		'Understand type inference: TypeScript figures out T from arguments',
-		'Use unknown instead of any for type-safe error handling',
-		'Build reusable type-safe utility functions'
+		'Use constraints (T extends X) to require certain capabilities',
+		'Use unknown instead of any for type-safe error handling'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // === Generic utility functions ===
+  // ============================================================
+  // 1. GENERIC FUNCTION — first<T>
+  // ============================================================
+  // T is a placeholder. TS infers it from the argument.
+
   function first<T>(arr: T[]): T | undefined {
-    return arr.length > 0 ? arr[0] : undefined;
+    return arr[0];
   }
 
   function last<T>(arr: T[]): T | undefined {
-    return arr.length > 0 ? arr[arr.length - 1] : undefined;
+    return arr[arr.length - 1];
   }
 
-  function unique<T>(arr: T[]): T[] {
-    return [...new Set(arr)];
+  // first([1, 2, 3]) → number | undefined
+  // first(['a', 'b']) → string | undefined
+  // first([{ id: 1 }, { id: 2 }]) → { id: number } | undefined
+
+  const firstNumber: number | undefined = first([1, 2, 3]);
+  const lastWord: string | undefined = last(['svelte', 'is', 'fun']);
+
+  // ============================================================
+  // 2. GENERICS WITH MULTIPLE TYPE PARAMETERS
+  // ============================================================
+
+  function pair<A, B>(a: A, b: B): [A, B] {
+    return [a, b];
   }
 
-  function groupBy<T>(arr: T[], keyFn: (item: T) => string): Record<string, T[]> {
-    const groups: Record<string, T[]> = {};
-    for (const item of arr) {
-      const key = keyFn(item);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(item);
+  const stringNum: [string, number] = pair('Alice', 30);
+  const boolArr: [boolean, string[]] = pair(true, ['a', 'b']);
+
+  // ============================================================
+  // 3. GENERIC CONSTRAINTS — T extends ...
+  // ============================================================
+  // Require T to have certain properties.
+
+  interface HasLength {
+    length: number;
+  }
+
+  function longest<T extends HasLength>(a: T, b: T): T {
+    return a.length >= b.length ? a : b;
+  }
+
+  const longerStr: string = longest('short', 'longer one');
+  const longerArr: number[] = longest([1, 2], [1, 2, 3, 4]);
+
+  // ============================================================
+  // 4. groupBy<T, K> — generic utility
+  // ============================================================
+
+  function groupBy<T, K extends string | number>(
+    items: T[],
+    getKey: (item: T) => K
+  ): Record<K, T[]> {
+    const result = {} as Record<K, T[]>;
+    for (const item of items) {
+      const key = getKey(item);
+      if (!result[key]) result[key] = [];
+      result[key].push(item);
     }
-    return groups;
+    return result;
   }
-
-  // Using the generics
-  let numbers: number[] = $state([3, 1, 4, 1, 5, 9, 2, 6, 5]);
-  let words: string[] = $state(['svelte', 'react', 'svelte', 'vue', 'react']);
-
-  let firstNum = $derived(first(numbers));      // TypeScript knows: number | undefined
-  let lastWord = $derived(last(words));          // TypeScript knows: string | undefined
-  let uniqueNums = $derived(unique(numbers));    // TypeScript knows: number[]
-  let uniqueWords = $derived(unique(words));     // TypeScript knows: string[]
 
   interface Person {
     name: string;
-    department: string;
     age: number;
+    department: string;
   }
 
-  let people: Person[] = $state([
-    { name: 'Alice', department: 'Engineering', age: 28 },
-    { name: 'Bob', department: 'Design', age: 34 },
-    { name: 'Carol', department: 'Engineering', age: 22 },
-    { name: 'Dave', department: 'Design', age: 30 },
-    { name: 'Eve', department: 'Marketing', age: 27 }
-  ]);
+  const people: Person[] = [
+    { name: 'Alice', age: 28, department: 'Engineering' },
+    { name: 'Bob', age: 34, department: 'Design' },
+    { name: 'Carol', age: 25, department: 'Engineering' },
+    { name: 'Dave', age: 42, department: 'Design' },
+    { name: 'Eve', age: 31, department: 'Marketing' }
+  ];
 
-  let grouped = $derived(groupBy(people, (p: Person) => p.department));
+  const byDepartment = groupBy(people, (p) => p.department);
+  const departmentNames = Object.keys(byDepartment);
 
-  // === unknown vs any ===
-  let errorResult: string = $state('');
+  // ============================================================
+  // 5. unknown — the safe "any"
+  // ============================================================
+  // any: turns off type-checking completely. Avoid.
+  // unknown: you MUST narrow before using. Safe.
 
-  function handleErrorSafely(err: unknown): string {
-    // With unknown, you MUST check before using
-    if (err instanceof Error) {
-      return \`Error: \${err.message}\`;
-    }
-    if (typeof err === 'string') {
-      return \`String error: \${err}\`;
-    }
-    if (typeof err === 'object' && err !== null && 'code' in err) {
-      return \`Error object with code: \${(err as { code: number }).code}\`;
-    }
-    return \`Unknown error type: \${String(err)}\`;
-  }
-
-  function testError(type: string): void {
+  function safeParse(input: string): unknown {
     try {
-      switch (type) {
-        case 'error': throw new Error('Something broke');
-        case 'string': throw 'A string error';
-        case 'object': throw { code: 404, detail: 'Not found' };
-        case 'number': throw 42;
-      }
-    } catch (e: unknown) {
-      errorResult = handleErrorSafely(e);
+      return JSON.parse(input);
+    } catch {
+      return null;
     }
+  }
+
+  // Narrowing unknown before use
+  function extractName(data: unknown): string {
+    if (data === null || typeof data !== 'object') {
+      return '(invalid data)';
+    }
+    // data is now 'object' — still need to narrow .name
+    if ('name' in data && typeof (data as { name: unknown }).name === 'string') {
+      return (data as { name: string }).name;
+    }
+    return '(no name field)';
+  }
+
+  // ============================================================
+  // 6. unknown IN CATCH BLOCKS (TS 4.4+ default)
+  // ============================================================
+
+  function safeOperation(): string {
+    try {
+      throw new Error('Boom');
+    } catch (err: unknown) {
+      // Can't use err.message directly — must narrow
+      if (err instanceof Error) {
+        return 'Error: ' + err.message;
+      }
+      return 'Unknown throw';
+    }
+  }
+
+  // ============================================================
+  // Interactive demo
+  // ============================================================
+
+  let jsonInput = $state('{"name": "Alice", "age": 28}');
+  let parsed = $state<unknown>(null);
+  let extracted = $state<string>('');
+
+  function runParse(): void {
+    parsed = safeParse(jsonInput);
+    extracted = extractName(parsed);
+  }
+
+  let arrayInput = $state('1,2,3,4,5');
+  let firstItem: number | undefined = $state(undefined);
+  let lastItem: number | undefined = $state(undefined);
+
+  function runFirstLast(): void {
+    const arr = arrayInput
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => !Number.isNaN(n));
+    firstItem = first(arr);
+    lastItem = last(arr);
+  }
+
+  let catchResult = $state('');
+
+  function runCatch(): void {
+    catchResult = safeOperation();
   }
 </script>
 
-<h1>Generic Functions & unknown</h1>
+<h1>Generic Functions &amp; unknown</h1>
 
 <section>
-  <h2>Generic Utility Functions</h2>
-  <pre class="code">function first&lt;T&gt;(arr: T[]): T | undefined
-function last&lt;T&gt;(arr: T[]): T | undefined
-function unique&lt;T&gt;(arr: T[]): T[]</pre>
-
-  <div class="demo-grid">
-    <div class="demo-card">
-      <h3>number[]</h3>
-      <p>Input: [{numbers.join(', ')}]</p>
-      <p>first(): <strong>{firstNum}</strong></p>
-      <p>unique(): [{uniqueNums.join(', ')}]</p>
-    </div>
-    <div class="demo-card">
-      <h3>string[]</h3>
-      <p>Input: [{words.map(w => \`"\${w}"\`).join(', ')}]</p>
-      <p>last(): <strong>"{lastWord}"</strong></p>
-      <p>unique(): [{uniqueWords.map(w => \`"\${w}"\`).join(', ')}]</p>
-    </div>
-  </div>
-  <p class="note">Same functions, different types — TypeScript infers T from the arguments.</p>
+  <h2>1. first&lt;T&gt; and last&lt;T&gt;</h2>
+  <pre class="code">{\`function first<T>(arr: T[]): T | undefined {
+  return arr[0];
+}\`}</pre>
+  <input bind:value={arrayInput} />
+  <button onclick={runFirstLast}>Run</button>
+  <p>first = <strong>{firstItem ?? '(undefined)'}</strong></p>
+  <p>last = <strong>{lastItem ?? '(undefined)'}</strong></p>
+  <p class="hint">
+    Same function works with any array type. TS infers <code>T</code> from the argument.
+  </p>
 </section>
 
 <section>
-  <h2>Generic groupBy&lt;T&gt;</h2>
-  <pre class="code">function groupBy&lt;T&gt;(arr: T[], keyFn: (item: T) =&gt; string): Record&lt;string, T[]&gt;</pre>
+  <h2>2. Constraints: longest&lt;T extends HasLength&gt;</h2>
+  <p>longest('short', 'longer one') = <code>{longerStr}</code></p>
+  <p>longest([1,2], [1,2,3,4]).length = <code>{longerArr.length}</code></p>
+  <pre class="code">{\`function longest<T extends HasLength>(a: T, b: T): T {
+  return a.length >= b.length ? a : b;
+}\`}</pre>
+</section>
 
+<section>
+  <h2>3. groupBy&lt;T, K&gt;</h2>
+  <p class="hint">Generic over both item type and key type.</p>
   <div class="groups">
-    {#each Object.entries(grouped) as [dept, members]}
-      <div class="group-card">
+    {#each departmentNames as dept (dept)}
+      <div class="group">
         <h3>{dept}</h3>
         <ul>
-          {#each members as person}
-            <li>{person.name} (age {person.age})</li>
+          {#each byDepartment[dept] as p (p.name)}
+            <li>{p.name} (age {p.age})</li>
           {/each}
         </ul>
       </div>
@@ -146,94 +222,105 @@ function unique&lt;T&gt;(arr: T[]): T[]</pre>
 </section>
 
 <section>
-  <h2>unknown vs any</h2>
-  <div class="comparison">
-    <div class="bad">
-      <h3>any (unsafe)</h3>
-      <pre class="code">catch (e: any) {'{'}
-  console.log(e.message);
-  // No error if e is not an Error!
-  // Crashes at runtime
-{'}'}</pre>
-    </div>
-    <div class="good">
-      <h3>unknown (safe)</h3>
-      <pre class="code">catch (e: unknown) {'{'}
-  if (e instanceof Error) {'{'}
-    console.log(e.message);
-    // TypeScript knows e is Error here
-  {'}'}
-{'}'}</pre>
-    </div>
-  </div>
-
-  <h3>Test Error Handling</h3>
-  <div class="buttons">
-    <button onclick={() => testError('error')}>throw Error</button>
-    <button onclick={() => testError('string')}>throw string</button>
-    <button onclick={() => testError('object')}>throw object</button>
-    <button onclick={() => testError('number')}>throw number</button>
-  </div>
-  {#if errorResult}
-    <div class="error-result">{errorResult}</div>
+  <h2>4. unknown (not any)</h2>
+  <p class="intro">unknown forces you to check before using — perfect for external data.</p>
+  <textarea bind:value={jsonInput} rows="2"></textarea>
+  <button onclick={runParse}>Parse &amp; extract name</button>
+  {#if parsed !== null}
+    <p>Parsed: <code>{JSON.stringify(parsed)}</code></p>
+    <p>Extracted name: <strong>{extracted}</strong></p>
   {/if}
+</section>
+
+<section>
+  <h2>5. unknown in catch</h2>
+  <pre class="code">{\`try {
+  risky();
+} catch (err: unknown) {
+  if (err instanceof Error) {
+    console.log(err.message);
+  }
+}\`}</pre>
+  <button onclick={runCatch}>Run</button>
+  {#if catchResult}
+    <p class="result">{catchResult}</p>
+  {/if}
+</section>
+
+<section class="cheat">
+  <h2>any vs unknown</h2>
+  <table>
+    <thead>
+      <tr><th>Feature</th><th>any</th><th>unknown</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Use without checking</td><td>yes</td><td>no</td></tr>
+      <tr><td>Type safety</td><td>off</td><td>on</td></tr>
+      <tr><td>When to use</td><td>last resort</td><td>external data, catch</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <style>
   h1 { color: #333; }
   section { margin: 1.5rem 0; padding: 1rem; background: #fafafa; border-radius: 8px; }
+  .intro { font-size: 0.9rem; color: #555; margin: 0 0 0.5rem; }
   .code {
     background: #1e1e1e;
     color: #d4d4d4;
     padding: 0.75rem;
     border-radius: 6px;
     font-size: 0.8rem;
-    overflow-x: auto;
-    white-space: pre;
+    white-space: pre-wrap;
     margin: 0.5rem 0;
   }
-  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
-  .demo-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 0.75rem;
+  input, textarea {
+    padding: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: monospace;
   }
-  .demo-card h3 { margin: 0 0 0.5rem; color: #4f46e5; }
-  .demo-card p { margin: 0.25rem 0; font-size: 0.9rem; }
-  .note { font-size: 0.85rem; color: #666; font-style: italic; }
-  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 0.75rem 0; }
-  .group-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 0.75rem;
-  }
-  .group-card h3 { margin: 0 0 0.5rem; color: #4f46e5; }
-  ul { padding-left: 1.2rem; margin: 0; }
-  li { margin: 0.2rem 0; font-size: 0.9rem; }
-  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.75rem 0; }
-  .bad { padding: 0.75rem; border: 2px solid #ef4444; border-radius: 8px; background: #fef2f2; }
-  .good { padding: 0.75rem; border: 2px solid #22c55e; border-radius: 8px; background: #f0fdf4; }
-  .bad h3, .good h3 { margin: 0 0 0.5rem; }
-  .buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
   button {
-    padding: 0.4rem 0.8rem;
+    padding: 0.5rem 1rem;
     background: #4f46e5;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-  }
-  .error-result {
     margin-top: 0.5rem;
-    padding: 0.75rem;
+  }
+  button:hover { background: #4338ca; }
+  code {
+    background: #e8e8e8;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
+  .result {
+    padding: 0.5rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+  }
+  .groups { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .group {
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 6px;
-    font-family: monospace;
-    font-size: 0.9rem;
+    padding: 0.6rem;
+    flex: 1;
+    min-width: 150px;
   }
+  .group h3 { margin: 0 0 0.4rem; font-size: 0.9rem; color: #4f46e5; }
+  .group ul { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; }
+  .hint { font-size: 0.85rem; color: #666; }
+  .cheat { background: #fffbeb; border: 1px solid #fde68a; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #fde68a; }
+  th { background: #fef3c7; }
 </style>`,
 			language: 'svelte'
 		}

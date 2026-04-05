@@ -8,244 +8,390 @@ const lesson: LessonData = {
 		module: 17,
 		lessonIndex: 5
 	},
-	description: `SvelteKit's file-based router supports advanced patterns for complex application architectures. Layout groups — directories wrapped in parentheses like (marketing) or (app) — let you apply different layouts to different sections of your site without affecting the URL structure.
+	description: `SvelteKit's file-based router has several advanced features that let you handle sophisticated URL structures without losing clarity. This lesson covers four major patterns:
 
-Optional parameters with [[param]], parameter matchers like [id=integer], and rest parameters [...path] give you fine-grained control over route matching. These patterns enable multi-locale apps, shared authentication layouts, and clean URL hierarchies.`,
+1) Route groups with (parentheses) — directories wrapped in parens do NOT add a URL segment but DO add a layout. Use them to split marketing pages from the authenticated app area while keeping the URL flat: (marketing)/about -> /about, (app)/dashboard -> /dashboard, each with its own layout and even its own root layout.
+
+2) Optional params with [[double brackets]] — make a segment optional. Classic use case: i18n prefixes. [[lang]]/about matches /about AND /en/about.
+
+3) Param matchers — validate a param at the router level. [id=integer] only matches when the id is numeric; non-numeric paths fall through to other routes or 404. Matchers live in src/params/*.ts and return booleans.
+
+4) Rest parameters with [...slug] — catch the rest of a path as a single segment. Perfect for wiki pages, file browsers, or catching unknown routes for a custom 404.`,
 	objectives: [
-		'Organize routes with layout groups like (marketing) and (app)',
-		'Use optional parameters [[lang]] for multi-locale URL patterns',
-		'Create parameter matchers for type-safe route parameters',
-		'Design complex route hierarchies with nested layouts'
+		'Organise routes with (group) directories that affect layout but not URL',
+		'Create optional URL segments with [[double bracket]] folders',
+		'Validate params with matchers in src/params/*.ts',
+		'Catch arbitrary path depth with [...rest] parameters',
+		'Combine these patterns for real-world route trees (marketing + app + i18n)'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  interface RouteDefinition {
-    path: string;
-    file: string;
-    layout: string;
-    params: Record<string, string>;
-    description: string;
-  }
+  // Interactive route resolver — enter a URL and see which
+  // file-based route would match it.
 
-  const routeExamples: RouteDefinition[] = [
+  type MatchResult = {
+    path: string;
+    params: Record<string, string | string[]>;
+    layouts: string[];
+  };
+
+  // Simulated matchers — in real SvelteKit they live in src/params/*.ts
+  // and export a match function.
+  const matchers = {
+    integer: (p: string) => /^\\d+$/.test(p),
+    slug: (p: string) => /^[a-z0-9-]+$/.test(p),
+    lang: (p: string) => /^(en|fr|es|de)$/.test(p)
+  };
+
+  // Route table ordered by specificity (most specific first).
+  // Each entry describes a file tree entry.
+  type RouteDef = {
+    pattern: string;   // human readable
+    regex: RegExp;     // compiled
+    paramNames: string[];
+    layouts: string[];
+    file: string;
+  };
+
+  const routes: RouteDef[] = [
     {
-      path: '/', file: 'src/routes/(marketing)/+page.svelte',
-      layout: '(marketing)', params: {},
-      description: 'Marketing layout — full-width, public header',
+      pattern: '(marketing)/+page',
+      regex: /^\\/$/,
+      paramNames: [],
+      layouts: ['root', 'marketing'],
+      file: 'src/routes/(marketing)/+page.svelte'
     },
     {
-      path: '/pricing', file: 'src/routes/(marketing)/pricing/+page.svelte',
-      layout: '(marketing)', params: {},
-      description: 'Shares marketing layout without affecting URL',
+      pattern: '(marketing)/about/+page',
+      regex: /^\\/about$/,
+      paramNames: [],
+      layouts: ['root', 'marketing'],
+      file: 'src/routes/(marketing)/about/+page.svelte'
     },
     {
-      path: '/dashboard', file: 'src/routes/(app)/dashboard/+page.svelte',
-      layout: '(app)', params: {},
-      description: 'App layout — sidebar navigation, auth required',
+      pattern: '(marketing)/pricing/+page',
+      regex: /^\\/pricing$/,
+      paramNames: [],
+      layouts: ['root', 'marketing'],
+      file: 'src/routes/(marketing)/pricing/+page.svelte'
     },
     {
-      path: '/settings', file: 'src/routes/(app)/settings/+page.svelte',
-      layout: '(app)', params: {},
-      description: 'Shares app layout with dashboard',
+      pattern: '(app)/dashboard/+page',
+      regex: /^\\/dashboard$/,
+      paramNames: [],
+      layouts: ['root', 'app'],
+      file: 'src/routes/(app)/dashboard/+page.svelte'
     },
     {
-      path: '/en/blog', file: 'src/routes/[[lang]]/blog/+page.svelte',
-      layout: 'default', params: { lang: 'en (optional)' },
-      description: 'Optional locale prefix — /blog and /en/blog both work',
+      pattern: '(app)/posts/[id=integer]/+page',
+      regex: /^\\/posts\\/(\\d+)$/,
+      paramNames: ['id'],
+      layouts: ['root', 'app'],
+      file: 'src/routes/(app)/posts/[id=integer]/+page.svelte'
     },
     {
-      path: '/products/42', file: 'src/routes/products/[id=integer]/+page.svelte',
-      layout: 'default', params: { id: '42 (must match integer)' },
-      description: 'Param matcher ensures id is a valid integer',
+      pattern: '(app)/posts/[slug]/+page',
+      regex: /^\\/posts\\/([a-z0-9-]+)$/,
+      paramNames: ['slug'],
+      layouts: ['root', 'app'],
+      file: 'src/routes/(app)/posts/[slug]/+page.svelte'
     },
     {
-      path: '/docs/api/auth/login', file: 'src/routes/docs/[...path]/+page.svelte',
-      layout: 'default', params: { path: 'api/auth/login (rest)' },
-      description: 'Rest parameter catches entire sub-path',
+      pattern: '[[lang=lang]]/docs/[...path]/+page',
+      regex: /^(?:\\/(en|fr|es|de))?\\/docs\\/(.+)$/,
+      paramNames: ['lang', 'path'],
+      layouts: ['root', 'docs'],
+      file: 'src/routes/[[lang=lang]]/docs/[...path]/+page.svelte'
     },
+    {
+      pattern: '[[lang=lang]]/+page',
+      regex: /^(?:\\/(en|fr|es|de))?\\/?$/,
+      paramNames: ['lang'],
+      layouts: ['root'],
+      file: 'src/routes/[[lang=lang]]/+page.svelte'
+    }
   ];
 
-  let selectedRoute: number = $state(0);
-  let current = $derived(routeExamples[selectedRoute]);
+  function resolve(url: string): MatchResult | null {
+    const pathname = url.split('?')[0] || '/';
+    for (const route of routes) {
+      const match = pathname.match(route.regex);
+      if (match) {
+        const params: Record<string, string | string[]> = {};
+        route.paramNames.forEach((name, i) => {
+          const value = match[i + 1];
+          if (value === undefined) return;
+          if (name === 'path') {
+            params[name] = value.split('/');
+          } else {
+            params[name] = value;
+          }
+        });
+        return { path: route.file, params, layouts: route.layouts };
+      }
+    }
+    return null;
+  }
 
-  let showStructure: boolean = $state(false);
+  let testUrl: string = $state('/dashboard');
+  let resolved = $derived(resolve(testUrl));
 
-  const fileStructure = \`src/routes/
-  (marketing)/
-    +layout.svelte      # Public layout (no sidebar)
-    +page.svelte        # /
-    pricing/
-      +page.svelte      # /pricing
-    about/
-      +page.svelte      # /about
+  const examples = [
+    '/',
+    '/about',
+    '/pricing',
+    '/dashboard',
+    '/posts/42',
+    '/posts/svelte-5-runes',
+    '/docs/getting-started',
+    '/docs/advanced/routing/matchers',
+    '/en',
+    '/fr/docs/intro',
+    '/nonsense'
+  ];
 
-  (app)/
-    +layout.svelte      # Auth layout (sidebar)
-    +layout.server.ts   # Auth guard
-    dashboard/
-      +page.svelte      # /dashboard
-    settings/
-      +page.svelte      # /settings
+  let showCode: 'groups' | 'optional' | 'matchers' | 'rest' = $state('groups');
 
-  [[lang]]/
-    blog/
-      +page.svelte      # /blog or /en/blog
-      [slug]/
-        +page.svelte    # /blog/my-post or /en/blog/my-post
+  const codeExamples: Record<string, string> = {
+    groups: \`# Route groups — directory wrapped in parens.
+# Affects the layout, NOT the URL.
 
-  products/
-    [id=integer]/
-      +page.svelte      # /products/42
+src/routes/
+├── +layout.svelte              <- root layout
+├── (marketing)/
+│   ├── +layout.svelte          <- marketing-only layout
+│   ├── +page.svelte            <- /
+│   ├── about/+page.svelte      <- /about
+│   └── pricing/+page.svelte    <- /pricing
+├── (app)/
+│   ├── +layout.server.ts       <- auth guard for this group
+│   ├── +layout.svelte          <- app shell with sidebar
+│   ├── dashboard/+page.svelte  <- /dashboard
+│   └── settings/+page.svelte   <- /settings
+└── (app)/+layout@.svelte
+    # The @ suffix "resets" the layout inheritance,
+    # making (app) use its own root instead of src/routes/+layout.
 
-  docs/
-    [...path]/
-      +page.svelte      # /docs/any/nested/path
+# URLs stay clean: /about, /dashboard — but the two groups
+# can have totally different layouts, auth, and styling.\`,
 
-  params/
-    integer.ts          # Matcher: return /^\\d+$/.test(param)\`;
+    optional: \`# Optional parameters — [[double brackets]]
+# The segment can be present OR absent.
 
-  const matcherCode = \`// src/params/integer.ts
-import type { ParamMatcher } from '@sveltejs/kit';
+src/routes/
+└── [[lang=lang]]/
+    ├── +layout.ts              <- detects lang param
+    ├── +page.svelte            <- matches "/" AND "/en", "/fr", ...
+    └── about/+page.svelte      <- matches "/about" AND "/en/about"
 
-export const match: ParamMatcher = (param) => {
-  return /^\\\\d+$/.test(param);
+# +layout.ts
+export const load = ({ params }) => {
+  // params.lang is "en" | "fr" | "es" | "de" | undefined
+  return { lang: params.lang ?? 'en' };
 };
 
-// Usage: src/routes/products/[id=integer]/
-// /products/42    -> matches (id = '42')
-// /products/abc   -> does not match (404)\`;
+# src/params/lang.ts — matcher (see next tab)
+export const match = (p) => /^(en|fr|es|de)$/.test(p);\`,
+
+    matchers: \`# Param matchers — validate a param at the router level.
+# File: src/params/integer.ts
+export const match = (param) => /^\\d+$/.test(param);
+
+# File: src/params/slug.ts
+export const match = (param) => /^[a-z0-9-]+$/.test(param);
+
+# Then in your route folders:
+
+src/routes/
+└── posts/
+    ├── [id=integer]/+page.svelte    <- matches /posts/42
+    ├── [slug=slug]/+page.svelte     <- matches /posts/hello-world
+    └── [other]/+page.svelte         <- matches anything else
+
+# SvelteKit tries matched routes first, in order of specificity.
+# /posts/42 -> [id=integer] (because 42 is an integer)
+# /posts/hello-world -> [slug=slug]
+# /posts/... -> falls through
+
+# This gives you pretty URLs without per-page validation code.\`,
+
+    rest: \`# Rest parameters — [...name]
+# Catches all remaining path segments into a single param.
+
+src/routes/
+├── docs/
+│   └── [...path]/+page.svelte     <- /docs/a, /docs/a/b, /docs/a/b/c
+└── [...catchall]/+page.svelte     <- matches EVERYTHING that falls through
+    # Useful for a custom 404 that actually wants params,
+    # or for a wiki where any path is a page.
+
+# In +page.ts:
+export const load = ({ params }) => {
+  // params.path === "a/b/c"  (string, NOT an array)
+  const segments = params.path.split('/');
+  return { segments };
+};
+
+# Combined with optional lang:
+[[lang=lang]]/docs/[...path]/+page.svelte
+# Matches both "/docs/x/y" and "/fr/docs/x/y"\`
+  };
 </script>
 
-<h1>Advanced Routing</h1>
+<h1>Advanced Routing &amp; Layout Groups</h1>
 
 <section>
-  <h2>Route Examples</h2>
-  <div class="route-list">
-    {#each routeExamples as route, i}
-      <button
-        class="route-item"
-        class:active={selectedRoute === i}
-        onclick={() => selectedRoute = i}
-      >
-        <code class="path">{route.path}</code>
-        <span class="file">{route.file}</span>
-      </button>
+  <h2>Route resolver</h2>
+  <p class="note">
+    Type a URL and see exactly which file SvelteKit would render, plus
+    the layouts that wrap it and the parsed params.
+  </p>
+
+  <div class="url-input">
+    <span class="proto">https://app</span>
+    <input type="text" bind:value={testUrl} />
+  </div>
+
+  <div class="examples">
+    <span class="ex-label">Try:</span>
+    {#each examples as ex (ex)}
+      <button onclick={() => (testUrl = ex)}>{ex}</button>
     {/each}
   </div>
 
-  <div class="route-detail">
-    <h3>{current.path}</h3>
-    <div class="detail-row">
-      <span class="label">File:</span>
-      <code>{current.file}</code>
-    </div>
-    <div class="detail-row">
-      <span class="label">Layout group:</span>
-      <span class="group-badge">{current.layout}</span>
-    </div>
-    {#if Object.keys(current.params).length > 0}
-      <div class="detail-row">
-        <span class="label">Params:</span>
-        <div class="params">
-          {#each Object.entries(current.params) as [key, val]}
-            <span class="param">{key}: {val}</span>
+  {#if resolved}
+    <div class="result">
+      <div class="row">
+        <span class="k">matched file:</span>
+        <code class="file">{resolved.path}</code>
+      </div>
+      <div class="row">
+        <span class="k">layouts:</span>
+        <div class="layouts">
+          {#each resolved.layouts as layout, i (i)}
+            <span class="layout">{layout}</span>
+            {#if i < resolved.layouts.length - 1}<span class="arrow">&rarr;</span>{/if}
           {/each}
         </div>
       </div>
-    {/if}
-    <p class="desc">{current.description}</p>
-  </div>
-</section>
-
-<section>
-  <h2>File Structure</h2>
-  <button onclick={() => showStructure = !showStructure}>
-    {showStructure ? 'Hide' : 'Show'} File Structure
-  </button>
-  {#if showStructure}
-    <pre class="structure"><code>{fileStructure}</code></pre>
+      {#if Object.keys(resolved.params).length > 0}
+        <div class="row">
+          <span class="k">params:</span>
+          <pre class="params">{JSON.stringify(resolved.params, null, 2)}</pre>
+        </div>
+      {:else}
+        <div class="row">
+          <span class="k">params:</span>
+          <em class="none">(none)</em>
+        </div>
+      {/if}
+    </div>
+  {:else}
+    <div class="result not-found">
+      No route matched — SvelteKit would render <code>+error.svelte</code> with 404.
+    </div>
   {/if}
 </section>
 
 <section>
-  <h2>Parameter Matchers</h2>
-  <pre class="code"><code>{matcherCode}</code></pre>
-</section>
-
-<section>
-  <h2>Layout Groups Summary</h2>
-  <div class="group-grid">
-    <div class="group-card marketing">
-      <h3>(marketing)</h3>
-      <p>Public pages with marketing header/footer</p>
-      <ul>
-        <li>/ (home)</li>
-        <li>/pricing</li>
-        <li>/about</li>
-      </ul>
-    </div>
-    <div class="group-card app">
-      <h3>(app)</h3>
-      <p>Authenticated pages with sidebar navigation</p>
-      <ul>
-        <li>/dashboard</li>
-        <li>/settings</li>
-        <li>/profile</li>
-      </ul>
-    </div>
+  <h2>Patterns</h2>
+  <div class="tabs">
+    {#each ['groups', 'optional', 'matchers', 'rest'] as tab (tab)}
+      <button
+        class:active={showCode === tab}
+        onclick={() => (showCode = tab as typeof showCode)}
+      >
+        {tab === 'groups'
+          ? '(groups)'
+          : tab === 'optional'
+          ? '[[optional]]'
+          : tab === 'matchers'
+          ? '[id=matcher]'
+          : '[...rest]'}
+      </button>
+    {/each}
   </div>
-  <p class="hint">Parenthesized group names don't appear in the URL — they only affect layout inheritance.</p>
+  <pre class="code"><code>{codeExamples[showCode]}</code></pre>
 </section>
 
 <style>
   h1 { color: #2d3436; }
-  section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
-  h2 { margin-top: 0; color: #e17055; font-size: 1.1rem; }
-  h3 { margin: 0 0 0.5rem; }
-  .route-list { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 1rem; }
-  .route-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0.5rem 0.75rem; border: 1px solid #dfe6e9; border-radius: 6px;
-    background: white; cursor: pointer; text-align: left;
+  section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #a29bfe; font-size: 1.05rem; }
+  .note { font-size: 0.85rem; color: #636e72; margin: 0 0 0.75rem; }
+  .url-input {
+    display: flex; align-items: center; gap: 0; background: #2d3436;
+    padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 0.75rem;
+    font-family: monospace;
   }
-  .route-item.active { border-color: #e17055; background: #fff5f2; }
-  .path { color: #e17055; font-weight: 700; }
-  .file { font-size: 0.75rem; color: #636e72; }
-  .route-detail { padding: 1rem; background: white; border-radius: 6px; border: 1px solid #dfe6e9; }
-  .detail-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
-  .label { font-weight: 600; color: #2d3436; font-size: 0.85rem; min-width: 90px; }
-  .group-badge {
-    padding: 0.15rem 0.5rem; background: #e17055; color: white;
-    border-radius: 10px; font-size: 0.8rem;
+  .proto { color: #636e72; font-size: 0.85rem; }
+  .url-input input {
+    flex: 1; background: transparent; border: none; color: #74b9ff;
+    font-family: monospace; font-size: 0.9rem; outline: none;
   }
-  .params { display: flex; gap: 0.25rem; flex-wrap: wrap; }
-  .param {
-    padding: 0.15rem 0.5rem; background: #dfe6e9; border-radius: 4px;
-    font-family: monospace; font-size: 0.8rem;
+  .examples {
+    display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;
+    margin-bottom: 0.75rem;
   }
-  .desc { color: #636e72; font-size: 0.9rem; margin-bottom: 0; }
-  button {
-    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
-    background: #e17055; color: white; cursor: pointer; font-weight: 600;
+  .ex-label { font-size: 0.8rem; color: #636e72; margin-right: 0.25rem; }
+  .examples button {
+    padding: 0.2rem 0.5rem; border: none; border-radius: 3px;
+    background: #dfe6e9; color: #2d3436; cursor: pointer;
+    font-family: monospace; font-size: 0.75rem;
   }
-  .structure, .code, pre {
-    background: #2d3436; padding: 1rem; border-radius: 6px;
-    overflow-x: auto; margin: 0.75rem 0 0;
+  .examples button:hover { background: #a29bfe; color: white; }
+  .result {
+    background: white; padding: 0.75rem; border-radius: 6px;
+    border-left: 4px solid #00b894;
   }
-  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
-  .group-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .group-card {
-    padding: 1rem; border-radius: 8px; border: 2px solid;
+  .result.not-found {
+    border-left-color: #d63031; color: #2d3436;
+    font-size: 0.85rem;
   }
-  .group-card.marketing { border-color: #74b9ff; background: #f0f8ff; }
-  .group-card.app { border-color: #00b894; background: #f0fff4; }
-  .group-card h3 { margin-top: 0; font-family: monospace; }
-  .group-card p { font-size: 0.85rem; color: #636e72; }
-  .group-card ul { margin: 0; padding-left: 1.2rem; }
-  .group-card li { font-family: monospace; font-size: 0.85rem; }
-  .hint { font-size: 0.8rem; color: #636e72; margin-top: 0.5rem; }
+  .result.not-found code {
+    background: #dfe6e9; padding: 0.1rem 0.3rem;
+    border-radius: 3px; font-size: 0.8rem;
+  }
+  .row {
+    display: flex; gap: 0.75rem; align-items: flex-start;
+    padding: 0.25rem 0; font-size: 0.85rem;
+  }
+  .k {
+    color: #636e72; font-weight: 600; min-width: 110px;
+    font-family: monospace; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding-top: 0.15rem;
+  }
+  .file {
+    background: #dfe6e9; padding: 0.15rem 0.4rem;
+    border-radius: 3px; color: #6c5ce7; font-size: 0.8rem;
+  }
+  .layouts { display: flex; gap: 0.3rem; flex-wrap: wrap; align-items: center; }
+  .layout {
+    padding: 0.15rem 0.5rem; background: #a29bfe; color: white;
+    border-radius: 10px; font-size: 0.75rem; font-weight: 600;
+  }
+  .arrow { color: #b2bec3; }
+  .params {
+    margin: 0; padding: 0.4rem 0.6rem; background: #2d3436;
+    color: #55efc4; border-radius: 3px;
+    font-size: 0.75rem; font-family: monospace;
+  }
+  .none { color: #b2bec3; font-size: 0.8rem; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 0; }
+  .tabs button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px 4px 0 0;
+    background: #dfe6e9; color: #636e72; cursor: pointer;
+    font-weight: 600; font-size: 0.8rem; font-family: monospace;
+  }
+  .tabs button.active { background: #2d3436; color: #dfe6e9; }
+  .code {
+    padding: 1rem; background: #2d3436;
+    border-radius: 0 6px 6px 6px; overflow-x: auto; margin: 0;
+  }
+  .code code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; font-family: monospace; }
 </style>`,
 			language: 'svelte'
 		}

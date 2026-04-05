@@ -12,129 +12,193 @@ const lesson: LessonData = {
 
 Custom error classes extend the built-in Error class, giving you typed errors you can check with instanceof. The Result pattern ({ok: true, data} | {ok: false, error}) is an alternative to throwing — it forces callers to handle both success and failure cases.
 
-Both patterns are used heavily in production Svelte apps. Custom errors for unexpected failures, Result pattern for expected outcomes like form validation or API responses.`,
+Both patterns are used heavily in production Svelte apps. Custom errors for unexpected failures, Result pattern for expected outcomes like form validation or API responses. In this lesson you'll build ValidationError, NetworkError, and NotFoundError, use a Result type, and build a retry helper that knows which errors are worth retrying.`,
 	objectives: [
 		'Create custom error classes that extend Error with extra properties',
 		'Use instanceof to handle different error types differently',
 		'Implement the Result pattern as an alternative to try/catch',
-		'Choose between throwing and returning errors based on the situation'
+		'Write a retry helper that distinguishes transient vs permanent errors'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script>
-  // === Custom Error Classes ===
-  class AppError extends Error {
-    constructor(message, code, details = null) {
-      super(message);
-      this.name = 'AppError';
-      this.code = code;
-      this.details = details;
-    }
-  }
+  // ============================================================
+  // 1. CUSTOM ERROR CLASSES
+  // ============================================================
+  // Extend Error to carry structured info. Always set name to the
+  // class name so logs and error.name reflect the real type.
 
-  class ValidationError extends AppError {
-    constructor(field, message) {
-      super(message, 'VALIDATION_ERROR', { field });
+  class ValidationError extends Error {
+    constructor(message, field) {
+      super(message);
       this.name = 'ValidationError';
       this.field = field;
     }
   }
 
-  class NetworkError extends AppError {
-    constructor(status, message) {
-      super(message, 'NETWORK_ERROR', { status });
+  class NetworkError extends Error {
+    constructor(message, status) {
+      super(message);
       this.name = 'NetworkError';
       this.status = status;
+      // Retry 5xx, not 4xx
+      this.isTransient = status >= 500;
     }
   }
 
-  // === Result Pattern ===
-  function ok(data) {
-    return { ok: true, data };
+  class NotFoundError extends Error {
+    constructor(resource, id) {
+      super(\`\${resource} with id \${id} not found\`);
+      this.name = 'NotFoundError';
+      this.resource = resource;
+      this.id = id;
+    }
   }
 
-  function err(error) {
-    return { ok: false, error };
+  // ============================================================
+  // 2. VALIDATING A FORM WITH CUSTOM ERRORS
+  // ============================================================
+
+  let email = $state('not-an-email');
+  let age = $state(15);
+  let formMessage = $state('');
+  let formStatus = $state('');
+
+  function validateUser(user) {
+    if (!user.email.includes('@')) {
+      throw new ValidationError('Invalid email format', 'email');
+    }
+    if (user.age < 18) {
+      throw new ValidationError('Must be 18 or older', 'age');
+    }
+    return user;
   }
-
-  // Functions that return Results instead of throwing
-  function validateEmail(email) {
-    if (!email) return err('Email is required');
-    if (!email.includes('@')) return err('Email must contain @');
-    if (email.length < 5) return err('Email too short');
-    return ok(email.toLowerCase().trim());
-  }
-
-  function validateAge(age) {
-    const num = Number(age);
-    if (isNaN(num)) return err('Age must be a number');
-    if (num < 0 || num > 150) return err('Age must be 0-150');
-    return ok(num);
-  }
-
-  // === Demo State ===
-  let email = $state('');
-  let age = $state('');
-  let formResult = $state(null);
-
-  let throwDemo = $state('');
-  let throwResult = $state(null);
 
   function submitForm() {
-    const emailResult = validateEmail(email);
-    if (!emailResult.ok) {
-      formResult = { ok: false, field: 'email', error: emailResult.error };
-      return;
+    try {
+      validateUser({ email, age });
+      formMessage = 'Form submitted successfully';
+      formStatus = 'ok';
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        formMessage = \`[\${err.field}] \${err.message}\`;
+        formStatus = 'err';
+      } else {
+        formMessage = 'Unexpected error: ' + err.message;
+        formStatus = 'err';
+      }
     }
-
-    const ageResult = validateAge(age);
-    if (!ageResult.ok) {
-      formResult = { ok: false, field: 'age', error: ageResult.error };
-      return;
-    }
-
-    formResult = {
-      ok: true,
-      data: { email: emailResult.data, age: ageResult.data }
-    };
   }
 
-  function demoThrow(type) {
-    throwResult = null;
-    try {
-      switch (type) {
-        case 'validation':
-          throw new ValidationError('username', 'Username must be at least 3 characters');
-        case 'network':
-          throw new NetworkError(503, 'Service temporarily unavailable');
-        case 'generic':
-          throw new AppError('Something went wrong', 'UNKNOWN');
+  // ============================================================
+  // 3. THE RESULT PATTERN
+  // ============================================================
+  // Instead of throwing, return { ok, data } | { ok: false, error }.
+  // Forces the caller to handle both branches explicitly.
+
+  function parseInteger(str) {
+    const n = Number(str);
+    if (Number.isNaN(n)) {
+      return { ok: false, error: 'Not a number' };
+    }
+    if (!Number.isInteger(n)) {
+      return { ok: false, error: 'Not an integer' };
+    }
+    return { ok: true, data: n };
+  }
+
+  let intInput = $state('42');
+  let intResult = $state(null);
+
+  function runParse() {
+    intResult = parseInteger(intInput);
+  }
+
+  // ============================================================
+  // 4. RETRY LOGIC — distinguish transient from permanent failures
+  // ============================================================
+
+  let attempts = 0;
+
+  function flakyCall() {
+    attempts++;
+    // First 2 attempts fail with a transient error, then succeed
+    if (attempts < 3) {
+      throw new NetworkError('Service temporarily unavailable', 503);
+    }
+    return { ok: true, message: 'Service responded' };
+  }
+
+  async function retry(fn, maxAttempts = 3) {
+    let lastError;
+    for (let i = 1; i <= maxAttempts; i++) {
+      try {
+        return { ok: true, data: fn() };
+      } catch (err) {
+        lastError = err;
+        // Only retry transient network errors
+        if (err instanceof NetworkError && err.isTransient && i < maxAttempts) {
+          retryLog = [...retryLog, \`Attempt \${i} failed (\${err.status}), retrying...\`];
+          await new Promise((r) => setTimeout(r, 300));
+          continue;
+        }
+        // Permanent error or out of attempts
+        return { ok: false, error: lastError };
       }
-    } catch (e) {
-      if (e instanceof ValidationError) {
-        throwResult = {
-          handler: 'ValidationError handler',
-          name: e.name,
-          field: e.field,
-          message: e.message,
-          code: e.code
-        };
-      } else if (e instanceof NetworkError) {
-        throwResult = {
-          handler: 'NetworkError handler',
-          name: e.name,
-          status: e.status,
-          message: e.message,
-          code: e.code
-        };
-      } else if (e instanceof AppError) {
-        throwResult = {
-          handler: 'AppError handler (fallback)',
-          name: e.name,
-          message: e.message,
-          code: e.code
-        };
+    }
+    return { ok: false, error: lastError };
+  }
+
+  let retryLog = $state([]);
+  let retryResult = $state('');
+
+  async function runRetry() {
+    attempts = 0;
+    retryLog = [];
+    retryResult = '';
+    const result = await retry(flakyCall);
+    if (result.ok) {
+      retryResult = 'Success: ' + result.data.message;
+      retryLog = [...retryLog, \`Succeeded on attempt \${attempts}\`];
+    } else {
+      retryResult = 'Failed: ' + result.error.message;
+    }
+  }
+
+  // ============================================================
+  // 5. DATABASE LOOKUP using NotFoundError
+  // ============================================================
+
+  const users = [
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' }
+  ];
+
+  function findUser(id) {
+    const user = users.find((u) => u.id === id);
+    if (!user) {
+      throw new NotFoundError('User', id);
+    }
+    return user;
+  }
+
+  let lookupId = $state(3);
+  let lookupMessage = $state('');
+  let lookupStatus = $state('');
+
+  function doLookup() {
+    try {
+      const user = findUser(lookupId);
+      lookupMessage = 'Found: ' + user.name;
+      lookupStatus = 'ok';
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        lookupMessage = \`[\${err.resource} #\${err.id}] \${err.message}\`;
+        lookupStatus = 'err';
+      } else {
+        lookupMessage = 'Unexpected error';
+        lookupStatus = 'err';
       }
     }
   }
@@ -143,158 +207,113 @@ Both patterns are used heavily in production Svelte apps. Custom errors for unex
 <h1>Custom Errors & Patterns</h1>
 
 <section>
-  <h2>Custom Error Classes</h2>
-  <p>Click to throw and catch different custom error types:</p>
-  <div class="buttons">
-    <button class="validation" onclick={() => demoThrow('validation')}>Throw ValidationError</button>
-    <button class="network" onclick={() => demoThrow('network')}>Throw NetworkError</button>
-    <button class="generic" onclick={() => demoThrow('generic')}>Throw AppError</button>
+  <h2>1. ValidationError (custom class)</h2>
+  <p class="intro">Custom errors carry a <code>field</code> so the UI can highlight the right input.</p>
+  <div class="form">
+    <label>Email <input bind:value={email} /></label>
+    <label>Age <input type="number" bind:value={age} /></label>
+    <button onclick={submitForm}>Submit</button>
   </div>
-
-  {#if throwResult}
-    <div class="error-card">
-      <div class="handler-badge">{throwResult.handler}</div>
-      <dl>
-        {#each Object.entries(throwResult).filter(([k]) => k !== 'handler') as [key, value]}
-          <dt>{key}</dt>
-          <dd>{value}</dd>
-        {/each}
-      </dl>
-    </div>
+  {#if formMessage}
+    <p class="result-text {formStatus}">{formMessage}</p>
   {/if}
-
-  <pre class="code">
-class ValidationError extends AppError {'{'}
-  constructor(field, message) {'{'}
-    super(message, 'VALIDATION_ERROR');
-    this.field = field;
-  {'}'}
-{'}'}
-
-// Catch with instanceof:
-catch (e) {'{'}
-  if (e instanceof ValidationError) ...
-  else if (e instanceof NetworkError) ...
-{'}'}
-  </pre>
 </section>
 
 <section>
-  <h2>Result Pattern</h2>
-  <p>No throwing — functions return {'{'}ok, data{'}'} or {'{'}ok: false, error{'}'}:</p>
-
-  <div class="form">
-    <label>
-      Email:
-      <input bind:value={email} placeholder="user@example.com"
-        class:field-error={formResult && !formResult.ok && formResult.field === 'email'} />
-    </label>
-    <label>
-      Age:
-      <input bind:value={age} placeholder="25"
-        class:field-error={formResult && !formResult.ok && formResult.field === 'age'} />
-    </label>
-    <button onclick={submitForm}>Submit (Result pattern)</button>
-  </div>
-
-  {#if formResult}
-    {#if formResult.ok}
-      <div class="success">
-        Validated! email: {formResult.data.email}, age: {formResult.data.age}
-      </div>
+  <h2>2. Result Pattern</h2>
+  <p class="intro">Return <code>{'{ok, data}'}</code> or <code>{'{ok: false, error}'}</code>. No throw, no catch.</p>
+  <input bind:value={intInput} />
+  <button onclick={runParse}>Parse</button>
+  {#if intResult}
+    {#if intResult.ok}
+      <p class="result-text ok">ok: true, data: {intResult.data}</p>
     {:else}
-      <div class="failure">
-        {formResult.field}: {formResult.error}
-      </div>
+      <p class="result-text err">ok: false, error: {intResult.error}</p>
     {/if}
   {/if}
-
-  <pre class="code">
-function validateEmail(email) {'{'}
-  if (!email) return err('Email is required');
-  return ok(email.trim());
-{'}'}
-
-const result = validateEmail(input);
-if (!result.ok) showError(result.error);
-else useData(result.data);
-  </pre>
+  <p class="hint">Try "42", "3.14", and "hello" to see each branch.</p>
 </section>
 
-<div class="comparison">
-  <div class="approach">
-    <h3>Throwing (try/catch)</h3>
-    <ul>
-      <li>Good for unexpected errors</li>
-      <li>Propagates up automatically</li>
-      <li>Easy to forget to catch</li>
+<section>
+  <h2>3. Retry Logic (NetworkError)</h2>
+  <p class="intro">Retry only transient failures (5xx). Permanent errors (4xx) fail fast.</p>
+  <button onclick={runRetry}>Call Flaky Service</button>
+  {#if retryLog.length > 0}
+    <ul class="log">
+      {#each retryLog as line, i (i)}
+        <li>{line}</li>
+      {/each}
     </ul>
+  {/if}
+  {#if retryResult}
+    <p class="result-text ok">{retryResult}</p>
+  {/if}
+</section>
+
+<section>
+  <h2>4. NotFoundError</h2>
+  <div class="form">
+    <label>User ID <input type="number" bind:value={lookupId} /></label>
+    <button onclick={doLookup}>Look up</button>
   </div>
-  <div class="approach">
-    <h3>Result Pattern</h3>
-    <ul>
-      <li>Good for expected failures</li>
-      <li>Forces caller to handle both cases</li>
-      <li>No hidden control flow</li>
-    </ul>
-  </div>
-</div>
+  {#if lookupMessage}
+    <p class="result-text {lookupStatus}">{lookupMessage}</p>
+  {/if}
+  <p class="hint">IDs 1 and 2 exist. Try 3 for NotFoundError.</p>
+</section>
+
+<section class="cheat">
+  <h2>When to Throw vs Return a Result</h2>
+  <ul>
+    <li><strong>Throw</strong> for unexpected failures (bugs, infrastructure errors, invariant violations).</li>
+    <li><strong>Return a Result</strong> for expected outcomes (validation, parsing, API responses with known failure modes).</li>
+    <li><strong>Custom Error classes</strong> let callers distinguish types with <code>instanceof</code>.</li>
+    <li><strong>Always set name</strong> in the constructor so <code>error.name</code> is meaningful.</li>
+  </ul>
+</section>
 
 <style>
   h1 { color: #333; }
   section { margin: 1.5rem 0; padding: 1rem; background: #fafafa; border-radius: 8px; }
-  .buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
+  .intro { font-size: 0.9rem; color: #555; margin: 0 0 0.5rem; }
+  .form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  label { display: flex; gap: 0.3rem; align-items: center; font-size: 0.9rem; }
+  input {
+    padding: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
   button {
     padding: 0.5rem 1rem;
+    background: #4f46e5;
     color: white;
     border: none;
     border-radius: 6px;
     cursor: pointer;
   }
-  .validation { background: #d97706; }
-  .network { background: #dc2626; }
-  .generic { background: #7c3aed; }
-  .error-card {
-    margin: 1rem 0;
-    padding: 0.75rem;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-  }
-  .handler-badge {
-    background: #4f46e5;
-    color: white;
-    display: inline-block;
-    padding: 0.2rem 0.6rem;
+  button:hover { background: #4338ca; }
+  .result-text {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 4px;
-    font-size: 0.85rem;
-    margin-bottom: 0.5rem;
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 0.9rem;
   }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; margin: 0; }
-  dt { font-weight: bold; color: #555; font-size: 0.85rem; }
-  dd { margin: 0; font-family: monospace; font-size: 0.85rem; }
-  pre.code {
+  .ok { background: #f0fdf4; color: #065f46; border: 1px solid #86efac; }
+  .err { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+  .log {
+    font-size: 0.8rem;
     background: #1e1e1e;
     color: #d4d4d4;
-    padding: 0.75rem;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    overflow-x: auto;
-    white-space: pre;
-    margin-top: 1rem;
+    padding: 0.5rem 1.5rem;
+    border-radius: 4px;
+    margin: 0.5rem 0;
   }
-  .form { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0; }
-  .form label { display: flex; align-items: center; gap: 0.5rem; }
-  .form input { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; }
-  .field-error { border-color: #ef4444 !important; background: #fef2f2; }
-  .form button { background: #4f46e5; align-self: flex-start; }
-  .success { background: #f0fdf4; border: 1px solid #86efac; padding: 0.75rem; border-radius: 6px; margin-top: 0.5rem; color: #166534; }
-  .failure { background: #fef2f2; border: 1px solid #fca5a5; padding: 0.75rem; border-radius: 6px; margin-top: 0.5rem; color: #991b1b; }
-  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
-  .approach { padding: 1rem; background: #f0f4ff; border-radius: 8px; }
-  .approach h3 { margin: 0 0 0.5rem; }
-  ul { padding-left: 1.2rem; margin: 0; }
-  li { margin: 0.25rem 0; font-size: 0.9rem; }
+  .hint { font-size: 0.85rem; color: #666; }
+  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+  .cheat { background: #fffbeb; border: 1px solid #fde68a; }
+  .cheat ul { margin: 0; padding-left: 1.2rem; line-height: 1.7; font-size: 0.9rem; }
 </style>`,
 			language: 'svelte'
 		}

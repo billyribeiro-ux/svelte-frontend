@@ -10,227 +10,272 @@ const lesson: LessonData = {
 	},
 	description: `The satisfies operator validates that a value matches a type without widening it. When you write const config = {...} satisfies Config, TypeScript checks that config has the right shape BUT preserves the exact literal types. Without satisfies, you'd either lose literal types (with a type annotation) or lose validation (with no annotation).
 
-ReturnType<typeof fn> extracts the return type from a function — useful when you want to type a variable based on what a function returns without duplicating the type definition.
+ReturnType<typeof fn> extracts the return type from a function — useful when you want to type a variable based on what a function returns without duplicating the type definition. Paired with typeof, you can also derive types from values and objects.
 
-Declaration files (.d.ts) like app.d.ts let you add custom type information to your project: extending global types, declaring ambient modules, and typing environment variables.`,
+Declaration files (.d.ts) like app.d.ts let you add custom type information to your project: extending global types (especially SvelteKit's App namespace for App.Locals, App.Error, App.PageData), declaring ambient modules, and typing environment variables. This lesson closes Module 8 by pulling together everything you've learned.`,
 	objectives: [
 		'Use satisfies to validate values without widening their types',
 		'Extract function return types with ReturnType<typeof fn>',
-		'Understand what declaration files (app.d.ts) are for',
-		'Know when satisfies is better than a type annotation'
+		'Derive types from values using typeof',
+		'Understand what app.d.ts is for and how to extend SvelteKit App types'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // === satisfies ===
+  // ============================================================
+  // 1. THE PROBLEM satisfies SOLVES
+  // ============================================================
+  // Imagine you have a route config: each route has a path and roles.
 
-  // The problem: type annotation widens literal types
-  interface ThemeConfig {
-    primary: string;
-    secondary: string;
-    sizes: Record<string, number>;
-  }
+  type RouteConfig = Record<string, { path: string; roles: string[] }>;
 
-  // With type annotation: TypeScript forgets exact values
-  const annotated: ThemeConfig = {
-    primary: '#4f46e5',
-    secondary: '#06b6d4',
-    sizes: { sm: 12, md: 16, lg: 20 }
+  // --- Option A: type annotation — LOSES literal types ---
+  const routesA: RouteConfig = {
+    home: { path: '/', roles: ['user', 'admin'] },
+    admin: { path: '/admin', roles: ['admin'] }
   };
-  // annotated.primary is type 'string' — not '#4f46e5'
+  // routesA.home.path is widened to string.
+  // routesA.home is typed, but accessing routesA.foobar is also typed
+  // (it won't give a "no such key" error at compile time).
 
-  // With satisfies: TypeScript validates AND preserves literals
-  const validated = {
-    primary: '#4f46e5',
-    secondary: '#06b6d4',
-    sizes: { sm: 12, md: 16, lg: 20 }
-  } satisfies ThemeConfig;
-  // validated.primary is type '"#4f46e5"' — exact literal!
-  // AND TypeScript verified it matches ThemeConfig
+  // --- Option B: no annotation — LOSES validation ---
+  const routesB = {
+    home: { path: '/', roles: ['user', 'admin'] },
+    admin: { path: '/admin', roles: ['admin'] }
+  };
+  // Great literal types, but nothing validates the shape.
+  // You could accidentally misspell a field with no error.
 
-  // === ReturnType ===
-  function createUser(name: string, role: 'admin' | 'user' = 'user') {
+  // --- Option C: satisfies — best of both worlds ---
+  const routes = {
+    home: { path: '/', roles: ['user', 'admin'] },
+    admin: { path: '/admin', roles: ['admin'] },
+    profile: { path: '/profile', roles: ['user', 'admin'] }
+  } satisfies RouteConfig;
+
+  // 1. TS still validates the shape against RouteConfig
+  // 2. But routes.home.path is the literal '/' (narrow)
+  // 3. routes.xyz would be a compile error (no such key)
+
+  type RouteKey = keyof typeof routes; // 'home' | 'admin' | 'profile'
+
+  // ============================================================
+  // 2. ReturnType<typeof fn>
+  // ============================================================
+
+  function createUser(name: string, age: number) {
     return {
-      id: Math.random().toString(36).slice(2),
+      id: Math.floor(Math.random() * 1000),
       name,
-      role,
-      createdAt: new Date().toISOString(),
-      permissions: role === 'admin'
-        ? ['read', 'write', 'delete'] as const
-        : ['read'] as const
+      age,
+      createdAt: new Date()
     };
   }
 
-  // Extract the return type without duplicating it
-  type CreatedUser = ReturnType<typeof createUser>;
+  type User = ReturnType<typeof createUser>;
+  // { id: number; name: string; age: number; createdAt: Date }
+  // No need to duplicate the shape!
 
-  let users: CreatedUser[] = $state([]);
-  let newUserName: string = $state('');
-  let newUserRole: 'admin' | 'user' = $state('user');
-
-  function addUser(): void {
-    if (!newUserName.trim()) return;
-    const user: CreatedUser = createUser(newUserName.trim(), newUserRole);
-    users = [...users, user];
-    newUserName = '';
+  function formatUser(user: User): string {
+    return \`\${user.name} (#\${user.id}), age \${user.age}\`;
   }
 
-  function removeUser(id: string): void {
-    users = users.filter((u: CreatedUser) => u.id !== id);
+  // ============================================================
+  // 3. typeof for deriving types from values
+  // ============================================================
+
+  const DEFAULT_SETTINGS = {
+    theme: 'light',
+    fontSize: 14,
+    notifications: true
+  } as const;
+
+  type Settings = typeof DEFAULT_SETTINGS;
+  // { readonly theme: 'light'; readonly fontSize: 14; readonly notifications: true }
+
+  type ThemeName = typeof DEFAULT_SETTINGS.theme; // 'light'
+
+  // ============================================================
+  // 4. satisfies with a MORE COMPLEX example
+  // ============================================================
+
+  type IconName = 'home' | 'user' | 'settings' | 'logout';
+  type NavItem = { label: string; icon: IconName; badge?: number };
+
+  const nav = {
+    home: { label: 'Home', icon: 'home' },
+    profile: { label: 'Profile', icon: 'user', badge: 3 },
+    settings: { label: 'Settings', icon: 'settings' },
+    logout: { label: 'Sign out', icon: 'logout' }
+  } satisfies Record<string, NavItem>;
+
+  // nav.profile.badge is the literal 3, not number.
+  // If you typo 'home' as 'hime', TS errors.
+
+  type NavKey = keyof typeof nav;
+  const navKeys = Object.keys(nav) as NavKey[];
+
+  // ============================================================
+  // 5. app.d.ts — the SvelteKit declaration file
+  // ============================================================
+  //
+  // In a SvelteKit project, src/app.d.ts defines the App namespace:
+  //
+  //   declare global {
+  //     namespace App {
+  //       interface Locals {
+  //         user: { id: number; name: string } | null;
+  //       }
+  //       interface Error {
+  //         code: string;
+  //         message: string;
+  //       }
+  //       interface PageData {}
+  //       interface Platform {}
+  //     }
+  //   }
+  //   export {};
+  //
+  // This lets your hooks.server.ts set event.locals.user, and any
+  // +page.server.ts load function gets it typed automatically.
+
+  // ============================================================
+  // Interactive demo
+  // ============================================================
+
+  let selectedRoute = $state<RouteKey>('home');
+  let currentRole = $state('user');
+
+  const hasAccess = $derived(routes[selectedRoute].roles.includes(currentRole));
+
+  let newUser = $state<User | null>(null);
+  let userName = $state('Alice');
+  let userAge = $state(28);
+
+  function makeUser(): void {
+    newUser = createUser(userName, userAge);
   }
 
-  // === satisfies for route config ===
-  interface RouteConfig {
-    path: string;
-    label: string;
-    icon?: string;
-    requiresAuth?: boolean;
-  }
-
-  const routes = {
-    home:     { path: '/', label: 'Home', icon: 'H' },
-    about:    { path: '/about', label: 'About', icon: 'A' },
-    settings: { path: '/settings', label: 'Settings', icon: 'S', requiresAuth: true },
-    profile:  { path: '/profile', label: 'Profile', icon: 'P', requiresAuth: true }
-  } satisfies Record<string, RouteConfig>;
-
-  // routes.home.path is exactly '/' (not just string)
-  // AND TypeScript validated every route matches RouteConfig
-
-  let selectedRoute = $state<keyof typeof routes>('home');
-  let currentRoute = $derived(routes[selectedRoute]);
-
-  // === app.d.ts explanation ===
-  let showDeclarationInfo: boolean = $state(false);
+  let selectedNav = $state<NavKey>('home');
 </script>
 
-<h1>satisfies, ReturnType & app.d.ts</h1>
+<h1>satisfies, ReturnType &amp; app.d.ts</h1>
 
 <section>
-  <h2>satisfies: Validate Without Widening</h2>
-  <div class="comparison">
-    <div class="panel">
-      <h3>Type Annotation</h3>
-      <pre class="code">const config: ThemeConfig = {'{'}
-  primary: '#4f46e5',
-{'}'};
-// config.primary is type 'string'
-// Lost the exact value!</pre>
-    </div>
-    <div class="panel highlight">
-      <h3>satisfies</h3>
-      <pre class="code">const config = {'{'}
-  primary: '#4f46e5',
-{'}'} satisfies ThemeConfig;
-// config.primary is type '"#4f46e5"'
-// Validated AND preserved!</pre>
-    </div>
+  <h2>1. satisfies — validate without widening</h2>
+  <pre class="code">{\`const routes = {
+  home: { path: '/', roles: ['user', 'admin'] },
+  admin: { path: '/admin', roles: ['admin'] }
+} satisfies RouteConfig;
+
+// routes.home.path is the literal '/'
+// keyof typeof routes → 'home' | 'admin'\`}</pre>
+
+  <div class="controls">
+    <label>Route
+      <select bind:value={selectedRoute}>
+        <option value="home">home</option>
+        <option value="admin">admin</option>
+        <option value="profile">profile</option>
+      </select>
+    </label>
+    <label>Role
+      <select bind:value={currentRole}>
+        <option value="user">user</option>
+        <option value="admin">admin</option>
+      </select>
+    </label>
   </div>
 
-  <div class="theme-demo">
-    <h3>Live Theme Config (using satisfies)</h3>
-    <div class="color-swatch" style="background: {validated.primary}">
-      primary: {validated.primary}
+  <div class="route-card">
+    <div>Path: <code>{routes[selectedRoute].path}</code></div>
+    <div>Allowed: <code>[{routes[selectedRoute].roles.join(', ')}]</code></div>
+    <div class="access" class:ok={hasAccess} class:no={!hasAccess}>
+      {hasAccess ? 'ACCESS GRANTED' : 'ACCESS DENIED'}
     </div>
-    <div class="color-swatch" style="background: {validated.secondary}">
-      secondary: {validated.secondary}
-    </div>
-    <p class="sizes">
-      Sizes: {Object.entries(validated.sizes).map(([k, v]) => \`\${k}=\${v}px\`).join(', ')}
-    </p>
   </div>
 </section>
 
 <section>
-  <h2>ReturnType&lt;typeof fn&gt;</h2>
-  <pre class="code">function createUser(name: string, role: 'admin' | 'user') {'{'}
-  return {'{'}id, name, role, createdAt, permissions{'}'};
-{'}'}
+  <h2>2. ReturnType&lt;typeof createUser&gt;</h2>
+  <pre class="code">{\`function createUser(name: string, age: number) {
+  return { id: ..., name, age, createdAt: new Date() };
+}
 
-type CreatedUser = ReturnType&lt;typeof createUser&gt;;
-// Automatically matches whatever createUser returns!</pre>
+type User = ReturnType<typeof createUser>;\`}</pre>
 
-  <div class="add-form">
-    <input bind:value={newUserName} placeholder="User name" />
-    <select bind:value={newUserRole}>
-      <option value="user">User</option>
-      <option value="admin">Admin</option>
-    </select>
-    <button onclick={addUser}>Add</button>
+  <div class="form">
+    <input bind:value={userName} placeholder="name" />
+    <input type="number" bind:value={userAge} />
+    <button onclick={makeUser}>Create user</button>
   </div>
 
-  <div class="user-list">
-    {#each users as user}
-      <div class="user-card">
-        <div class="user-info">
-          <strong>{user.name}</strong>
-          <span class="role-badge {user.role}">{user.role}</span>
-        </div>
-        <div class="user-details">
-          <span>ID: {user.id}</span>
-          <span>Permissions: {user.permissions.join(', ')}</span>
-        </div>
-        <button class="remove-btn" onclick={() => removeUser(user.id)}>x</button>
-      </div>
-    {:else}
-      <p class="empty">Add a user to see ReturnType in action</p>
-    {/each}
-  </div>
+  {#if newUser}
+    <p class="result">{formatUser(newUser)}</p>
+    <p class="hint">createdAt: {newUser.createdAt.toLocaleString()}</p>
+  {/if}
 </section>
 
 <section>
-  <h2>satisfies for Route Config</h2>
-  <div class="nav-demo">
-    {#each Object.entries(routes) as [key, route]}
+  <h2>3. Nav with satisfies</h2>
+  <div class="nav-grid">
+    {#each navKeys as key (key)}
       <button
         class="nav-btn"
-        class:active={selectedRoute === key}
-        onclick={() => selectedRoute = key as keyof typeof routes}
+        class:active={selectedNav === key}
+        onclick={() => (selectedNav = key)}
       >
-        <span class="nav-icon">{route.icon}</span>
-        {route.label}
-        {#if route.requiresAuth}
-          <span class="auth-badge">Auth</span>
+        {nav[key].label}
+        {#if 'badge' in nav[key]}
+          <span class="badge">{nav[key].badge}</span>
         {/if}
       </button>
     {/each}
   </div>
-  <div class="route-info">
-    <p>Path: <code>{currentRoute.path}</code></p>
-    <p>Requires auth: <strong>{currentRoute.requiresAuth ? 'Yes' : 'No'}</strong></p>
-  </div>
+  <p class="hint">
+    Current: <code>{nav[selectedNav].label}</code> (icon: <code>{nav[selectedNav].icon}</code>)
+  </p>
 </section>
 
-<section>
-  <h2>app.d.ts — Declaration Files</h2>
-  <button onclick={() => showDeclarationInfo = !showDeclarationInfo}>
-    {showDeclarationInfo ? 'Hide' : 'Show'} Details
-  </button>
-  {#if showDeclarationInfo}
-    <div class="declaration-info">
-      <p>In SvelteKit, <code>src/app.d.ts</code> is where you declare global types:</p>
-      <pre class="code">// src/app.d.ts
-declare global {'{'}
-  namespace App {'{'}
-    interface Locals {'{'}
-      user: {'{'}id: string; role: string{'}'};
-    {'}'}
-    interface PageData {'{'}
-      title: string;
-    {'}'}
-  {'}'}
-{'}'}
+<section class="cheat">
+  <h2>app.d.ts in SvelteKit</h2>
+  <pre class="code">{\`// src/app.d.ts
+declare global {
+  namespace App {
+    interface Locals {
+      user: { id: number; name: string } | null;
+    }
+    interface Error {
+      code: string;
+      message: string;
+    }
+    interface PageData {}
+    interface Platform {}
+  }
+}
+export {};\`}</pre>
+  <ul>
+    <li><code>App.Locals</code> — set in <code>hooks.server.ts</code>, available in every load function</li>
+    <li><code>App.Error</code> — shape returned by your custom error pages</li>
+    <li><code>App.PageData</code> — data shared across all pages</li>
+    <li><code>App.Platform</code> — platform-specific info (Cloudflare, Vercel, etc.)</li>
+  </ul>
+</section>
 
-export {'{}'};</pre>
-      <ul>
-        <li><code>App.Locals</code> — types for server-side request data</li>
-        <li><code>App.PageData</code> — shared page data types</li>
-        <li><code>App.Error</code> — custom error shape</li>
-        <li>Declaration files describe types without runtime code</li>
-      </ul>
-    </div>
-  {/if}
+<section class="cheat">
+  <h2>When to use which</h2>
+  <table>
+    <thead><tr><th>Tool</th><th>Use when</th></tr></thead>
+    <tbody>
+      <tr><td><code>: Type</code></td><td>you want widening and strict typing</td></tr>
+      <tr><td><code>satisfies Type</code></td><td>you want validation AND literal types</td></tr>
+      <tr><td><code>as const</code></td><td>freeze a value into deep literal types</td></tr>
+      <tr><td><code>typeof value</code></td><td>derive a type from a value</td></tr>
+      <tr><td><code>ReturnType&lt;typeof fn&gt;</code></td><td>derive a type from a function's return</td></tr>
+      <tr><td><code>app.d.ts</code></td><td>extend global SvelteKit types</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <style>
@@ -242,70 +287,86 @@ export {'{}'};</pre>
     padding: 0.75rem;
     border-radius: 6px;
     font-size: 0.8rem;
-    overflow-x: auto;
-    white-space: pre;
+    white-space: pre-wrap;
     margin: 0.5rem 0;
   }
-  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.75rem 0; }
-  .panel { padding: 0.75rem; border: 1px solid #e0e0e0; border-radius: 8px; background: white; }
-  .panel.highlight { border-color: #4f46e5; background: #f0f4ff; }
-  .panel h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
-  .theme-demo { margin: 1rem 0; }
-  .color-swatch {
-    display: inline-block;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    color: white;
-    font-family: monospace;
-    font-size: 0.85rem;
-    margin: 0.25rem 0.5rem 0.25rem 0;
+  .controls { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0; }
+  label { display: flex; gap: 0.3rem; align-items: center; font-size: 0.9rem; }
+  select, input {
+    padding: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
   }
-  .sizes { font-family: monospace; font-size: 0.85rem; color: #666; }
-  .add-form { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-  input { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; }
-  select { padding: 0.4rem; }
   button {
-    padding: 0.4rem 0.8rem;
+    padding: 0.4rem 0.9rem;
     background: #4f46e5;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
+    margin-right: 0.25rem;
   }
-  .user-list { display: flex; flex-direction: column; gap: 0.5rem; }
-  .user-card {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem 0.75rem;
+  button:hover { background: #4338ca; }
+  .route-card {
+    padding: 0.75rem;
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 6px;
+    font-size: 0.9rem;
+    line-height: 1.6;
   }
-  .user-info { display: flex; align-items: center; gap: 0.5rem; }
-  .user-details { flex: 1; font-size: 0.8rem; color: #666; display: flex; gap: 1rem; }
-  .role-badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 3px; }
-  .role-badge.admin { background: #fef3c7; color: #92400e; }
-  .role-badge.user { background: #e0e7ff; color: #3730a3; }
-  .remove-btn { background: #ef4444; padding: 0.2rem 0.5rem; }
-  .empty { color: #999; font-style: italic; }
-  .nav-demo { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  .nav-btn {
+  .access {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-weight: bold;
+    display: inline-block;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+  .access.ok { background: #d1fae5; color: #065f46; }
+  .access.no { background: #fee2e2; color: #991b1b; }
+  .form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
+  .result {
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+  .hint { font-size: 0.85rem; color: #666; }
+  code {
+    background: #e8e8e8;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
+  .nav-grid {
     display: flex;
-    align-items: center;
-    gap: 0.3rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .nav-btn {
     background: white;
     color: #333;
     border: 1px solid #e0e0e0;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
   }
-  .nav-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
-  .nav-icon { font-weight: bold; }
-  .auth-badge { font-size: 0.65rem; background: rgba(0,0,0,0.15); padding: 0.1rem 0.3rem; border-radius: 2px; }
-  .route-info { margin-top: 0.5rem; padding: 0.5rem; background: white; border-radius: 6px; }
-  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
-  .declaration-info { margin-top: 0.75rem; }
-  ul { padding-left: 1.2rem; }
-  li { margin: 0.25rem 0; font-size: 0.9rem; }
+  .nav-btn.active { background: #4f46e5; color: white; }
+  .badge {
+    background: #ef4444;
+    color: white;
+    border-radius: 999px;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.7rem;
+  }
+  .cheat { background: #fffbeb; border: 1px solid #fde68a; }
+  .cheat ul { margin: 0; padding-left: 1.2rem; line-height: 1.7; font-size: 0.9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #fde68a; }
+  th { background: #fef3c7; }
 </style>`,
 			language: 'svelte'
 		}

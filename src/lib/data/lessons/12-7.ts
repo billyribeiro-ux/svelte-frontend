@@ -13,7 +13,9 @@ const lesson: LessonData = {
 This separation ensures sensitive operations like database queries and API key usage never leak to the browser. When the page component receives the data via $props(), the payload is already a plain object — no need to wrap it in $state. Use $derived() to compute view state from data, and $state.raw() only when you need a local editable copy that's reassigned wholesale.`,
 	objectives: [
 		'Write a server load function in +page.server.ts',
-		'Access cookies, environment variables, and server-only resources',
+		'Access cookies, environment variables, databases, and server-only resources',
+		'Use $env/static/private vs $env/dynamic/private correctly',
+		'Query a database directly from load without an HTTP round trip',
 		'Understand the serialization boundary between server and client',
 		'Know when to use server load vs universal load'
 	],
@@ -21,17 +23,23 @@ This separation ensures sensitive operations like database queries and API key u
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  let selectedTopic: string = $state('basics');
+  type Topic = 'basics' | 'db' | 'cookies' | 'env' | 'boundary' | 'comparison';
+  const topics: Topic[] = ['basics', 'db', 'cookies', 'env', 'boundary', 'comparison'];
+  let selectedTopic: Topic = $state('basics');
+
+  // Preserved best practice: the data prop is already plain.
+  // Use $derived to compute view state; use $state.raw only for
+  // an editable local copy that will be reassigned wholesale.
 </script>
 
 <main>
   <h1>Server Load (+page.server.ts)</h1>
 
   <nav>
-    {#each ['basics', 'cookies', 'env', 'comparison'] as topic}
+    {#each topics as topic (topic)}
       <button
         class:active={selectedTopic === topic}
-        onclick={() => selectedTopic = topic}
+        onclick={() => (selectedTopic = topic)}
       >
         {topic}
       </button>
@@ -71,6 +79,45 @@ export const load: PageServerLoad = async ({ locals }) => {
 };\`}</pre>
       <div class="demo-box">
         <p><strong>Key:</strong> The .server in the filename means this code never reaches the browser. SvelteKit serializes the returned data and sends it as JSON.</p>
+      </div>
+    </section>
+
+  {:else if selectedTopic === 'db'}
+    <section>
+      <h2>Direct Database Access</h2>
+      <p>
+        One of the biggest wins of server load: you can query your database directly,
+        without an HTTP round trip to your own API route. The code never reaches the
+        browser, so your DB client and connection strings stay safe.
+      </p>
+      <pre>{\`// src/lib/server/db.ts — server-only
+import { PrismaClient } from '@prisma/client';
+export const db = new PrismaClient();
+
+// src/routes/posts/[slug]/+page.server.ts
+import type { PageServerLoad } from './$types';
+import { db } from '$lib/server/db';
+import { error } from '@sveltejs/kit';
+
+export const load: PageServerLoad = async ({ params }) => {
+  const post = await db.post.findUnique({
+    where: { slug: params.slug },
+    include: {
+      author: { select: { name: true, avatar: true } },
+      comments: { orderBy: { createdAt: 'desc' }, take: 20 }
+    }
+  });
+
+  if (!post) {
+    throw error(404, 'Post not found');
+  }
+
+  return { post };
+};\`}</pre>
+      <div class="demo-box">
+        <p><strong>Why $lib/server/?</strong> Anything under <code>src/lib/server/</code> is
+          guaranteed to be server-only — importing it from client code is a build error.
+          Put your DB client, auth helpers, and private API wrappers there.</p>
       </div>
     </section>
 
@@ -145,6 +192,52 @@ export const load: PageServerLoad = async ({ fetch }) => {
         <p><strong>$env/dynamic/private</strong> — runtime, server-only env vars</p>
         <p><strong>$env/static/public</strong> — build-time, available in browser</p>
         <p><strong>$env/dynamic/public</strong> — runtime, available in browser</p>
+      </div>
+    </section>
+
+  {:else if selectedTopic === 'boundary'}
+    <section>
+      <h2>The Serialization Boundary</h2>
+      <p>
+        Whatever a server load returns is <em>serialized to JSON-ish</em> (via devalue,
+        which supports a few extras like Date and Map) and sent to the browser.
+        Functions, class instances with methods, symbols, and circular references
+        do not survive the trip.
+      </p>
+      <pre>{\`// ✅ Safe — all JSON-serializable
+return {
+  name: 'Alice',
+  age: 30,
+  tags: ['admin', 'editor'],
+  createdAt: new Date(),     // devalue supports Date
+  settings: { theme: 'dark' }
+};
+
+// ❌ Breaks — functions disappear
+return {
+  greet: () => 'hi'          // becomes undefined on client
+};
+
+// ❌ Breaks — class instances lose methods
+class User { sayHi() { return 'hi'; } }
+return { user: new User() }; // becomes plain object { }
+
+// ❌ Breaks — circular reference
+const a = {}; a.self = a;
+return { a };                 // error
+
+// 🟡 Leak risk — don't return more than the client needs
+return {
+  user: {
+    id: user.id,
+    name: user.name,
+    // DON'T include: passwordHash, internalNotes, apiKeys...
+  }
+};\`}</pre>
+      <div class="demo-box warning">
+        <p><strong>Security reminder:</strong> every field you return is visible in the
+          page source. Whitelist explicitly — never return the raw user object when
+          it came straight from your DB.</p>
       </div>
     </section>
 

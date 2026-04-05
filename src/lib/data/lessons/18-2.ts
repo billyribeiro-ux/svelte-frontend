@@ -10,12 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `Google's E-E-A-T framework — Experience, Expertise, Authoritativeness, and Trustworthiness — is the quality backbone of modern search ranking. The March 2026 Core Update introduced the Gemini 4.0 Semantic Filter, which evaluates "Information Gain": does your content add something genuinely new beyond what already exists in search results?
 
-Pages that merely rehash existing content are demoted. Original research, first-hand experience, unique data, and expert perspectives are rewarded. Understanding E-E-A-T helps you create content that both users and algorithms value.`,
+Pages that merely rehash existing content are demoted. Original research, first-hand experience, unique data, and expert perspectives are rewarded. Understanding E-E-A-T helps you create content that both users and algorithms value.
+
+This lesson dives deep into each pillar, shows how the Gemini 4.0 Semantic Filter quantifies novelty, and provides a working scoring calculator so you can self-audit pages before publishing.`,
 	objectives: [
 		'Define each component of E-E-A-T and how it influences search rankings',
 		'Explain the Information Gain concept introduced with the Gemini 4.0 Semantic Filter',
 		'Apply E-E-A-T principles when structuring web content in SvelteKit',
-		'Identify content strategies that demonstrate first-hand experience and expertise'
+		'Identify content strategies that demonstrate first-hand experience and expertise',
+		'Recognize AI-generated content patterns that the March 2026 update penalizes'
 	],
 	files: [
 		{
@@ -25,8 +28,8 @@ Pages that merely rehash existing content are demoted. Original research, first-
     letter: string;
     name: string;
     description: string;
-    examples: string[];
-    implementationTips: string[];
+    signals: string[];
+    example: string;
   };
 
   const pillars: EEATPillar[] = [
@@ -34,152 +37,265 @@ Pages that merely rehash existing content are demoted. Original research, first-
       letter: 'E',
       name: 'Experience',
       description: 'First-hand, real-world experience with the topic.',
-      examples: [
-        'Product reviews from actual users',
-        'Travel guides from people who visited',
-        'Tutorials from practitioners, not observers'
+      signals: [
+        'Author has personally used the product or visited the place',
+        'Photos, screenshots, or video from the author',
+        'Specific details only a user would know',
+        'Personal anecdotes and lessons learned'
       ],
-      implementationTips: [
-        'Include personal anecdotes and case studies',
-        'Show original screenshots, photos, or data',
-        'Add author bios with relevant experience'
-      ]
+      example: '"After running SvelteKit in production for 18 months serving 5M requests/day, here is what broke..."'
     },
     {
       letter: 'E',
       name: 'Expertise',
       description: 'Demonstrated knowledge and skill in the subject area.',
-      examples: [
-        'Technical articles by certified professionals',
-        'Medical content by licensed practitioners',
-        'Code tutorials by working developers'
+      signals: [
+        'Credentials, education, certifications',
+        'Depth of technical explanation',
+        'Correct use of domain-specific terminology',
+        'Cites primary sources, not summaries'
       ],
-      implementationTips: [
-        'Display credentials and certifications',
-        'Link to published works or portfolios',
-        'Use accurate, up-to-date technical language'
-      ]
+      example: 'Medical article written by a board-certified physician, code tutorial by a core maintainer.'
     },
     {
       letter: 'A',
       name: 'Authoritativeness',
       description: 'Recognition as a go-to source in the field.',
-      examples: [
-        'Cited by other reputable sites',
-        'Featured in industry publications',
-        'High-quality backlink profile'
+      signals: [
+        'Inbound links from reputable sites',
+        'Mentions in industry publications',
+        'Author bylines on trusted domains',
+        'Wikipedia entries and knowledge panels'
       ],
-      implementationTips: [
-        'Build topical authority with content clusters',
-        'Earn mentions and links from peers',
-        'Maintain consistent, high-quality output'
-      ]
+      example: 'A security researcher quoted in Wired, Ars Technica, and Google Security Blog.'
     },
     {
       letter: 'T',
       name: 'Trustworthiness',
       description: 'Accuracy, transparency, and safety of the site.',
-      examples: [
-        'HTTPS with valid certificates',
-        'Clear privacy policy and contact info',
-        'Cited sources and fact-checked content'
+      signals: [
+        'HTTPS, valid SSL, clear privacy policy',
+        'Accurate, up-to-date information',
+        'Transparent authorship and contact info',
+        'Corrections and retractions when wrong'
       ],
-      implementationTips: [
-        'Use HTTPS everywhere',
-        'Add structured data for authors',
-        'Include editorial policies and corrections'
-      ]
+      example: 'News site with named editors, corrections policy, and a physical address in the footer.'
     }
   ];
 
   let activePillar = $state(0);
 
-  type InfoGainSignal = {
+  // Interactive E-E-A-T scoring calculator
+  type Check = { id: string; label: string; weight: number };
+  const checks: Check[] = [
+    { id: 'author-bio', label: 'Named author with bio and credentials', weight: 15 },
+    { id: 'firsthand', label: 'First-hand experience clearly demonstrated', weight: 20 },
+    { id: 'original-data', label: 'Contains original research or unique data', weight: 25 },
+    { id: 'citations', label: 'Cites primary sources with links', weight: 10 },
+    { id: 'updated', label: 'Updated within the last 12 months', weight: 10 },
+    { id: 'corrections', label: 'Has corrections / editorial policy', weight: 5 },
+    { id: 'https', label: 'HTTPS with valid certificate', weight: 5 },
+    { id: 'contact', label: 'Clear contact and ownership info', weight: 10 }
+  ];
+
+  let enabled = $state<Record<string, boolean>>({});
+  const score = $derived(
+    checks.reduce((sum, c) => sum + (enabled[c.id] ? c.weight : 0), 0)
+  );
+  const rating = $derived.by(() => {
+    if (score >= 85) return { label: 'Excellent', color: '#16a34a' };
+    if (score >= 65) return { label: 'Good', color: '#65a30d' };
+    if (score >= 45) return { label: 'Fair', color: '#f59e0b' };
+    return { label: 'Poor', color: '#ef4444' };
+  });
+
+  // Information Gain examples
+  type IGItem = {
     label: string;
     description: string;
     impact: 'high' | 'medium' | 'low';
+    example: string;
   };
 
-  const infoGainSignals: InfoGainSignal[] = [
-    { label: 'Original Research', description: 'Unique data, surveys, experiments not found elsewhere', impact: 'high' },
-    { label: 'Expert Commentary', description: 'Insights from recognized authorities in the field', impact: 'high' },
-    { label: 'Unique Angle', description: 'Fresh perspective on well-covered topics', impact: 'medium' },
-    { label: 'Updated Information', description: 'Current data replacing outdated sources', impact: 'medium' },
-    { label: 'Comprehensive Coverage', description: 'Addressing gaps left by existing content', impact: 'medium' },
-    { label: 'Rehashed Content', description: 'Paraphrasing existing articles without adding value', impact: 'low' }
+  const igItems: IGItem[] = [
+    {
+      label: 'Original Research',
+      description: 'Unique data, surveys, or experiments not found elsewhere',
+      impact: 'high',
+      example: 'Benchmarking 10 JS frameworks on identical hardware and publishing the raw numbers.'
+    },
+    {
+      label: 'Expert Commentary',
+      description: 'Insights from recognized authorities in the field',
+      impact: 'high',
+      example: 'Interviewing the Svelte core team about a design decision.'
+    },
+    {
+      label: 'Unique Angle',
+      description: 'Fresh perspective on well-covered topics',
+      impact: 'medium',
+      example: 'Explaining React hooks from a functional programming lens rather than a class component one.'
+    },
+    {
+      label: 'Updated Information',
+      description: 'Current data replacing outdated sources',
+      impact: 'medium',
+      example: 'Recompiling 2023 browser support tables with 2026 numbers.'
+    },
+    {
+      label: 'Comprehensive Coverage',
+      description: 'Addressing gaps left by existing content',
+      impact: 'medium',
+      example: 'The one tutorial that actually covers error handling in load functions.'
+    },
+    {
+      label: 'Rehashed Content',
+      description: 'Paraphrasing existing articles without adding value',
+      impact: 'low',
+      example: '"10 CSS Tips" that copies the same tips every other listicle has.'
+    }
   ];
 
-  const impactColors: Record<string, string> = {
-    high: '#16a34a',
-    medium: '#ca8a04',
-    low: '#dc2626'
-  };
+  // AI content detection signals
+  const aiSignals: string[] = [
+    'Generic phrasing and filler transitions ("In today\\'s fast-paced world...")',
+    'Uniform sentence length and rhythm',
+    'Hedging and overqualification on every claim',
+    'Topic-accurate but example-poor content',
+    'No author photos, bylines, or verifiable identity',
+    'Hallucinated statistics without sources',
+    'Published at machine-like cadence (100 posts / day)'
+  ];
+
+  const geminiCode = \`// How the Gemini 4.0 Semantic Filter evaluates a page (conceptual)
+//
+// 1. Retrieve top-20 pages already indexed for the target query
+// 2. Vectorize their content into a semantic space
+// 3. Vectorize the candidate page
+// 4. Compute distance from the cluster centroid
+// 5. Pages closer to the centroid score LOWER (less novel)
+// 6. Pages far from the centroid but still relevant score HIGHER
+//
+// informationGain = semanticDistance * topicalRelevance
+//
+// Pages below a threshold are demoted or excluded entirely.\`;
 </script>
 
 <main>
-  <h1>E-E-A-T & the March 2026 Core Update</h1>
-  <p class="subtitle">Experience · Expertise · Authoritativeness · Trustworthiness</p>
+  <h1>E-E-A-T &amp; the March 2026 Core Update</h1>
+  <p class="subtitle">Experience, Expertise, Authoritativeness, Trustworthiness</p>
 
   <section class="pillars">
-    {#each pillars as pillar, i}
+    {#each pillars as pillar, i (pillar.name)}
       <button
-        class="pillar-tab"
+        class="pillar-card"
         class:active={activePillar === i}
-        onclick={() => activePillar = i}
+        onclick={() => (activePillar = i)}
       >
-        <span class="letter">{pillar.letter}</span>
-        <span class="name">{pillar.name}</span>
+        <div class="letter">{pillar.letter}</div>
+        <h3>{pillar.name}</h3>
       </button>
     {/each}
   </section>
 
   <section class="pillar-detail">
     <h2>{pillars[activePillar].name}</h2>
-    <p class="desc">{pillars[activePillar].description}</p>
+    <p class="lead">{pillars[activePillar].description}</p>
+    <h4>Signals Google looks for:</h4>
+    <ul>
+      {#each pillars[activePillar].signals as signal (signal)}
+        <li>{signal}</li>
+      {/each}
+    </ul>
+    <blockquote>{pillars[activePillar].example}</blockquote>
+  </section>
 
-    <div class="columns">
-      <div>
-        <h4>Examples</h4>
-        <ul>
-          {#each pillars[activePillar].examples as example}
-            <li>{example}</li>
-          {/each}
-        </ul>
+  <section class="calculator">
+    <h2>E-E-A-T Self-Audit Calculator</h2>
+    <p>Check each box that applies to your page, then see your estimated E-E-A-T score.</p>
+
+    <div class="checks">
+      {#each checks as check (check.id)}
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={enabled[check.id] ?? false}
+            onchange={(e) => {
+              const target = e.currentTarget;
+              enabled = { ...enabled, [check.id]: target.checked };
+            }}
+          />
+          <span>{check.label}</span>
+          <span class="weight">+{check.weight}</span>
+        </label>
+      {/each}
+    </div>
+
+    <div class="score-display">
+      <div class="score-bar">
+        <div class="score-fill" style="width: {score}%; background: {rating.color}"></div>
       </div>
-      <div>
-        <h4>Implementation Tips</h4>
-        <ul>
-          {#each pillars[activePillar].implementationTips as tip}
-            <li>{tip}</li>
-          {/each}
-        </ul>
+      <div class="score-text">
+        <strong style="color: {rating.color}">{rating.label}</strong>
+        <span>{score} / 100</span>
       </div>
     </div>
   </section>
 
   <section class="info-gain">
-    <h2>Information Gain — Gemini 4.0 Semantic Filter</h2>
-    <p>The March 2026 update rewards content that provides <strong>new information</strong> not already available in top search results.</p>
+    <h2>Information Gain (March 2026)</h2>
+    <p>
+      The Gemini 4.0 Semantic Filter quantifies how much <em>new</em> information a page adds
+      compared to what is already indexed. Pages below a novelty threshold are demoted.
+    </p>
 
-    <div class="signals">
-      {#each infoGainSignals as signal}
-        <div class="signal-card">
-          <div class="signal-header">
-            <span class="signal-label">{signal.label}</span>
-            <span class="impact-badge" style="background: {impactColors[signal.impact]}">
-              {signal.impact} value
-            </span>
-          </div>
-          <p>{signal.description}</p>
-        </div>
+    <table>
+      <thead>
+        <tr><th>Signal</th><th>Impact</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        {#each igItems as item (item.label)}
+          <tr>
+            <td><strong>{item.label}</strong></td>
+            <td><span class="impact {item.impact}">{item.impact}</span></td>
+            <td>
+              {item.description}
+              <br />
+              <small class="example">{item.example}</small>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="gemini">
+    <h2>How the Gemini 4.0 Semantic Filter Works</h2>
+    <pre><code>{geminiCode}</code></pre>
+  </section>
+
+  <section class="ai-signals">
+    <h2>AI Content Detection Signals</h2>
+    <p>
+      The March 2026 update specifically targets low-effort AI-generated content. These are the
+      patterns Google flags:
+    </p>
+    <ul>
+      {#each aiSignals as signal (signal)}
+        <li>{signal}</li>
       {/each}
+    </ul>
+    <div class="callout">
+      <strong>Note:</strong> AI-assisted content is not penalized per se &mdash; AI content that
+      adds genuine Information Gain (synthesis, unique angle, verified facts) still ranks well.
+      What is penalized is bulk, templated, unedited AI output.
     </div>
   </section>
 </main>
 
 <style>
   main {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 2rem;
     font-family: system-ui, sans-serif;
@@ -192,111 +308,193 @@ Pages that merely rehash existing content are demoted. Original research, first-
   }
 
   .pillars {
-    display: flex;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
     margin-bottom: 1.5rem;
   }
 
-  .pillar-tab {
-    flex: 1;
-    padding: 1rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
+  .pillar-card {
+    padding: 1rem 0.5rem;
     background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
     cursor: pointer;
     text-align: center;
-    transition: all 0.2s;
+    font: inherit;
   }
 
-  .pillar-tab.active {
+  .pillar-card.active {
     border-color: #4a90d9;
     background: #eef4fb;
   }
 
   .letter {
-    display: block;
-    font-size: 1.8rem;
-    font-weight: 700;
+    font-size: 2rem;
+    font-weight: 800;
     color: #4a90d9;
   }
 
-  .name {
-    font-size: 0.85rem;
-    color: #555;
+  .pillar-card h3 {
+    margin: 0.3rem 0 0;
+    font-size: 0.95rem;
   }
 
   .pillar-detail {
     background: #f0f7ff;
     padding: 1.5rem;
-    border-radius: 8px;
+    border-radius: 10px;
     margin-bottom: 2rem;
   }
 
-  .desc {
-    color: #444;
-    margin-bottom: 1rem;
+  .lead {
+    font-size: 1.05rem;
+    color: #333;
   }
 
-  .columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-  }
-
-  .columns ul {
+  .pillar-detail ul {
     padding-left: 1.2rem;
   }
 
-  .columns li {
-    margin-bottom: 0.4rem;
-    color: #333;
+  .pillar-detail blockquote {
+    border-left: 4px solid #4a90d9;
+    padding: 0.5rem 1rem;
+    margin: 1rem 0 0;
+    font-style: italic;
+    color: #555;
+    background: #fff;
   }
 
-  .info-gain h2 {
-    margin-bottom: 0.5rem;
-  }
-
-  .signals {
-    display: grid;
-    gap: 0.75rem;
-    margin-top: 1rem;
-  }
-
-  .signal-card {
-    padding: 1rem;
+  .calculator {
     background: #fafafa;
     border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
   }
 
-  .signal-header {
+  .checks {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+
+  .check {
+    display: flex;
     align-items: center;
-    margin-bottom: 0.4rem;
+    gap: 0.6rem;
+    padding: 0.6rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
   }
 
-  .signal-label {
-    font-weight: 600;
+  .check span:first-of-type {
+    flex: 1;
   }
 
-  .impact-badge {
-    color: white;
-    font-size: 0.75rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    text-transform: uppercase;
-  }
-
-  .signal-card p {
-    margin: 0;
-    color: #555;
+  .weight {
+    font-weight: 700;
+    color: #4a90d9;
     font-size: 0.9rem;
   }
 
-  h4 {
-    margin-bottom: 0.5rem;
-    color: #333;
+  .score-display {
+    margin-top: 1rem;
+  }
+
+  .score-bar {
+    background: #eee;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 1.5rem;
+  }
+
+  .score-fill {
+    height: 100%;
+    transition: width 0.3s;
+  }
+
+  .score-text {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.4rem;
+    font-size: 1.1rem;
+  }
+
+  .info-gain {
+    margin-bottom: 2rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+
+  th,
+  td {
+    padding: 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 0.9rem;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f0f0f0;
+  }
+
+  .impact {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .impact.high {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .impact.medium {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .impact.low {
+    background: #fecaca;
+    color: #991b1b;
+  }
+
+  .example {
+    color: #666;
+    font-style: italic;
+  }
+
+  .gemini pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.8rem;
+  }
+
+  .callout {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+  }
+
+  section {
+    margin-bottom: 2.5rem;
   }
 </style>`,
 			language: 'svelte'

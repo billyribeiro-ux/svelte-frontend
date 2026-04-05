@@ -96,6 +96,58 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
     );
   }
 
+  // Focus trap for modal — capture all tabbable descendants
+  let modalEl: HTMLDivElement | undefined = $state();
+  function trapFocus(e: KeyboardEvent) {
+    if (e.key !== 'Tab' || !modalEl) return;
+    const tabbable = modalEl.querySelectorAll<HTMLElement>(
+      'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
+    );
+    if (tabbable.length === 0) return;
+    const first = tabbable[0];
+    const last = tabbable[tabbable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      last.focus();
+      e.preventDefault();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      first.focus();
+      e.preventDefault();
+    }
+  }
+
+  // WCAG contrast ratio checker
+  let fgColor = $state('#111111');
+  let bgColor = $state('#ffffff');
+
+  function hexToRgb(hex: string): [number, number, number] {
+    const h = hex.replace('#', '');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+
+  function luminance(rgb: [number, number, number]): number {
+    const [r, g, b] = rgb.map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  let contrastRatio = $derived.by(() => {
+    try {
+      const l1 = luminance(hexToRgb(fgColor));
+      const l2 = luminance(hexToRgb(bgColor));
+      const lighter = Math.max(l1, l2);
+      const darker = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    } catch {
+      return 1;
+    }
+  });
+
+  let contrastGrade = $derived(
+    contrastRatio >= 7 ? 'AAA' : contrastRatio >= 4.5 ? 'AA' : contrastRatio >= 3 ? 'AA Large' : 'Fail'
+  );
+
   // Svelte compiler a11y warnings
   const a11yWarnings = [
     { code: 'a11y-missing-attribute', example: '<img src="photo.jpg">', fix: '<img src="photo.jpg" alt="Description">' },
@@ -113,7 +165,7 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
   <section>
     <h2>A11y Fundamentals</h2>
     <div class="accordion" role="region" aria-label="Accessibility topics">
-      {#each accordionItems as item}
+      {#each accordionItems as item (item.id)}
         <div class="accordion-item">
           <h3>
             <button
@@ -216,13 +268,45 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="modal-backdrop" onclick={closeModal} onkeydown={handleModalKeydown}>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick={(e) => e.stopPropagation()} onkeydown={handleModalKeydown}>
+        <div
+          bind:this={modalEl}
+          class="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          tabindex="-1"
+          onclick={(e) => e.stopPropagation()}
+          onkeydown={(e) => { handleModalKeydown(e); trapFocus(e); }}
+        >
           <h3 id="modal-title">Modal Title</h3>
-          <p>This modal traps focus and closes on Escape.</p>
-          <button onclick={closeModal}>Close</button>
+          <p>This modal traps Tab focus and closes on Escape.</p>
+          <div class="modal-actions">
+            <button onclick={closeModal}>Cancel</button>
+            <button class="primary" onclick={closeModal}>Confirm</button>
+          </div>
         </div>
       </div>
     {/if}
+  </section>
+
+  <!-- WCAG Contrast Checker -->
+  <section>
+    <h2>WCAG Contrast Checker</h2>
+    <p>WCAG AA requires 4.5:1 for normal text; AAA raises the bar to 7:1.</p>
+    <div class="contrast">
+      <div class="contrast-controls">
+        <label>Foreground <input type="color" bind:value={fgColor} /></label>
+        <label>Background <input type="color" bind:value={bgColor} /></label>
+      </div>
+      <div class="contrast-preview" style="background: {bgColor}; color: {fgColor};">
+        <h3>Sample heading</h3>
+        <p>The quick brown fox jumps over the lazy dog.</p>
+      </div>
+      <div class="contrast-result">
+        <span class="ratio">{contrastRatio.toFixed(2)}:1</span>
+        <span class="grade grade-{contrastGrade.split(' ')[0].toLowerCase()}">{contrastGrade}</span>
+      </div>
+    </div>
   </section>
 
   <!-- Compiler Warnings -->
@@ -233,7 +317,7 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
         <tr><th>Warning</th><th>Problem</th><th>Fix</th></tr>
       </thead>
       <tbody>
-        {#each a11yWarnings as warning}
+        {#each a11yWarnings as warning (warning.code)}
           <tr>
             <td><code>{warning.code}</code></td>
             <td><code>{warning.example}</code></td>
@@ -397,6 +481,47 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
   }
 
   section { margin-bottom: 2.5rem; }
+
+  .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+  .modal-actions button {
+    padding: 0.45rem 1rem;
+    border: 1px solid #ccc;
+    background: #f8f9fa;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .modal-actions .primary { background: #4a90d9; color: white; border-color: #4a90d9; }
+
+  .contrast {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 700px) { .contrast { grid-template-columns: 1fr; } }
+  .contrast-controls { display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; }
+  .contrast-controls input { width: 64px; height: 34px; border: 1px solid #ccc; border-radius: 6px; }
+  .contrast-preview {
+    padding: 1rem;
+    border-radius: 8px;
+    grid-row: 1 / 3;
+    grid-column: 2;
+  }
+  .contrast-preview h3 { margin: 0 0 0.5rem; }
+  .contrast-preview p { margin: 0; }
+  .contrast-result {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: monospace;
+  }
+  .ratio { font-size: 1.4rem; font-weight: 700; }
+  .grade { padding: 0.3rem 0.7rem; border-radius: 6px; font-weight: 700; font-size: 0.85rem; }
+  .grade-aaa { background: #dcfce7; color: #166534; }
+  .grade-aa { background: #dbeafe; color: #1e40af; }
+  .grade-fail { background: #fee2e2; color: #991b1b; }
 </style>`,
 			language: 'svelte'
 		}

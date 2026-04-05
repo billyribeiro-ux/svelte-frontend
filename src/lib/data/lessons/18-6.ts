@@ -12,12 +12,14 @@ const lesson: LessonData = {
 
 SEO note (kit@2.54+): when you enable experimental.handleRenderingErrors in svelte.config.js, SSR rendering errors are caught and routed to the nearest +error.svelte page instead of producing a generic 500 response. This means your crawlable error pages can contain proper metadata, headings, and navigation — a significant SEO win for high-traffic sites where occasional render failures are inevitable.
 
-This lesson teaches you to think architecturally about rendering, using SvelteKit's +page.ts exports to configure each route optimally.`,
+This lesson teaches you to think architecturally about rendering, using SvelteKit's +page.ts exports to configure each route optimally. You will work through a decision tree, map every route in a sample app, and see exactly how prerender / ssr / csr exports compose across layouts and pages.`,
 	objectives: [
 		'Compare SSR, prerendering, and CSR and when to use each rendering strategy',
 		'Configure per-route rendering in SvelteKit using +page.ts exports',
 		'Design a mixed rendering architecture for a real application',
-		'Understand the SEO implications of each rendering approach'
+		'Understand the SEO implications of each rendering approach',
+		'Enable experimental.handleRenderingErrors for crawlable error pages',
+		'Trace how +layout.ts and +page.ts exports compose across nested routes'
 	],
 	files: [
 		{
@@ -106,6 +108,67 @@ export const csr = true;
     csr: '#9333ea'
   };
 
+  // Decision tree walker
+  type Question = {
+    id: string;
+    text: string;
+    yes: string;
+    no: string;
+  };
+
+  const questions: Record<string, Question | { result: string; reason: string }> = {
+    q1: { id: 'q1', text: 'Does this page need to be indexed by search engines?', yes: 'q2', no: 'csr' },
+    q2: { id: 'q2', text: 'Does the content depend on per-request data (cookies, session, search params)?', yes: 'q3', no: 'prerender' },
+    q3: { id: 'q3', text: 'Is the per-request data bounded and cacheable?', yes: 'isr', no: 'ssr' },
+    prerender: { result: 'Prerender', reason: 'Static content that is safe to generate at build time' },
+    ssr: { result: 'SSR', reason: 'Dynamic per-request content that must be crawlable' },
+    csr: { result: 'CSR', reason: 'Authenticated or interactive page that does not need SEO' },
+    isr: { result: 'SSR + cache', reason: 'Use SSR with Cache-Control s-maxage or stale-while-revalidate' }
+  };
+
+  let currentQ = $state<string>('q1');
+  const currentNode = $derived(questions[currentQ]);
+
+  function answer(value: 'yes' | 'no') {
+    const node = questions[currentQ];
+    if ('text' in node) {
+      currentQ = value === 'yes' ? node.yes : node.no;
+    }
+  }
+  function resetTree() {
+    currentQ = 'q1';
+  }
+
+  // handleRenderingErrors example
+  const errorHandlerCode = \`// svelte.config.js
+import adapter from '@sveltejs/adapter-auto';
+
+export default {
+  kit: {
+    adapter: adapter(),
+    experimental: {
+      // kit@2.54+: route SSR errors to +error.svelte
+      // so crawlers receive a proper 4xx/5xx page with metadata
+      handleRenderingErrors: true
+    }
+  }
+};
+
+// src/routes/+error.svelte
+<script lang="ts">
+  import { page } from '$app/state';
+<\\/script>
+
+<svelte:head>
+  <title>Error {page.status} | Svelte Mastery</title>
+  <meta name="description" content="Something went wrong. Please try again." />
+  <meta name="robots" content="noindex" />
+</svelte:head>
+
+<h1>Error {page.status}</h1>
+<p>{page.error?.message}</p>
+<a href="/">Return home</a>\`;
+
   // Mixed strategy code example
   const layoutExample = \`// src/routes/+layout.ts
 // SSR is ON by default for all routes
@@ -158,7 +221,7 @@ export async function load({ url }) {
   <section class="strategies">
     <h2>Rendering Strategies</h2>
     <div class="tab-bar">
-      {#each strategies as s, i}
+      {#each strategies as s, i (s.name)}
         <button class:active={activeStrategy === i} onclick={() => activeStrategy = i}>
           <span class="dot" style="background: {strategyColors[s.name]}"></span>
           {s.label}
@@ -174,7 +237,7 @@ export async function load({ url }) {
         <div>
           <h4>Best For</h4>
           <ul>
-            {#each strategies[activeStrategy].bestFor as item}
+            {#each strategies[activeStrategy].bestFor as item (item)}
               <li>{item}</li>
             {/each}
           </ul>
@@ -182,7 +245,7 @@ export async function load({ url }) {
         <div>
           <h4>Tradeoffs</h4>
           <ul class="tradeoffs">
-            {#each strategies[activeStrategy].tradeoffs as item}
+            {#each strategies[activeStrategy].tradeoffs as item (item)}
               <li>{item}</li>
             {/each}
           </ul>
@@ -203,7 +266,7 @@ export async function load({ url }) {
         <tr><th>Route</th><th>Strategy</th><th>Reason</th></tr>
       </thead>
       <tbody>
-        {#each sampleArchitecture as route}
+        {#each sampleArchitecture as route (route.route)}
           <tr>
             <td><code>{route.route}</code></td>
             <td>
@@ -221,6 +284,36 @@ export async function load({ url }) {
   <section class="code-example">
     <h2>SvelteKit Configuration</h2>
     <pre><code>{layoutExample}</code></pre>
+  </section>
+
+  <section class="decision-walker">
+    <h2>Interactive Decision Walker</h2>
+    <p>Answer the questions to discover the right strategy for your route.</p>
+    <div class="walker-box">
+      {#if 'text' in currentNode}
+        <p class="walker-q">{currentNode.text}</p>
+        <div class="walker-buttons">
+          <button class="yes-btn" onclick={() => answer('yes')}>Yes</button>
+          <button class="no-btn" onclick={() => answer('no')}>No</button>
+        </div>
+      {:else}
+        <div class="walker-result">
+          <div class="walker-strategy">{currentNode.result}</div>
+          <p>{currentNode.reason}</p>
+          <button onclick={resetTree}>Start Over</button>
+        </div>
+      {/if}
+    </div>
+  </section>
+
+  <section class="error-handler">
+    <h2>experimental.handleRenderingErrors (kit@2.54+)</h2>
+    <p>
+      When an SSR render throws, SvelteKit normally responds with a bare 500. Enabling this flag
+      routes the error to your <code>+error.svelte</code> component, which can carry full SEO
+      metadata and a <code>noindex</code> directive so crawlers do not index broken pages.
+    </p>
+    <pre><code>{errorHandlerCode}</code></pre>
   </section>
 </main>
 
@@ -361,6 +454,74 @@ export async function load({ url }) {
 
   section { margin-bottom: 2.5rem; }
   h4 { margin-bottom: 0.5rem; }
+
+  .walker-box {
+    background: #f0f7ff;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid #c7dcf3;
+    text-align: center;
+  }
+
+  .walker-q {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .walker-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .walker-buttons button {
+    padding: 0.6rem 1.5rem;
+    font-weight: 700;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .yes-btn {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+  }
+
+  .no-btn {
+    background: #fecaca;
+    color: #991b1b;
+    border-color: #fca5a5;
+  }
+
+  .walker-result {
+    padding: 1rem;
+  }
+
+  .walker-strategy {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #4a90d9;
+    margin-bottom: 0.5rem;
+  }
+
+  .walker-result button {
+    margin-top: 0.5rem;
+    padding: 0.5rem 1.2rem;
+    background: #4a90d9;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .error-handler code {
+    background: #f0f0f0;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
 </style>`,
 			language: 'svelte'
 		}

@@ -8,280 +8,365 @@ const lesson: LessonData = {
 		module: 8,
 		lessonIndex: 6
 	},
-	description: `TypeScript ships with built-in utility types that transform existing types. Partial<T> makes all properties optional. Pick<T, Keys> extracts specific properties. Omit<T, Keys> removes properties. Record<Keys, Value> creates an object type with specific keys.
+	description: `TypeScript ships with built-in utility types that transform existing types. Partial<T> makes all properties optional. Required<T> makes all properties required. Pick<T, Keys> extracts specific properties. Omit<T, Keys> removes properties. Record<Keys, Value> creates an object type with specific keys. Readonly<T> makes all properties readonly.
 
-Type aliases (type Name = ...) give names to complex types, making your code more readable. Combined with keyof (which extracts property names as a union) and indexed access types (T[K]), you can build powerful, reusable type transformations.
+Type aliases (type Name = ...) give names to complex types, making your code more readable. Combined with keyof (which extracts property names as a union) and indexed access types (T[K]), you can build powerful, reusable type transformations without duplicating interface definitions.
 
-These utilities are everywhere in production TypeScript. Instead of defining similar interfaces over and over, you derive new types from existing ones.`,
+These utilities are everywhere in production TypeScript. Instead of defining similar interfaces over and over for "full user", "user update form", "user preview" — you derive them all from a single User type.`,
 	objectives: [
-		'Use Partial, Pick, Omit, and Record to transform types',
+		'Use Partial, Required, Pick, Omit to transform types',
+		'Use Record to build map-shaped types',
 		'Create type aliases for complex or reused types',
-		'Access property types with keyof and indexed access T[K]',
-		'Build form and settings interfaces using utility types'
+		'Access property types with keyof and indexed access T[K]'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Base interface
-  interface User {
+  // ============================================================
+  // 1. THE SOURCE TYPE — everything derives from this
+  // ============================================================
+
+  interface UserProfile {
     id: number;
     name: string;
     email: string;
-    role: 'admin' | 'editor' | 'viewer';
-    createdAt: string;
+    age: number;
+    bio: string;
+    avatar: string;
+    role: 'user' | 'admin';
   }
 
-  // Utility types derived from User
-  type UserUpdate = Partial<User>;                  // All fields optional
-  type UserPreview = Pick<User, 'id' | 'name' | 'role'>;  // Only these fields
-  type UserInput = Omit<User, 'id' | 'createdAt'>;        // Without these fields
-  type UserRoles = Record<User['role'], string>;           // Role -> description
+  // ============================================================
+  // 2. Partial<T> — all fields become optional
+  // ============================================================
+  // Perfect for update forms where you only change some fields.
 
-  // Type alias for complex types
-  type FormField = {
-    value: string;
-    error: string;
-    touched: boolean;
+  type UserUpdate = Partial<UserProfile>;
+  // { id?: number; name?: string; email?: string; ... }
+
+  function updateUser(current: UserProfile, patch: UserUpdate): UserProfile {
+    return { ...current, ...patch };
+  }
+
+  // ============================================================
+  // 3. Required<T> — all fields become required (opposite of Partial)
+  // ============================================================
+
+  interface Config {
+    host?: string;
+    port?: number;
+    debug?: boolean;
+  }
+
+  type CompleteConfig = Required<Config>;
+  // { host: string; port: number; debug: boolean }
+
+  // ============================================================
+  // 4. Pick<T, Keys> — extract just these properties
+  // ============================================================
+  // Perfect for preview/summary views.
+
+  type UserPreview = Pick<UserProfile, 'id' | 'name' | 'avatar'>;
+  // { id: number; name: string; avatar: string }
+
+  // ============================================================
+  // 5. Omit<T, Keys> — exclude these properties
+  // ============================================================
+  // Perfect for creating a new user (no id yet).
+
+  type NewUser = Omit<UserProfile, 'id'>;
+  // All fields except id.
+
+  // ============================================================
+  // 6. Readonly<T> — lock all properties
+  // ============================================================
+
+  type FrozenUser = Readonly<UserProfile>;
+
+  // ============================================================
+  // 7. Record<Keys, Value> — map-shaped type
+  // ============================================================
+
+  type Permissions = Record<'read' | 'write' | 'delete', boolean>;
+  // { read: boolean; write: boolean; delete: boolean }
+
+  const adminPerms: Permissions = {
+    read: true,
+    write: true,
+    delete: true
   };
 
-  type UserForm = Record<keyof UserInput, FormField>;
+  const guestPerms: Permissions = {
+    read: true,
+    write: false,
+    delete: false
+  };
 
-  // keyof demo
-  type UserKeys = keyof User; // 'id' | 'name' | 'email' | 'role' | 'createdAt'
+  // Record with user-keyed data
+  type UsersById = Record<number, UserProfile>;
 
-  // Demo data
-  let fullUser: User = $state({
+  // ============================================================
+  // 8. keyof and indexed access
+  // ============================================================
+
+  type UserKey = keyof UserProfile;
+  // 'id' | 'name' | 'email' | 'age' | 'bio' | 'avatar' | 'role'
+
+  type UserRole = UserProfile['role'];
+  // 'user' | 'admin' — without re-declaring the union
+
+  // A type-safe getter for any property of any object
+  function getField<T, K extends keyof T>(obj: T, key: K): T[K] {
+    return obj[key];
+  }
+
+  // ============================================================
+  // Interactive demo
+  // ============================================================
+
+  let user = $state<UserProfile>({
     id: 1,
-    name: 'Alice Johnson',
+    name: 'Alice',
     email: 'alice@example.com',
-    role: 'admin',
-    createdAt: '2024-01-15'
+    age: 28,
+    bio: 'Loves hiking and Svelte.',
+    avatar: 'A',
+    role: 'user'
   });
 
-  let preview: UserPreview = $derived({
-    id: fullUser.id,
-    name: fullUser.name,
-    role: fullUser.role
-  });
+  // An update form uses Partial<UserProfile>
+  let formPatch = $state<UserUpdate>({});
+  let updateMessage = $state('');
 
-  let roleDescriptions: UserRoles = {
-    admin: 'Full access to all features',
-    editor: 'Can create and edit content',
-    viewer: 'Read-only access'
-  };
-
-  // Form using utility types
-  let form: UserForm = $state({
-    name: { value: '', error: '', touched: false },
-    email: { value: '', error: '', touched: false },
-    role: { value: 'viewer', error: '', touched: false }
-  });
-
-  function validateField(field: keyof UserInput): void {
-    const f = form[field];
-    f.touched = true;
-
-    switch (field) {
-      case 'name':
-        f.error = f.value.length < 2 ? 'Name must be at least 2 characters' : '';
-        break;
-      case 'email':
-        f.error = !f.value.includes('@') ? 'Invalid email address' : '';
-        break;
-      case 'role':
-        f.error = '';
-        break;
-    }
+  function applyUpdate(): void {
+    user = updateUser(user, formPatch);
+    updateMessage = 'Updated: ' + Object.keys(formPatch).join(', ');
+    formPatch = {};
   }
 
-  let isFormValid = $derived(
-    Object.values(form).every((f: FormField) => f.touched && !f.error && f.value)
-  );
+  // Preview view uses Pick
+  let preview = $derived<UserPreview>({
+    id: user.id,
+    name: user.name,
+    avatar: user.avatar
+  });
 
-  // Partial update demo
-  let partialUpdate: UserUpdate = $state({});
-  let updateFields: string[] = $state([]);
+  // Permission toggle
+  let currentPerms = $state<Permissions>({ ...guestPerms });
 
-  function toggleUpdateField(field: keyof User): void {
-    if (updateFields.includes(field)) {
-      updateFields = updateFields.filter(f => f !== field);
-      const { [field]: _, ...rest } = partialUpdate;
-      partialUpdate = rest;
-    } else {
-      updateFields = [...updateFields, field];
-      partialUpdate = { ...partialUpdate, [field]: fullUser[field] };
-    }
+  function togglePerm(key: keyof Permissions): void {
+    currentPerms = { ...currentPerms, [key]: !currentPerms[key] };
   }
 
-  const editableFields: (keyof User)[] = ['name', 'email', 'role'];
+  function makeAdmin(): void {
+    currentPerms = { ...adminPerms };
+  }
+  function makeGuest(): void {
+    currentPerms = { ...guestPerms };
+  }
+
+  // getField demo
+  let selectedKey = $state<UserKey>('name');
+  const userKeys: UserKey[] = ['id', 'name', 'email', 'age', 'bio', 'avatar', 'role'];
+  let fieldValue = $derived(getField(user, selectedKey));
 </script>
 
-<h1>Utility Types & Aliases</h1>
+<h1>Utility Types &amp; Aliases</h1>
 
 <section>
-  <h2>The Base Type</h2>
-  <pre class="code">interface User {'{'}
+  <h2>Source of Truth: UserProfile</h2>
+  <pre class="code">{\`interface UserProfile {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'editor' | 'viewer';
-  createdAt: string;
-{'}'}</pre>
+  age: number;
+  bio: string;
+  avatar: string;
+  role: 'user' | 'admin';
+}\`}</pre>
 
   <div class="user-display">
-    <p><strong>{fullUser.name}</strong> ({fullUser.email})</p>
-    <p>Role: <span class="badge">{fullUser.role}</span> | ID: {fullUser.id}</p>
-  </div>
-</section>
-
-<section>
-  <h2>Utility Type Showcase</h2>
-  <div class="type-grid">
-    <div class="type-card">
-      <h3>Pick&lt;User, 'id' | 'name' | 'role'&gt;</h3>
-      <p class="desc">Only selected fields</p>
-      <pre class="mini">{JSON.stringify(preview, null, 2)}</pre>
-    </div>
-    <div class="type-card">
-      <h3>Omit&lt;User, 'id' | 'createdAt'&gt;</h3>
-      <p class="desc">Everything except these fields</p>
-      <pre class="mini">// For creation forms — no id or timestamp
-{'{'}name, email, role{'}'}</pre>
-    </div>
-    <div class="type-card">
-      <h3>Record&lt;Role, string&gt;</h3>
-      <p class="desc">Maps each role to a description</p>
-      {#each Object.entries(roleDescriptions) as [role, desc]}
-        <p class="record-entry"><span class="badge">{role}</span> {desc}</p>
-      {/each}
-    </div>
-    <div class="type-card">
-      <h3>Partial&lt;User&gt;</h3>
-      <p class="desc">All fields optional — for updates</p>
-      <div class="checkboxes">
-        {#each editableFields as field}
-          <label>
-            <input
-              type="checkbox"
-              checked={updateFields.includes(field)}
-              onchange={() => toggleUpdateField(field)}
-            />
-            {field}
-          </label>
-        {/each}
-      </div>
-      <pre class="mini">{JSON.stringify(partialUpdate, null, 2)}</pre>
+    <div class="avatar">{user.avatar}</div>
+    <div>
+      <strong>{user.name}</strong> ({user.role})
+      <div>{user.email} · age {user.age}</div>
+      <div class="bio">{user.bio}</div>
     </div>
   </div>
 </section>
 
 <section>
-  <h2>Form with Record&lt;keyof T, FormField&gt;</h2>
-  <pre class="code">type FormField = {'{'}value: string; error: string; touched: boolean{'}'};
-type UserForm = Record&lt;keyof UserInput, FormField&gt;;</pre>
-
+  <h2>1. Partial&lt;UserProfile&gt; for an update form</h2>
+  <p class="intro">Every field is optional — send only what changed.</p>
   <div class="form">
-    <div class="field">
-      <label>Name</label>
-      <input
-        bind:value={form.name.value}
-        onblur={() => validateField('name')}
-        class:invalid={form.name.touched && form.name.error}
-      />
-      {#if form.name.touched && form.name.error}
-        <span class="error">{form.name.error}</span>
-      {/if}
-    </div>
-    <div class="field">
-      <label>Email</label>
-      <input
-        bind:value={form.email.value}
-        onblur={() => validateField('email')}
-        class:invalid={form.email.touched && form.email.error}
-      />
-      {#if form.email.touched && form.email.error}
-        <span class="error">{form.email.error}</span>
-      {/if}
-    </div>
-    <div class="field">
-      <label>Role</label>
-      <select bind:value={form.role.value} onchange={() => validateField('role')}>
-        <option value="admin">Admin</option>
-        <option value="editor">Editor</option>
-        <option value="viewer">Viewer</option>
-      </select>
-    </div>
-    <button disabled={!isFormValid}>
-      {isFormValid ? 'Submit' : 'Fill all fields'}
-    </button>
+    <input
+      placeholder="new name"
+      value={formPatch.name ?? ''}
+      oninput={(e) => (formPatch.name = e.currentTarget.value || undefined)}
+    />
+    <input
+      placeholder="new email"
+      value={formPatch.email ?? ''}
+      oninput={(e) => (formPatch.email = e.currentTarget.value || undefined)}
+    />
+    <input
+      placeholder="new bio"
+      value={formPatch.bio ?? ''}
+      oninput={(e) => (formPatch.bio = e.currentTarget.value || undefined)}
+    />
+    <button onclick={applyUpdate}>Apply</button>
   </div>
+  {#if updateMessage}
+    <p class="info">{updateMessage}</p>
+  {/if}
+</section>
+
+<section>
+  <h2>2. Pick&lt;UserProfile, 'id' | 'name' | 'avatar'&gt; preview</h2>
+  <pre class="code">{\`type UserPreview = Pick<UserProfile, 'id' | 'name' | 'avatar'>;\`}</pre>
+  <div class="preview">
+    <div class="avatar small">{preview.avatar}</div>
+    <div>#{preview.id} — {preview.name}</div>
+  </div>
+</section>
+
+<section>
+  <h2>3. Record&lt;'read' | 'write' | 'delete', boolean&gt;</h2>
+  <div class="perms">
+    {#each ['read', 'write', 'delete'] as const as key (key)}
+      <label>
+        <input
+          type="checkbox"
+          checked={currentPerms[key]}
+          onchange={() => togglePerm(key)}
+        />
+        {key}
+      </label>
+    {/each}
+  </div>
+  <div class="form">
+    <button onclick={makeAdmin}>Admin preset</button>
+    <button onclick={makeGuest}>Guest preset</button>
+  </div>
+</section>
+
+<section>
+  <h2>4. keyof &amp; indexed access</h2>
+  <pre class="code">{\`type UserKey = keyof UserProfile;
+type UserRole = UserProfile['role']; // 'user' | 'admin'
+
+function getField<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}\`}</pre>
+  <label>
+    Read field:
+    <select bind:value={selectedKey}>
+      {#each userKeys as k (k)}
+        <option value={k}>{k}</option>
+      {/each}
+    </select>
+  </label>
+  <p>value: <code>{String(fieldValue)}</code></p>
+  <p class="hint">
+    <code>getField</code> is fully type-safe: selecting <code>age</code> returns a number,
+    selecting <code>role</code> returns the literal union.
+  </p>
+</section>
+
+<section class="cheat">
+  <h2>Utility Types Cheat Sheet</h2>
+  <table>
+    <thead><tr><th>Utility</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>Partial&lt;T&gt;</code></td><td>all fields optional</td></tr>
+      <tr><td><code>Required&lt;T&gt;</code></td><td>all fields required</td></tr>
+      <tr><td><code>Readonly&lt;T&gt;</code></td><td>all fields readonly</td></tr>
+      <tr><td><code>Pick&lt;T, K&gt;</code></td><td>keep only keys K</td></tr>
+      <tr><td><code>Omit&lt;T, K&gt;</code></td><td>remove keys K</td></tr>
+      <tr><td><code>Record&lt;K, V&gt;</code></td><td>object with keys K and values V</td></tr>
+      <tr><td><code>keyof T</code></td><td>union of T's property names</td></tr>
+      <tr><td><code>T[K]</code></td><td>type of T's K property</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <style>
   h1 { color: #333; }
   section { margin: 1.5rem 0; padding: 1rem; background: #fafafa; border-radius: 8px; }
+  .intro { font-size: 0.9rem; color: #555; }
   .code {
     background: #1e1e1e;
     color: #d4d4d4;
     padding: 0.75rem;
     border-radius: 6px;
     font-size: 0.8rem;
-    overflow-x: auto;
-    white-space: pre;
+    white-space: pre-wrap;
     margin: 0.5rem 0;
   }
   .user-display {
-    background: white;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
     padding: 0.75rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    margin-top: 0.5rem;
-  }
-  .badge {
-    background: #4f46e5;
-    color: white;
-    padding: 0.15rem 0.5rem;
-    border-radius: 3px;
-    font-size: 0.8rem;
-  }
-  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.75rem 0; }
-  .type-card {
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    padding: 0.75rem;
   }
-  .type-card h3 { margin: 0 0 0.25rem; font-size: 0.9rem; color: #4f46e5; }
-  .desc { font-size: 0.8rem; color: #888; margin: 0 0 0.5rem; }
-  .mini {
-    background: #f5f5f5;
-    padding: 0.5rem;
+  .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #4f46e5;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .avatar.small { width: 32px; height: 32px; font-size: 0.9rem; }
+  .bio { font-size: 0.85rem; color: #666; margin-top: 0.2rem; }
+  .form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
+  input, select {
+    padding: 0.4rem;
+    border: 1px solid #ccc;
     border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.75rem;
-    white-space: pre;
-    margin: 0;
   }
-  .record-entry { margin: 0.25rem 0; font-size: 0.85rem; }
-  .checkboxes { display: flex; gap: 0.75rem; margin-bottom: 0.5rem; }
-  .checkboxes label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; }
-  .form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 350px; }
-  .field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .field label { font-weight: bold; font-size: 0.85rem; }
-  input, select { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; }
-  .invalid { border-color: #ef4444; background: #fef2f2; }
-  .error { color: #ef4444; font-size: 0.8rem; }
   button {
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.9rem;
     background: #4f46e5;
     color: white;
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    align-self: flex-start;
   }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:hover { background: #4338ca; }
+  .info { padding: 0.4rem 0.6rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; font-size: 0.85rem; }
+  .preview {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.5rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  .perms { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
+  .perms label { display: flex; gap: 0.3rem; align-items: center; font-size: 0.9rem; }
+  code {
+    background: #e8e8e8;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
+  .hint { font-size: 0.85rem; color: #666; }
+  .cheat { background: #fffbeb; border: 1px solid #fde68a; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #fde68a; }
+  th { background: #fef3c7; }
 </style>`,
 			language: 'svelte'
 		}

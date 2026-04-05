@@ -8,13 +8,17 @@ const lesson: LessonData = {
 		module: 16,
 		lessonIndex: 3
 	},
-	description: `Svelte 5 provides reactive versions of JavaScript's built-in collection types through svelte/reactivity. SvelteMap, SvelteSet, SvelteDate, SvelteURL, and SvelteURLSearchParams are drop-in replacements for their native counterparts, but with full Svelte reactivity — any mutation to these objects automatically triggers UI updates.
+	description: `Svelte 5 provides reactive versions of JavaScript's built-in collection types through svelte/reactivity. SvelteMap, SvelteSet, SvelteDate, SvelteURL, SvelteURLSearchParams, and MediaQuery are drop-in replacements for their native counterparts, but with full Svelte reactivity — any mutation to these objects automatically triggers UI updates.
 
-This is especially useful because native Map, Set, Date, and URL objects use method-based mutation (like .set(), .add(), .setMonth()) rather than property assignment, which $state's proxy system can't automatically detect. These reactive built-ins bridge that gap.`,
+This is especially useful because native Map, Set, Date, and URL objects use method-based mutation (like .set(), .add(), .setMonth()) rather than property assignment, which $state's proxy system can't automatically detect. These reactive built-ins bridge that gap. MediaQuery exposes a reactive \`.current\` boolean that tracks CSS media queries live, perfect for responsive logic in script code.
+
+A common workflow is to pair SvelteURLSearchParams with $effect to keep application filter state in sync with the URL — bookmarkable, shareable, and browser-back-friendly.`,
 	objectives: [
 		'Use SvelteMap and SvelteSet for reactive key-value and unique collection state',
 		'Track time-based state changes with SvelteDate',
 		'Manage reactive URL state with SvelteURL and SvelteURLSearchParams',
+		'Track responsive breakpoints and user preferences with MediaQuery',
+		'Build a standalone filter UI backed by SvelteURLSearchParams',
 		'Understand why native Map/Set/Date need reactive wrappers in Svelte'
 	],
 	files: [
@@ -66,6 +70,29 @@ This is especially useful because native Map, Set, Date, and URL objects use met
 
   // SvelteURL — reactive URL manipulation
   const url = new SvelteURL('https://example.com/search?q=svelte&page=1');
+
+  // SvelteURLSearchParams — standalone reactive query string
+  // Think of this as a reactive Map that stringifies to a URL query.
+  const filters = new SvelteURLSearchParams('category=all&sort=newest&minPrice=0');
+  const categories = ['all', 'books', 'music', 'games', 'tech'];
+  const sorts = ['newest', 'oldest', 'price-asc', 'price-desc'];
+
+  // Derived: pretty-printed query string
+  const queryString = $derived(filters.toString());
+  // Derived: typed access helpers
+  const currentCategory = $derived(filters.get('category') ?? 'all');
+  const currentSort = $derived(filters.get('sort') ?? 'newest');
+  const currentMinPrice = $derived(Number(filters.get('minPrice') ?? 0));
+
+  function setFilter(key: string, value: string): void {
+    filters.set(key, value);
+  }
+
+  function clearFilters(): void {
+    for (const key of Array.from(filters.keys())) {
+      filters.delete(key);
+    }
+  }
 
   let totalScore = $derived(
     Array.from(userScores.values()).reduce((sum, s) => sum + s, 0)
@@ -169,6 +196,58 @@ This is especially useful because native Map, Set, Date, and URL objects use met
   </div>
 </section>
 
+<section>
+  <h2>SvelteURLSearchParams — standalone filter state</h2>
+  <p class="small">
+    A shop-style filter bar backed by SvelteURLSearchParams. The rendered
+    query string updates live as you change any control — and could be
+    written into window.location.search from an $effect.
+  </p>
+  <div class="filter-bar">
+    <label>
+      Category:
+      <select
+        value={currentCategory}
+        onchange={(e) => setFilter('category', (e.target as HTMLSelectElement).value)}
+      >
+        {#each categories as c (c)}
+          <option value={c}>{c}</option>
+        {/each}
+      </select>
+    </label>
+    <label>
+      Sort:
+      <select
+        value={currentSort}
+        onchange={(e) => setFilter('sort', (e.target as HTMLSelectElement).value)}
+      >
+        {#each sorts as s (s)}
+          <option value={s}>{s}</option>
+        {/each}
+      </select>
+    </label>
+    <label>
+      Min $:
+      <input
+        type="number"
+        min="0"
+        value={currentMinPrice}
+        oninput={(e) => setFilter('minPrice', (e.target as HTMLInputElement).value)}
+      />
+    </label>
+    <button class="small-btn" onclick={clearFilters}>Clear</button>
+  </div>
+  <div class="query-display">
+    <code>?{queryString}</code>
+  </div>
+  <p class="meta">
+    {filters.size} active filter(s). Iterate with for..of:
+    {#each Array.from(filters) as [k, v] (k)}
+      <span class="chip">{k}={v}</span>
+    {/each}
+  </p>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
@@ -218,6 +297,33 @@ This is especially useful because native Map, Set, Date, and URL objects use met
   .mq-row span { color: #636e72; }
   .active { color: #00b894; }
   .inactive { color: #d63031; }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .filter-bar label {
+    display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;
+    color: #2d3436;
+  }
+  .filter-bar select, .filter-bar input {
+    padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px;
+    font-size: 0.85rem;
+  }
+  .filter-bar input { width: 5rem; }
+  .small-btn {
+    padding: 0.3rem 0.6rem; font-size: 0.8rem; background: #636e72;
+  }
+  .query-display {
+    padding: 0.5rem 0.75rem; background: #2d3436; border-radius: 4px;
+    margin-bottom: 0.5rem; overflow-x: auto;
+  }
+  .query-display code { color: #55efc4; font-size: 0.85rem; }
+  .chip {
+    display: inline-block; padding: 0.15rem 0.5rem;
+    background: #dfe6e9; border-radius: 10px; font-size: 0.75rem;
+    margin: 0 0.2rem; font-family: monospace;
+  }
+  .small { font-size: 0.85rem; color: #636e72; }
 </style>`,
 			language: 'svelte'
 		}

@@ -10,241 +10,309 @@ const lesson: LessonData = {
 	},
 	description: `TypeScript adds type annotations to JavaScript. Instead of hoping a variable is a number, you declare it: let count: number = 0. The compiler catches mistakes before your code runs.
 
-In Svelte, you opt into TypeScript by adding lang="ts" to your script tag: <script lang="ts">. Everything else stays the same — runes, reactivity, templates — but now you get type safety.
+In Svelte, you opt into TypeScript by adding lang="ts" to your script tag: <script lang="ts">. Everything else stays the same — runes, reactivity, templates — but now you get type safety, autocomplete, and refactoring confidence.
 
-This is your first TypeScript lesson. We'll start with the basics: annotating variables, function parameters, return types, and arrays. You'll see how TypeScript catches bugs that would silently break in plain JavaScript.`,
+This is your first TypeScript lesson. We'll start with the basics: annotating variables, function parameters, return types, arrays, and typed $state. You'll also see real errors that TypeScript would catch if you broke the contract — the "why" behind every annotation.`,
 	objectives: [
 		'Add lang="ts" to a Svelte component script tag',
 		'Annotate variables with basic types: string, number, boolean',
 		'Type function parameters and return values',
-		'Use typed arrays and the generic $state<T>() syntax'
+		'Use typed arrays and the generic $state<T>() syntax',
+		'Understand type inference: when you can omit annotations'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Basic type annotations
-  let name: string = $state('Alice');
-  let age: number = $state(25);
-  let isOnline: boolean = $state(true);
+  // ============================================================
+  // 1. BASIC PRIMITIVE ANNOTATIONS
+  // ============================================================
+  // The syntax is: let name: Type = value
+  // TypeScript will refuse assignments of the wrong type.
 
-  // Typed arrays
-  let scores: number[] = $state([95, 87, 92, 78]);
-  let tags: string[] = $state(['svelte', 'typescript', 'frontend']);
+  let username: string = $state('Alice');
+  let age: number = $state(28);
+  let isActive: boolean = $state(true);
 
-  // Typed functions
-  function greet(person: string, greeting: string = 'Hello'): string {
-    return \`\${greeting}, \${person}!\`;
-  }
+  // If you try: age = 'twenty-eight'
+  // TS error: Type 'string' is not assignable to type 'number'.
 
-  function calculateAverage(nums: number[]): number {
-    if (nums.length === 0) return 0;
-    const sum = nums.reduce((total, n) => total + n, 0);
-    return Math.round((sum / nums.length) * 10) / 10;
-  }
+  // ============================================================
+  // 2. TYPE INFERENCE — often you don't need to annotate
+  // ============================================================
+  // TypeScript is smart. From a literal, it infers the type.
 
-  // Derived with inferred types (TypeScript figures out the type)
-  let message = $derived(greet(name));
-  let average = $derived(calculateAverage(scores));
-  let highScores = $derived(scores.filter((s: number) => s >= 90));
+  let inferredString = $state('hello');   // inferred as string
+  let inferredNumber = $state(42);        // inferred as number
+  let inferredBool = $state(false);       // inferred as boolean
 
-  // State with explicit generic type
-  let newScore: number = $state(0);
+  // Best practice: let TS infer when it's obvious, annotate when
+  // you're declaring an empty/nullable variable or want docs.
+
+  // ============================================================
+  // 3. TYPED ARRAYS
+  // ============================================================
+  // Two syntaxes: T[] and Array<T>. Use T[] for simple cases.
+
+  let tags: string[] = $state(['svelte', 'typescript']);
+  let scores: number[] = $state([10, 20, 30]);
+
   let newTag: string = $state('');
 
-  function addScore(): void {
-    if (newScore > 0) {
-      scores = [...scores, newScore];
-      newScore = 0;
-    }
-  }
-
   function addTag(): void {
-    if (newTag.trim()) {
-      tags = [...tags, newTag.trim().toLowerCase()];
-      newTag = '';
-    }
+    const t = newTag.trim();
+    if (t.length === 0) return;
+    tags = [...tags, t];
+    newTag = '';
   }
 
-  function removeTag(index: number): void {
-    tags = tags.filter((_: string, i: number) => i !== index);
+  function removeTag(tag: string): void {
+    tags = tags.filter((t) => t !== tag);
   }
+
+  // ============================================================
+  // 4. TYPED FUNCTIONS — parameters AND return type
+  // ============================================================
+  // function greet(name: string): string { ... }
+  //         params have types ---^       ^--- return type
+
+  function greet(name: string): string {
+    return \`Hello, \${name}!\`;
+  }
+
+  function add(a: number, b: number): number {
+    return a + b;
+  }
+
+  // void means "returns nothing"
+  function logMessage(msg: string): void {
+    console.log(msg);
+  }
+
+  // A function that takes an array of numbers and returns their sum
+  function sum(nums: number[]): number {
+    return nums.reduce((acc, n) => acc + n, 0);
+  }
+
+  let greeting: string = $derived(greet(username));
+  let total: number = $derived(sum(scores));
+  let aPlusB: number = $state(add(2, 3));
+
+  // ============================================================
+  // 5. GENERIC $state<T>() — when inference isn't enough
+  // ============================================================
+  // When you start with null or an empty array, TS can't infer
+  // the eventual type. Use the generic form: $state<T>(initial).
+
+  interface Todo {
+    id: number;
+    text: string;
+    done: boolean;
+  }
+
+  let todos = $state<Todo[]>([]);
+  let selectedTodo = $state<Todo | null>(null);
+  let nextId: number = 1;
+  let newTodoText: string = $state('');
+
+  function addTodo(): void {
+    const text = newTodoText.trim();
+    if (text.length === 0) return;
+    // TS enforces that the object matches Todo
+    const todo: Todo = { id: nextId++, text, done: false };
+    todos = [...todos, todo];
+    newTodoText = '';
+  }
+
+  function toggleTodo(id: number): void {
+    todos = todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+  }
+
+  function selectTodo(todo: Todo): void {
+    selectedTodo = todo;
+  }
+
+  // ============================================================
+  // 6. ERRORS TS WOULD CATCH (commented out so the code runs)
+  // ============================================================
+  // The comments below are examples of mistakes the compiler
+  // catches before runtime. Uncomment to see them red-squiggle.
+
+  // age = 'twenty-eight';
+  //   ^ Type 'string' is not assignable to type 'number'.
+
+  // tags.push(42);
+  //             ^ Argument of type 'number' is not assignable to 'string'.
+
+  // const bad: Todo = { id: 1, text: 'oops' };
+  //             ^ Property 'done' is missing in type '{ id: number; text: string; }'.
+
+  // const wrong = add('1', '2');
+  //                   ^ Argument of type 'string' is not assignable to 'number'.
 </script>
 
-<h1>Why Types & lang="ts"</h1>
-
-<div class="notice">
-  This component uses <code>&lt;script lang="ts"&gt;</code> — TypeScript is active!
-</div>
+<h1>Why Types &amp; lang="ts"</h1>
 
 <section>
-  <h2>Basic Types</h2>
-  <div class="type-grid">
-    <div class="type-card">
-      <code>string</code>
-      <label>Name: <input bind:value={name} /></label>
-      <span class="value">{name}</span>
-    </div>
-    <div class="type-card">
-      <code>number</code>
-      <label>Age: <input type="number" bind:value={age} /></label>
-      <span class="value">{age}</span>
-    </div>
-    <div class="type-card">
-      <code>boolean</code>
-      <label>
-        <input type="checkbox" bind:checked={isOnline} /> Online
-      </label>
-      <span class="value">{String(isOnline)}</span>
-    </div>
+  <h2>1. Primitive Annotations</h2>
+  <pre class="code">{\`let username: string = $state('Alice');
+let age: number = $state(28);
+let isActive: boolean = $state(true);\`}</pre>
+  <div class="form">
+    <label>Name <input bind:value={username} /></label>
+    <label>Age <input type="number" bind:value={age} /></label>
+    <label>
+      <input type="checkbox" bind:checked={isActive} /> Active
+    </label>
   </div>
+  <p class="greet">{greeting}</p>
+  <p class="info">isActive: <strong>{isActive}</strong></p>
 </section>
 
 <section>
-  <h2>Typed Functions</h2>
-  <div class="function-demo">
-    <pre>function greet(person: string, greeting: string = 'Hello'): string</pre>
-    <p class="result">Result: {message}</p>
-  </div>
+  <h2>2. Typed Function</h2>
+  <pre class="code">{\`function add(a: number, b: number): number {
+  return a + b;
+}\`}</pre>
+  <p>2 + 3 = <strong>{aPlusB}</strong></p>
 </section>
 
 <section>
-  <h2>Typed Arrays: number[]</h2>
-  <div class="scores">
-    <div class="score-list">
-      {#each scores as score, i}
-        <span class="score" class:high={score >= 90}>{score}</span>
-      {/each}
-    </div>
-    <p>Average: <strong>{average}</strong> | High scores (90+): <strong>{highScores.length}</strong></p>
-    <div class="add-row">
-      <input type="number" bind:value={newScore} placeholder="New score" min="0" max="100" />
-      <button onclick={addScore}>Add Score</button>
-    </div>
-  </div>
-</section>
-
-<section>
-  <h2>Typed Arrays: string[]</h2>
+  <h2>3. Typed Array: string[]</h2>
   <div class="tags">
-    {#each tags as tag, i}
+    {#each tags as tag (tag)}
       <span class="tag">
         {tag}
-        <button class="remove" onclick={() => removeTag(i)}>x</button>
+        <button class="x" onclick={() => removeTag(tag)}>x</button>
       </span>
     {/each}
   </div>
-  <div class="add-row">
-    <input bind:value={newTag} placeholder="New tag" onkeydown={(e) => e.key === 'Enter' && addTag()} />
-    <button onclick={addTag}>Add Tag</button>
+  <div class="form">
+    <input bind:value={newTag} placeholder="new tag" />
+    <button onclick={addTag}>Add tag</button>
   </div>
 </section>
 
-<div class="why-types">
-  <h3>Why bother with types?</h3>
-  <ul>
-    <li><strong>Catch bugs early:</strong> TypeScript tells you <code>greet(42)</code> is wrong before you run it</li>
-    <li><strong>Better autocomplete:</strong> Your editor knows what methods are available on each type</li>
-    <li><strong>Self-documenting:</strong> Types show what a function expects and returns</li>
-    <li><strong>Safer refactoring:</strong> Rename a property and TypeScript finds every usage</li>
+<section>
+  <h2>4. sum(nums: number[]): number</h2>
+  <p>scores = [{scores.join(', ')}]</p>
+  <p>sum = <strong>{total}</strong></p>
+</section>
+
+<section>
+  <h2>5. Typed State with $state&lt;Todo[]&gt;</h2>
+  <pre class="code">{\`interface Todo { id: number; text: string; done: boolean }
+let todos = $state<Todo[]>([]);\`}</pre>
+  <div class="form">
+    <input bind:value={newTodoText} placeholder="new todo" />
+    <button onclick={addTodo}>Add todo</button>
+  </div>
+  <ul class="todos">
+    {#each todos as todo (todo.id)}
+      <li class:done={todo.done}>
+        <input type="checkbox" checked={todo.done} onchange={() => toggleTodo(todo.id)} />
+        <button type="button" class="todo-text" onclick={() => selectTodo(todo)}>{todo.text}</button>
+      </li>
+    {/each}
   </ul>
-</div>
+  {#if selectedTodo}
+    <p class="selected">Selected: #{selectedTodo.id} — {selectedTodo.text}</p>
+  {/if}
+</section>
+
+<section class="cheat">
+  <h2>Errors TypeScript Would Catch</h2>
+  <pre class="code">{\`age = 'twenty-eight';
+// Type 'string' is not assignable to type 'number'.
+
+tags.push(42);
+// Argument of type 'number' is not assignable to 'string'.
+
+const bad: Todo = { id: 1, text: 'oops' };
+// Property 'done' is missing.\`}</pre>
+  <p class="hint">Every error is caught at <em>compile time</em>, before the app runs.</p>
+</section>
 
 <style>
   h1 { color: #333; }
-  .notice {
-    background: #dbeafe;
-    border: 1px solid #93c5fd;
-    padding: 0.75rem;
-    border-radius: 6px;
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
   section { margin: 1.5rem 0; padding: 1rem; background: #fafafa; border-radius: 8px; }
-  .type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
-  .type-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .type-card code {
-    background: #4f46e5;
-    color: white;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    align-self: flex-start;
-    font-size: 0.8rem;
-  }
-  .value { font-weight: bold; color: #333; }
-  label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
-  input { padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; }
-  input[type="number"] { width: 80px; }
-  pre {
+  .code {
     background: #1e1e1e;
     color: #d4d4d4;
-    padding: 0.5rem 0.75rem;
-    border-radius: 4px;
+    padding: 0.75rem;
+    border-radius: 6px;
     font-size: 0.8rem;
-    margin: 0;
+    margin: 0.5rem 0;
+    white-space: pre-wrap;
   }
-  .result { font-size: 1.1rem; margin: 0.5rem 0 0; }
-  .score-list { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-  .score {
-    background: #e0e0e0;
-    padding: 0.3rem 0.6rem;
+  .form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.5rem 0; }
+  label { display: flex; gap: 0.3rem; align-items: center; font-size: 0.9rem; }
+  input {
+    padding: 0.4rem;
+    border: 1px solid #ccc;
     border-radius: 4px;
-    font-weight: bold;
   }
-  .score.high { background: #bbf7d0; color: #166534; }
-  .add-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
   button {
-    padding: 0.4rem 0.8rem;
+    padding: 0.4rem 0.9rem;
     background: #4f46e5;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
   }
-  .tags { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  button:hover { background: #4338ca; }
+  .greet { font-size: 1.1rem; color: #4f46e5; font-weight: bold; }
+  .info { font-size: 0.9rem; color: #555; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
   .tag {
-    background: #e0e7ff;
-    color: #3730a3;
-    padding: 0.3rem 0.6rem;
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 0.25rem 0.6rem;
     border-radius: 999px;
     font-size: 0.85rem;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.3rem;
   }
-  .remove {
-    background: #6366f1;
-    color: white;
+  .x {
+    background: transparent;
+    color: #1e40af;
     border: none;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 0;
+    font-weight: bold;
+  }
+  .todos { list-style: none; padding: 0; margin: 0.5rem 0; }
+  .todos li {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.4rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 0.3rem;
+    cursor: pointer;
+  }
+  .todos li.done .todo-text { text-decoration: line-through; color: #888; }
+  .todo-text {
+    background: transparent;
+    border: none;
     padding: 0;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font: inherit;
+    color: inherit;
+    text-align: left;
   }
-  .why-types {
-    background: #f0fdf4;
-    border-left: 4px solid #22c55e;
-    padding: 1rem;
-    border-radius: 0 8px 8px 0;
-    margin-top: 1.5rem;
+  .selected {
+    padding: 0.5rem;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+    font-size: 0.9rem;
   }
-  .why-types h3 { margin: 0 0 0.5rem; }
-  ul { padding-left: 1.2rem; }
-  li { margin: 0.3rem 0; }
-  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .cheat { background: #fffbeb; border: 1px solid #fde68a; }
+  .hint { font-size: 0.85rem; color: #666; }
 </style>`,
 			language: 'svelte'
 		}

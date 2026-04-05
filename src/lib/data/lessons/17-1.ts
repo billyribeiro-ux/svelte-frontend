@@ -10,14 +10,17 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit hooks are middleware functions that intercept requests and responses at the server level. The handle hook runs on every request, letting you modify the request, add data to event.locals (shared state for the request lifetime), protect routes, and transform responses.
 
-handleError catches unexpected errors and lets you log them or return user-friendly error messages. The init hook runs once when the server starts, perfect for initializing database connections or configuration. Multiple handle functions can be composed with sequence() for clean middleware chains.
+handleError catches unexpected errors and lets you log them or return user-friendly error messages. The init hook runs once when the server starts, perfect for initializing database connections or configuration. Multiple handle functions can be composed with sequence() for clean middleware chains — each handler wraps the next, so the order you list them is the order their pre-work runs (and the reverse order their post-work runs, like nested onion layers).
+
+Beyond the basic hooks, handle can also transform the rendered HTML via resolve()'s transformPageChunk option — useful for injecting tokens, CSP nonces, or theme classes into the SSR output. Client-side, hooks.client.ts exports its own handleError for catching errors in client navigation and lifecycle code.
 
 As of svelte@5.54, svelte.config.js supports function forms for css, runes, and customElement options — giving you a single source of truth for per-file configuration. And as of kit@2.54, the experimental.handleRenderingErrors flag lets error boundaries catch SSR errors (see lesson 11-6).`,
 	objectives: [
 		'Implement the handle hook for request middleware in hooks.server.ts',
-		'Attach shared request data using event.locals',
+		'Attach shared request data using event.locals (typed via App.Locals)',
 		'Compose multiple handlers with sequence() for modular middleware',
-		'Use handleError for centralized server error logging',
+		'Transform rendered HTML with resolve({ transformPageChunk })',
+		'Use handleError for centralized server & client error logging',
 		'Configure svelte.config.js with function-form compiler options (svelte@5.54)'
 	],
 	files: [
@@ -41,7 +44,8 @@ As of svelte@5.54, svelte.config.js supports function forms for css, runes, and 
   }
 
   let requests: { event: RequestEvent; result: ResolveResult; middleware: string[] }[] = $state([]);
-  let showCode: 'handle' | 'sequence' | 'error' | 'init' | 'config' = $state('handle');
+  type TabKey = 'handle' | 'sequence' | 'locals' | 'transform' | 'error' | 'client' | 'init' | 'config';
+  let showCode: TabKey = $state('handle');
 
   // Simulate handle hook
   async function simulateHandle(
@@ -128,36 +132,178 @@ export const handle: Handle = async ({ event, resolve }) => {
   return response;
 };\`,
 
-    sequence: \`// Compose multiple handlers
+    sequence: \`// Compose multiple handlers like onion layers.
+// Each handler wraps the next — "before" code runs in order,
+// "after" code runs in reverse order.
 import { sequence } from '@sveltejs/kit/hooks';
+import type { Handle } from '@sveltejs/kit';
+
+const requestId: Handle = async ({ event, resolve }) => {
+  event.locals.requestId = crypto.randomUUID();
+  const response = await resolve(event);
+  response.headers.set('x-request-id', event.locals.requestId);
+  return response;
+};
 
 const auth: Handle = async ({ event, resolve }) => {
-  event.locals.user = await getUser(event);
+  event.locals.user = await getUserFromSession(
+    event.cookies.get('session')
+  );
   return resolve(event);
 };
 
-const logger: Handle = async ({ event, resolve }) => {
-  console.log(event.url.pathname);
+const i18n: Handle = async ({ event, resolve }) => {
+  const lang = event.request.headers.get('accept-language')?.split(',')[0] ?? 'en';
+  event.locals.lang = lang;
   return resolve(event);
 };
 
-// Runs auth first, then logger
-export const handle = sequence(auth, logger);\`,
+const timing: Handle = async ({ event, resolve }) => {
+  const start = performance.now();
+  const response = await resolve(event);
+  const ms = Math.round(performance.now() - start);
+  response.headers.set('server-timing', \\\`total;dur=\\\${ms}\\\`);
+  return response;
+};
 
-    error: \`// Handle unexpected errors
+// Runs requestId -> auth -> i18n -> timing -> route
+// Post-work unwinds in reverse: timing -> i18n -> auth -> requestId
+export const handle = sequence(requestId, auth, i18n, timing);\`,
+
+    locals: \`// src/app.d.ts — type your event.locals
+declare global {
+  namespace App {
+    interface Locals {
+      user: { id: string; email: string; role: 'admin' | 'user' } | null;
+      session: { id: string; expiresAt: Date } | null;
+      requestId: string;
+      lang: string;
+    }
+  }
+}
+export {};
+
+// src/hooks.server.ts — populate them in handle
+export const handle: Handle = async ({ event, resolve }) => {
+  const sessionId = event.cookies.get('session');
+
+  if (sessionId) {
+    const session = await db.session.findById(sessionId);
+    if (session && session.expiresAt > new Date()) {
+      event.locals.session = session;
+      event.locals.user = await db.user.findById(session.userId);
+    } else {
+      // Clean up expired session
+      event.cookies.delete('session', { path: '/' });
+    }
+  }
+
+  // Route guard — protect /admin at the hook level
+  if (event.url.pathname.startsWith('/admin')) {
+    if (event.locals.user?.role !== 'admin') {
+      return new Response('Forbidden', { status: 403 });
+    }
+  }
+
+  return resolve(event);
+};
+
+// Now every load function, +page.server.ts, and API route
+// has fully-typed access to event.locals.user, .session, etc.\`,
+
+    transform: \`// Transform the rendered HTML as it streams out.
+// Perfect for injecting nonces, theme classes, or i18n strings
+// without a second pass over the document.
+export const handle: Handle = async ({ event, resolve }) => {
+  const theme = event.cookies.get('theme') ?? 'light';
+  const nonce = crypto.randomUUID();
+
+  return resolve(event, {
+    // Replace placeholders in app.html (e.g. %theme%, %nonce%)
+    transformPageChunk: ({ html }) =>
+      html
+        .replace('%theme%', theme)
+        .replace('%nonce%', nonce),
+
+    // Filter which headers are forwarded from fetch() calls
+    filterSerializedResponseHeaders: (name) =>
+      name === 'content-type' || name === 'etag',
+
+    // Decide which server-side fetch responses are serialized
+    // into the HTML payload for hydration
+    preload: ({ type, path }) =>
+      type === 'font' || path.endsWith('.css')
+  });
+};
+
+// In app.html:
+//   <html class="%theme%">
+//     <head>
+//       <meta property="csp-nonce" content="%nonce%" />
+//     </head>\`,
+
+    error: \`// src/hooks.server.ts
+// Caught by SvelteKit whenever an uncaught error is thrown in
+// a load, action, or server endpoint. status is 500 unless the
+// error was an \\\`error(code, ...)\\\` thrown explicitly.
+import type { HandleServerError } from '@sveltejs/kit';
+
 export const handleError: HandleServerError = async ({
   error, event, status, message
 }) => {
   const errorId = crypto.randomUUID();
-  console.error(errorId, error);
 
-  // Report to error tracking service
-  await reportToSentry(error, { errorId });
+  // Structured logging — correlate via requestId
+  console.error({
+    errorId,
+    requestId: event.locals.requestId,
+    path: event.url.pathname,
+    status,
+    message,
+    stack: (error as Error)?.stack
+  });
 
+  // Report to your error tracking service
+  await reportToSentry(error, {
+    errorId,
+    user: event.locals.user?.id,
+    url: event.url.href
+  });
+
+  // Whatever you return becomes \\\`$page.error\\\` in +error.svelte.
+  // Never leak raw stack traces or internal messages to users.
   return {
-    message: 'An unexpected error occurred',
+    message: status < 500
+      ? message
+      : 'An unexpected error occurred. Please try again.',
     errorId
   };
+};\`,
+
+    client: \`// src/hooks.client.ts — runs in the browser
+// Catches errors during client navigations and rune code.
+import type { HandleClientError } from '@sveltejs/kit';
+
+export const handleClientError: HandleClientError = ({
+  error, event, status, message
+}) => {
+  const errorId = crypto.randomUUID();
+
+  // Send to browser error tracking
+  fetch('/api/log-error', {
+    method: 'POST',
+    body: JSON.stringify({
+      errorId,
+      path: event.url.pathname,
+      status,
+      message,
+      stack: (error as Error)?.stack,
+      ua: navigator.userAgent
+    }),
+    keepalive: true
+  });
+
+  return { message: 'Something broke in the browser.', errorId };
 };\`,
 
     init: \`// Runs once when the server starts
@@ -236,9 +382,17 @@ export default {
 <section>
   <h2>Hook Examples</h2>
   <div class="code-tabs">
-    {#each ['handle', 'sequence', 'error', 'init', 'config'] as tab}
-      <button class:active={showCode === tab} onclick={() => showCode = tab as typeof showCode}>
-        {tab === 'error' ? 'handleError' : tab === 'config' ? 'svelte.config.js' : tab}
+    {#each ['handle', 'sequence', 'locals', 'transform', 'error', 'client', 'init', 'config'] as tab (tab)}
+      <button class:active={showCode === tab} onclick={() => (showCode = tab as TabKey)}>
+        {tab === 'error'
+          ? 'handleError'
+          : tab === 'client'
+          ? 'hooks.client'
+          : tab === 'config'
+          ? 'svelte.config.js'
+          : tab === 'transform'
+          ? 'transformPageChunk'
+          : tab}
       </button>
     {/each}
   </div>

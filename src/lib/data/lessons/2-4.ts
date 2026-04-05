@@ -8,140 +8,261 @@ const lesson: LessonData = {
 		module: 2,
 		lessonIndex: 4
 	},
-	description: `When you have a list of data, Svelte's {#each} block renders a piece of markup for every item. Keyed each blocks — using (item.id) — help Svelte efficiently update the DOM when items are added, removed, or reordered.
+	description: `Arrays are everywhere in apps — products, comments, notifications, users, songs, messages. You need a way to render a piece of UI for each item. Svelte's \`{#each}\` block does exactly that: give it an array and a template, and it renders the template once per item.
 
-This lesson covers basic iteration, keyed each, the {:else} fallback for empty lists, and the index variable.`,
+The basic form is \`{#each items as item}\`. Add an index with \`{#each items as item, i}\`. Handle the empty case with \`{:else}\`. And for anything more than a trivial list, **use keys**: \`{#each items as item (item.id)}\` tells Svelte how to match DOM elements to data items, which is essential when items are added, removed, or reordered.
+
+Why keys matter: without a key, Svelte matches items by position. If you delete the first item, Svelte sees "same item in slot 0, same item in slot 1, one fewer slot". It might update every slot instead of removing the first one. With a key, Svelte recognizes "this item still exists, it just moved" — and the DOM update is precise and fast. With keys, focus and input state also stay with the right item during reorders.
+
+In this lesson you'll iterate strings, objects, and nested arrays; filter and sort a live list; render a leaderboard with rank badges; and see exactly when keys rescue you from visual glitches.`,
 	objectives: [
 		'Render lists of data with {#each} blocks',
-		'Use keyed iteration with (item.id) for efficient updates',
-		'Handle empty lists with {:else} and use the index variable'
+		'Use keyed iteration with (item.id) for correct & efficient updates',
+		'Handle empty lists with {:else} fallback',
+		'Use the index variable for numbering and alternating styles',
+		'Filter and sort arrays reactively with $derived',
+		'Iterate a fixed number of times with {#each {length: N}}'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script>
-  // Simple list
+  // ============================================================
+  // EXAMPLE 1 — Basic each over a string array, with index
+  // ============================================================
   let colors = $state(['Red', 'Green', 'Blue', 'Purple', 'Orange']);
 
-  // Keyed list with objects
+  function shuffleColors() {
+    colors = [...colors].sort(() => Math.random() - 0.5);
+  }
+
+  // ============================================================
+  // EXAMPLE 2 — Keyed each with add / remove / filter
+  // ------------------------------------------------------------
+  // Each task has an id, which we use as the key. That lets
+  // Svelte efficiently update when tasks are added/removed.
+  // ============================================================
   let tasks = $state([
-    { id: 1, text: 'Design mockups', priority: 'high' },
-    { id: 2, text: 'Write components', priority: 'medium' },
-    { id: 3, text: 'Add tests', priority: 'low' },
-    { id: 4, text: 'Deploy app', priority: 'high' }
+    { id: 1, text: 'Design mockups',   priority: 'high',   done: false },
+    { id: 2, text: 'Write components', priority: 'medium', done: true  },
+    { id: 3, text: 'Add tests',        priority: 'low',    done: false },
+    { id: 4, text: 'Deploy app',       priority: 'high',   done: false }
   ]);
 
   let nextId = $state(5);
   let newTask = $state('');
   let newPriority = $state('medium');
+  let filter = $state('all'); // all | active | done
 
   function addTask() {
     if (newTask.trim()) {
-      tasks.push({ id: nextId, text: newTask.trim(), priority: newPriority });
+      tasks.push({ id: nextId, text: newTask.trim(), priority: newPriority, done: false });
       nextId += 1;
       newTask = '';
     }
   }
 
+  function toggleDone(task) { task.done = !task.done; }
   function removeTask(id) {
-    const index = tasks.findIndex(t => t.id === id);
-    if (index !== -1) tasks.splice(index, 1);
+    const i = tasks.findIndex(t => t.id === id);
+    if (i !== -1) tasks.splice(i, 1);
   }
+  function clearAll() { tasks.length = 0; }
 
-  function clearAll() {
-    tasks.length = 0;
-  }
+  // Derived: filter the tasks based on the filter state
+  const visibleTasks = $derived(
+    filter === 'all' ? tasks :
+    filter === 'active' ? tasks.filter(t => !t.done) :
+    tasks.filter(t => t.done)
+  );
 
-  function getPriorityColor(priority) {
-    if (priority === 'high') return '#f44747';
-    if (priority === 'medium') return '#dcdcaa';
+  function priorityColor(p) {
+    if (p === 'high') return '#f44747';
+    if (p === 'medium') return '#dcdcaa';
     return '#4ec9b0';
   }
+
+  // ============================================================
+  // EXAMPLE 3 — Sorted leaderboard
+  // ------------------------------------------------------------
+  // The source array is unordered. A $derived creates a
+  // sorted copy without mutating the original.
+  // ============================================================
+  let players = $state([
+    { id: 'a', name: 'Alice',  score: 42 },
+    { id: 'b', name: 'Bob',    score: 71 },
+    { id: 'c', name: 'Carol',  score: 58 },
+    { id: 'd', name: 'Dan',    score: 89 },
+    { id: 'e', name: 'Eve',    score: 65 }
+  ]);
+
+  const leaderboard = $derived(
+    [...players].sort((a, b) => b.score - a.score)
+  );
+
+  function randomizeScores() {
+    players = players.map(p => ({ ...p, score: Math.floor(Math.random() * 100) }));
+  }
+
+  function medal(rank) {
+    if (rank === 0) return 'gold';
+    if (rank === 1) return 'silver';
+    if (rank === 2) return 'bronze';
+    return '';
+  }
+
+  // ============================================================
+  // EXAMPLE 4 — Fixed-length iteration (no array needed)
+  // ============================================================
+  let rating = $state(3);
 </script>
 
 <h1>List Rendering: {'{#each}'}</h1>
 
 <section>
-  <h2>Basic {'{#each}'} with Index</h2>
+  <h2>1. Basic {'{#each}'} with Index</h2>
+  <button onclick={shuffleColors}>Shuffle</button>
   <ol>
-    {#each colors as color, i}
-      <li>{i + 1}. <span style="color: {color.toLowerCase()}">{color}</span></li>
+    {#each colors as color, i (color)}
+      <li>
+        <span class="rank">{i + 1}.</span>
+        <span style="color: {color.toLowerCase()}; font-weight: 600;">{color}</span>
+      </li>
     {/each}
   </ol>
 </section>
 
 <section>
-  <h2>Keyed {'{#each}'} with (item.id)</h2>
+  <h2>2. Keyed Task List (add / remove / filter)</h2>
   <div class="input-row">
-    <input bind:value={newTask} placeholder="New task..." onkeydown={(e) => e.key === 'Enter' && addTask()} />
+    <input
+      bind:value={newTask}
+      placeholder="New task..."
+      onkeydown={(e) => e.key === 'Enter' && addTask()}
+    />
     <select bind:value={newPriority}>
       <option value="high">High</option>
       <option value="medium">Medium</option>
       <option value="low">Low</option>
     </select>
     <button onclick={addTask}>Add</button>
-    <button onclick={clearAll} class="danger">Clear All</button>
+    <button onclick={clearAll} class="danger">Clear</button>
+  </div>
+
+  <div class="filters">
+    <button class:active={filter === 'all'}    onclick={() => filter = 'all'}>All ({tasks.length})</button>
+    <button class:active={filter === 'active'} onclick={() => filter = 'active'}>Active ({tasks.filter(t => !t.done).length})</button>
+    <button class:active={filter === 'done'}   onclick={() => filter = 'done'}>Done ({tasks.filter(t => t.done).length})</button>
   </div>
 
   <ul class="task-list">
-    {#each tasks as task (task.id)}
-      <li>
-        <span class="dot" style="background: {getPriorityColor(task.priority)}"></span>
-        <span class="task-text">{task.text}</span>
+    {#each visibleTasks as task (task.id)}
+      <li class:done={task.done}>
+        <input type="checkbox" checked={task.done} onchange={() => toggleDone(task)} />
+        <span class="dot" style="background: {priorityColor(task.priority)}"></span>
+        <span class="text">{task.text}</span>
         <span class="priority">{task.priority}</span>
         <button class="remove" onclick={() => removeTask(task.id)}>x</button>
       </li>
     {:else}
-      <li class="empty">No tasks! Add one above.</li>
+      <li class="empty">No tasks match this filter.</li>
     {/each}
   </ul>
 </section>
 
 <section>
-  <h2>Fixed-Length Iteration</h2>
-  <p>Need to repeat something N times without an array? Use <code>{'{#each {length: N}, i}'}</code>:</p>
-  <div class="stars">
-    {#each {length: 5}, i}
-      <span class="star">{i + 1}</span>
+  <h2>3. Sorted Leaderboard</h2>
+  <button onclick={randomizeScores}>Randomize Scores</button>
+  <ol class="leaderboard">
+    {#each leaderboard as player, i (player.id)}
+      <li class="player {medal(i)}">
+        <span class="rank">#{i + 1}</span>
+        <span class="name">{player.name}</span>
+        <span class="score">{player.score}</span>
+      </li>
     {/each}
-  </div>
+  </ol>
+  <p class="note">
+    The <code>players</code> array isn't mutated — a <code>$derived</code>
+    creates a sorted copy. Keys (<code>player.id</code>) let Svelte animate
+    items moving between positions if you add transitions later.
+  </p>
 </section>
 
 <section>
-  <h2>Why Keys Matter</h2>
-  <p>Keys like <code>(task.id)</code> tell Svelte which DOM elements correspond to which data items. Without keys, reordering or removing items can cause visual glitches.</p>
+  <h2>4. Fixed-Length Iteration</h2>
+  <p>Click a star to rate:</p>
+  <div class="stars">
+    {#each {length: 5}, i}
+      <button class="star" class:filled={i < rating} onclick={() => rating = i + 1}>
+        ★
+      </button>
+    {/each}
+  </div>
+  <p>Rating: <strong>{rating} / 5</strong></p>
+  <p class="note">
+    <code>{'{#each {length: N}, i}'}</code> lets you repeat a block N
+    times without needing a real array.
+  </p>
 </section>
 
 <style>
   h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
   h2 { font-size: 16px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-  section { margin-bottom: 20px; }
+  section { margin-bottom: 24px; }
   p { color: #444; font-size: 14px; margin: 4px 0; }
-  code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
-  ol { padding-left: 20px; }
-  li { color: #444; font-size: 14px; padding: 2px 0; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+  .note { color: #999; font-size: 12px; font-style: italic; }
+  ol { padding-left: 24px; }
+  ol li { color: #444; font-size: 14px; padding: 2px 0; }
+  .rank { color: #999; margin-right: 4px; }
   .input-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-  input { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; }
+  input { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; min-width: 140px; }
   select { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; }
+  .filters { display: flex; gap: 6px; margin-bottom: 8px; }
+  .filters button { padding: 4px 12px; font-size: 12px; border-color: #ddd; color: #666; }
+  .filters button.active { background: #ff3e00; border-color: #ff3e00; color: white; }
   .task-list { list-style: none; padding: 0; }
   .task-list li {
     display: flex; align-items: center; gap: 8px; padding: 8px;
     border-bottom: 1px solid #eee;
   }
+  .task-list li.done .text { text-decoration: line-through; opacity: 0.55; }
   .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .task-text { flex: 1; }
-  .priority { font-size: 11px; color: #999; text-transform: uppercase; }
+  .text { flex: 1; }
+  .priority { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px; }
   .empty { color: #999; font-style: italic; justify-content: center; }
-  .remove { background: none; border: none; color: #f44747; cursor: pointer; font-size: 14px; padding: 2px 6px; }
+  .remove {
+    background: none; border: none; color: #f44747;
+    cursor: pointer; font-size: 14px; padding: 2px 8px;
+  }
+  .remove:hover { background: #f44747; color: white; border-radius: 4px; }
   button {
     padding: 6px 14px; border: 2px solid #ff3e00; background: white;
     color: #ff3e00; border-radius: 6px; cursor: pointer; font-size: 13px;
   }
-  button:hover { background: #ff3e00; color: white; }
+  button:hover:not(:disabled) { background: #ff3e00; color: white; }
   .danger { border-color: #f44747; color: #f44747; }
   .danger:hover { background: #f44747; color: white; }
-  .stars { display: flex; gap: 8px; margin-top: 8px; }
-  .star { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #ff3e00; color: white; border-radius: 50%; font-size: 14px; font-weight: 600; }
+  .leaderboard { list-style: none; padding: 0; }
+  .player {
+    display: grid; grid-template-columns: 60px 1fr 80px;
+    padding: 8px 12px; margin: 4px 0; border-radius: 6px;
+    background: #f8f8f8; font-size: 14px;
+    border-left: 4px solid transparent;
+  }
+  .player .name { color: #222; font-weight: 600; }
+  .player .score { text-align: right; color: #ff3e00; font-weight: 700; }
+  .player.gold   { background: #fff7d6; border-left-color: #d4af37; }
+  .player.silver { background: #f4f4f4; border-left-color: #c0c0c0; }
+  .player.bronze { background: #fbf0e4; border-left-color: #cd7f32; }
+  .stars { display: flex; gap: 4px; }
+  .star {
+    border: none; background: none; font-size: 28px;
+    color: #ddd; cursor: pointer; padding: 0;
+  }
+  .star.filled { color: #ffc107; }
+  .star:hover { color: #ffc107; }
 </style>`,
 			language: 'svelte'
 		}

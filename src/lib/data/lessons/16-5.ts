@@ -8,119 +8,116 @@ const lesson: LessonData = {
 		module: 16,
 		lessonIndex: 5
 	},
-	description: `When building component libraries or higher-order components in Svelte 5, you need precise TypeScript types for components and their props. The Component type represents any Svelte component with specific props, while ComponentProps<T> extracts the props type from a component.
+	description: `When building component libraries or higher-order components in Svelte 5, you need precise TypeScript types for components and their props. The Component<Props> type represents any Svelte component whose props match Props. ComponentProps<T> extracts the props type from a component, letting you build generic renderers and HOCs.
 
-HTMLButtonAttributes and other HTML attribute types from svelte/elements let you build wrapper components that accept all native HTML attributes plus custom ones. This pattern is essential for design systems where Button, Input, and other primitives need to forward all standard attributes.`,
+HTMLButtonAttributes, HTMLInputAttributes, and other HTML attribute types from svelte/elements let you build wrapper components that accept all native HTML attributes plus your custom ones. This pattern is essential for design systems: a Button component should accept \`aria-label\`, \`disabled\`, \`type\`, \`formaction\`, etc., without re-declaring every attribute.
+
+The idiomatic recipe is: destructure your custom props out of $props(), gather the rest with \`...rest\`, and spread them onto the underlying element with \`{...rest}\`. TypeScript will check that every attribute you forward is valid for the element.`,
 	objectives: [
 		'Type component references using Component<Props> from svelte',
 		'Extract props types with ComponentProps<typeof MyComponent>',
-		'Build wrapper components that extend HTMLButtonAttributes',
-		'Forward rest props to underlying HTML elements with {...rest}'
+		'Build a Button wrapper that extends HTMLButtonAttributes',
+		'Build an Input wrapper that extends HTMLInputAttributes',
+		'Forward rest props to underlying HTML elements with {...rest}',
+		'Render dynamic components with <svelte:component> equivalents'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  import type { Component, ComponentProps } from 'svelte';
-  import type { HTMLButtonAttributes, HTMLInputAttributes } from 'svelte/elements';
+  import type { ComponentProps } from 'svelte';
+  import Button from './Button.svelte';
+  import Input from './Input.svelte';
 
-  // Wrapper component pattern — a Button that extends HTML button attrs
-  // In a real project, this would be Button.svelte:
-  //
-  // <script lang="ts">
-  //   import type { HTMLButtonAttributes } from 'svelte/elements';
-  //   import type { Snippet } from 'svelte';
-  //
-  //   let {
-  //     variant = 'primary',
-  //     size = 'medium',
-  //     children,
-  //     ...rest  // forward all HTML button attributes
-  //   }: HTMLButtonAttributes & {
-  //     variant?: 'primary' | 'secondary' | 'danger';
-  //     size?: 'small' | 'medium' | 'large';
-  //     children: Snippet;
-  //   } = $props();
-  // </script>
-  //
-  // <button class="btn {variant} {size}" {...rest}>
-  //   {@render children()}
-  // </button>
+  // ComponentProps extracts the prop type from a component.
+  // Useful for generic wrappers, mocks, or HOCs.
+  type BtnProps = ComponentProps<typeof Button>;
 
-  // Demonstrate Component type usage
-  type ButtonProps = {
-    variant: 'primary' | 'secondary' | 'danger';
-    size: 'small' | 'medium' | 'large';
-    label: string;
-  };
-
-  // ComponentProps extracts the type
-  // type Extracted = ComponentProps<typeof Button>;
-  // Extracted === ButtonProps
-
-  let selectedVariant: 'primary' | 'secondary' | 'danger' = $state('primary');
-  let selectedSize: 'small' | 'medium' | 'large' = $state('medium');
-  let isDisabled: boolean = $state(false);
-  let buttonText: string = $state('Click Me');
   let clickLog: string[] = $state([]);
-
-  function handleClick(): void {
+  function log(msg: string): void {
     clickLog = [
-      \`[\${new Date().toLocaleTimeString()}] \${selectedVariant}/\${selectedSize} clicked\`,
-      ...clickLog,
-    ].slice(0, 5);
+      \`[\${new Date().toLocaleTimeString()}] \${msg}\`,
+      ...clickLog
+    ].slice(0, 6);
   }
 
-  // Dynamic component rendering concept
-  type CardVariant = 'info' | 'warning' | 'error';
-  let cardType: CardVariant = $state('info');
+  // Controlled form bound to our Input wrapper
+  let email: string = $state('');
+  let password: string = $state('');
+  let agreed: boolean = $state(false);
 
-  const cardConfig: Record<CardVariant, { color: string; icon: string; title: string }> = {
-    info: { color: '#0984e3', icon: 'i', title: 'Information' },
-    warning: { color: '#fdcb6e', icon: '!', title: 'Warning' },
-    error: { color: '#d63031', icon: 'x', title: 'Error' },
+  let emailError = $derived(
+    email && !email.includes('@') ? 'Enter a valid email' : ''
+  );
+  let passwordError = $derived(
+    password && password.length < 8 ? 'Min 8 characters' : ''
+  );
+  let canSubmit = $derived(
+    email.includes('@') && password.length >= 8 && agreed
+  );
+
+  function submit(): void {
+    log(\`Submitted: \${email}\`);
+    email = '';
+    password = '';
+    agreed = false;
+  }
+
+  // Demo: a small "preset" config driven by a typed record
+  const presets: Record<string, BtnProps> = {
+    save: { variant: 'primary', size: 'medium', children: (() => {}) as never },
+    cancel: { variant: 'secondary', size: 'medium', children: (() => {}) as never },
+    delete: { variant: 'danger', size: 'small', children: (() => {}) as never }
   };
-
-  let currentCard = $derived(cardConfig[cardType]);
+  // Note: in real code the children snippet would be provided at render site.
+  // This record demonstrates that BtnProps was successfully extracted.
+  void presets;
 </script>
 
-<h1>Component Types & Wrappers</h1>
+<h1>Component Types &amp; Wrappers</h1>
 
 <section>
-  <h2>Button Wrapper (extends HTMLButtonAttributes)</h2>
-  <div class="controls">
-    <label>
-      Variant:
-      <select bind:value={selectedVariant}>
-        <option value="primary">Primary</option>
-        <option value="secondary">Secondary</option>
-        <option value="danger">Danger</option>
-      </select>
-    </label>
-    <label>
-      Size:
-      <select bind:value={selectedSize}>
-        <option value="small">Small</option>
-        <option value="medium">Medium</option>
-        <option value="large">Large</option>
-      </select>
-    </label>
-    <label><input type="checkbox" bind:checked={isDisabled} /> Disabled</label>
-    <label>Text: <input type="text" bind:value={buttonText} /></label>
+  <h2>Button wrapper — extends HTMLButtonAttributes</h2>
+  <p class="note">
+    Accepts every native button attribute (type, disabled, form, aria-*, onclick...)
+    plus our custom <code>variant</code> and <code>size</code>.
+  </p>
+
+  <div class="btn-row">
+    <Button variant="primary" size="small" onclick={() => log('primary/small')}>
+      Small Primary
+    </Button>
+    <Button variant="primary" size="medium" onclick={() => log('primary/medium')}>
+      Medium Primary
+    </Button>
+    <Button variant="primary" size="large" onclick={() => log('primary/large')}>
+      Large Primary
+    </Button>
   </div>
 
-  <!-- Simulated wrapper component output -->
-  <button
-    class="btn {selectedVariant} {selectedSize}"
-    disabled={isDisabled}
-    onclick={handleClick}
-  >
-    {buttonText}
-  </button>
+  <div class="btn-row">
+    <Button variant="secondary" onclick={() => log('secondary')}>
+      Secondary
+    </Button>
+    <Button variant="danger" onclick={() => log('danger')}>
+      Delete
+    </Button>
+    <Button variant="primary" disabled onclick={() => log('this should not fire')}>
+      Disabled
+    </Button>
+    <Button
+      variant="primary"
+      type="submit"
+      aria-label="Submit form"
+      onclick={() => log('native HTML attrs forwarded')}
+    >
+      Submit
+    </Button>
+  </div>
 
   {#if clickLog.length > 0}
     <div class="log">
-      {#each clickLog as entry}
+      {#each clickLog as entry, i (i)}
         <div>{entry}</div>
       {/each}
     </div>
@@ -128,118 +125,206 @@ HTMLButtonAttributes and other HTML attribute types from svelte/elements let you
 </section>
 
 <section>
-  <h2>Component&lt;Props&gt; & ComponentProps</h2>
-  <div class="type-demo">
-    <pre><code>import type &#123; Component, ComponentProps &#125; from 'svelte';
+  <h2>Input wrapper — extends HTMLInputAttributes</h2>
+  <p class="note">
+    Forwards every native input attribute; adds <code>label</code> and <code>error</code>
+    decoration on top. Supports bind:value via $bindable.
+  </p>
 
-// Type a component reference
-let ButtonComponent: Component&lt;ButtonProps&gt;;
-
-// Extract props from a component type
-type Props = ComponentProps&lt;typeof Button&gt;;
-// Props = &#123; variant: ...; size: ...; label: ...; &#125;
-
-// Use in a dynamic renderer
-function render(
-  comp: Component&lt;any&gt;,
-  props: ComponentProps&lt;typeof comp&gt;
-) &#123;
-  mount(comp, &#123; target: el, props &#125;);
-&#125;</code></pre>
-  </div>
+  <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
+    <Input
+      label="Email"
+      type="email"
+      placeholder="you@example.com"
+      autocomplete="email"
+      bind:value={email}
+      error={emailError}
+    />
+    <Input
+      label="Password"
+      type="password"
+      placeholder="At least 8 characters"
+      autocomplete="new-password"
+      bind:value={password}
+      error={passwordError}
+    />
+    <label class="checkbox">
+      <input type="checkbox" bind:checked={agreed} />
+      I agree to the terms
+    </label>
+    <Button variant="primary" type="submit" disabled={!canSubmit}>
+      Create Account
+    </Button>
+  </form>
 </section>
 
 <section>
-  <h2>Dynamic Card Component</h2>
-  <div class="card-controls">
-    {#each Object.keys(cardConfig) as type}
-      <button
-        class:active={cardType === type}
-        onclick={() => cardType = type as CardVariant}
-      >
-        {type}
-      </button>
-    {/each}
-  </div>
+  <h2>Component&lt;Props&gt; &amp; ComponentProps — reference</h2>
+  <pre class="code"><code>{\`import type { Component, ComponentProps } from 'svelte';
+import Button from './Button.svelte';
 
-  <div class="card" style="border-color: {currentCard.color}">
-    <div class="card-icon" style="background: {currentCard.color}">
-      {currentCard.icon}
-    </div>
-    <div class="card-content">
-      <h3>{currentCard.title}</h3>
-      <p>This card renders different content based on the component variant prop.</p>
-    </div>
-  </div>
-</section>
+// Type a component reference (for stores of components, HOCs, etc.)
+let current: Component<ButtonProps>;
 
-<section>
-  <h2>HTML Attribute Types</h2>
-  <div class="type-list">
-    <div class="type-item"><code>HTMLButtonAttributes</code> — button props</div>
-    <div class="type-item"><code>HTMLInputAttributes</code> — input props</div>
-    <div class="type-item"><code>HTMLAnchorAttributes</code> — anchor props</div>
-    <div class="type-item"><code>HTMLAttributes&lt;HTMLDivElement&gt;</code> — div props</div>
-    <div class="type-item"><code>SVGAttributes&lt;SVGSVGElement&gt;</code> — SVG props</div>
-  </div>
+// Extract props from a component type — no duplication
+type Props = ComponentProps<typeof Button>;
+// Props = HTMLButtonAttributes & { variant?: ...; size?: ...; children: Snippet }
+
+// Use ComponentProps for typed factories
+function makeButton(props: ComponentProps<typeof Button>) {
+  return { component: Button, props };
+}
+\`}</code></pre>
 </section>
 
 <style>
   h1 { color: #2d3436; }
-  section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  section {
+    margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa;
+    border-radius: 8px;
+  }
   h2 { margin-top: 0; color: #e17055; font-size: 1.1rem; }
-  .controls {
-    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;
-    align-items: center;
+  .note {
+    margin: 0 0 0.75rem; font-size: 0.85rem; color: #636e72;
   }
-  label { font-size: 0.9rem; display: flex; align-items: center; gap: 0.3rem; }
-  select, input[type="text"] {
-    padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px;
+  .note code {
+    background: #dfe6e9; padding: 0.1rem 0.3rem; border-radius: 3px;
+    font-size: 0.8rem;
   }
+  .btn-row {
+    display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .log {
+    margin-top: 0.75rem; padding: 0.5rem; background: #2d3436;
+    border-radius: 4px; font-family: monospace; font-size: 0.8rem;
+    color: #dfe6e9;
+  }
+  form {
+    display: flex; flex-direction: column; gap: 0.75rem;
+    max-width: 400px;
+  }
+  .checkbox {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.9rem; color: #2d3436;
+  }
+  .code {
+    padding: 1rem; background: #2d3436; border-radius: 6px;
+    overflow-x: auto; margin: 0;
+  }
+  .code code {
+    color: #dfe6e9; font-size: 0.8rem; line-height: 1.5;
+    font-family: monospace;
+  }
+</style>`,
+			language: 'svelte'
+		},
+		{
+			filename: 'Button.svelte',
+			content: `<script lang="ts">
+  import type { HTMLButtonAttributes } from 'svelte/elements';
+  import type { Snippet } from 'svelte';
+
+  // Intersection type: all native button attrs + our custom props.
+  // rest will contain every native attribute we didn't destructure.
+  type Props = HTMLButtonAttributes & {
+    variant?: 'primary' | 'secondary' | 'danger';
+    size?: 'small' | 'medium' | 'large';
+    children: Snippet;
+  };
+
+  let {
+    variant = 'primary',
+    size = 'medium',
+    children,
+    class: className = '',
+    ...rest
+  }: Props = $props();
+</script>
+
+<button class="btn {variant} {size} {className}" {...rest}>
+  {@render children()}
+</button>
+
+<style>
   .btn {
-    border: none; cursor: pointer; font-weight: 600; border-radius: 6px;
-    transition: all 0.2s;
+    border: none; cursor: pointer; font-weight: 600;
+    border-radius: 6px; transition: all 0.15s;
+    font-family: inherit;
   }
-  .btn.small { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
-  .btn.medium { padding: 0.5rem 1rem; font-size: 1rem; }
-  .btn.large { padding: 0.75rem 1.5rem; font-size: 1.2rem; }
+  .btn.small { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+  .btn.medium { padding: 0.5rem 1rem; font-size: 0.95rem; }
+  .btn.large { padding: 0.75rem 1.5rem; font-size: 1.1rem; }
   .btn.primary { background: #0984e3; color: white; }
   .btn.secondary { background: #636e72; color: white; }
   .btn.danger { background: #d63031; color: white; }
+  .btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active:not(:disabled) { transform: translateY(0); }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .log {
-    margin-top: 0.75rem; padding: 0.5rem; background: #2d3436;
-    border-radius: 4px; font-family: monospace; font-size: 0.8rem; color: #dfe6e9;
+</style>`,
+			language: 'svelte'
+		},
+		{
+			filename: 'Input.svelte',
+			content: `<script lang="ts">
+  import type { HTMLInputAttributes } from 'svelte/elements';
+
+  // Extend native input attrs. value is $bindable so parents can use bind:value.
+  type Props = HTMLInputAttributes & {
+    label?: string;
+    error?: string;
+    value?: string;
+  };
+
+  let {
+    label,
+    error,
+    value = $bindable(''),
+    class: className = '',
+    ...rest
+  }: Props = $props();
+
+  const inputId = $props.id();
+</script>
+
+<div class="field {className}">
+  {#if label}
+    <label for={inputId}>{label}</label>
+  {/if}
+  <input
+    id={inputId}
+    bind:value
+    class:has-error={!!error}
+    aria-invalid={!!error}
+    {...rest}
+  />
+  {#if error}
+    <span class="error" role="alert">{error}</span>
+  {/if}
+</div>
+
+<style>
+  .field {
+    display: flex; flex-direction: column; gap: 0.25rem;
   }
-  .type-demo {
-    background: #2d3436; padding: 1rem; border-radius: 6px;
+  label {
+    font-size: 0.8rem; font-weight: 600; color: #2d3436;
+    text-transform: uppercase; letter-spacing: 0.04em;
   }
-  pre { margin: 0; overflow-x: auto; }
-  code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; }
-  .card-controls { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .card-controls button {
-    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
-    background: #dfe6e9; cursor: pointer; font-weight: 600;
-    text-transform: capitalize;
+  input {
+    padding: 0.5rem 0.7rem; border: 1px solid #dfe6e9;
+    border-radius: 6px; font-size: 0.95rem; font-family: inherit;
+    transition: border-color 0.15s;
   }
-  .card-controls button.active { background: #e17055; color: white; }
-  .card {
-    display: flex; gap: 1rem; padding: 1rem; background: white;
-    border-radius: 8px; border-left: 4px solid;
+  input:focus {
+    outline: none; border-color: #0984e3;
   }
-  .card-icon {
-    width: 36px; height: 36px; border-radius: 50%; color: white;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: bold; font-size: 1.2rem; flex-shrink: 0;
+  input.has-error {
+    border-color: #d63031;
   }
-  .card h3 { margin: 0 0 0.25rem; }
-  .card p { margin: 0; color: #636e72; font-size: 0.9rem; }
-  .type-list { display: flex; flex-direction: column; gap: 0.4rem; }
-  .type-item {
-    padding: 0.4rem 0.6rem; background: white; border-radius: 4px;
-    font-size: 0.9rem;
+  .error {
+    font-size: 0.75rem; color: #d63031;
   }
-  .type-item code { color: #e17055; background: transparent; }
 </style>`,
 			language: 'svelte'
 		}

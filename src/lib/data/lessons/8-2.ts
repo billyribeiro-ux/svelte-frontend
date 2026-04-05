@@ -10,25 +10,37 @@ const lesson: LessonData = {
 	},
 	description: `Interfaces define the shape of objects. When you write interface User { name: string; age: number }, you're creating a contract: any object claiming to be a User must have those exact properties with those exact types.
 
-In Svelte, interfaces shine for typing component props. You define what your component expects, and TypeScript ensures every parent component provides the right data. Optional properties use the ? suffix.
+In Svelte, interfaces shine for typing component props. You define what your component expects, and TypeScript ensures every parent component provides the right data. Optional properties use the ? suffix, readonly marks properties that can't be reassigned, and extends builds complex types from simpler ones.
 
-Interfaces can extend other interfaces, building up complex types from simple building blocks. This keeps your code DRY and your types composable.`,
+This lesson covers required vs optional fields, readonly properties, interface composition via extends, and — most importantly — using interfaces to type $props() so child components get full autocomplete and compile-time safety.`,
 	objectives: [
-		'Define interfaces with required and optional properties',
-		'Use interfaces to type $props() in Svelte components',
-		'Extend interfaces to build complex types from simpler ones'
+		'Define interfaces with required, optional, and readonly properties',
+		'Compose interfaces using extends to build on simpler shapes',
+		'Use interfaces to type $props() in a Svelte component',
+		'Let TypeScript enforce prop contracts between parent and child'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Define interfaces for our data
+  import ProfileCard from './ProfileCard.svelte';
+
+  // ============================================================
+  // 1. BASIC INTERFACE
+  // ============================================================
+  // Describes the shape of a User. Every field has a type.
+
   interface User {
+    readonly id: number;   // readonly: cannot be reassigned
     name: string;
     email: string;
     age: number;
-    avatar?: string; // optional — may or may not exist
+    avatar?: string;       // optional (note the ?)
   }
+
+  // ============================================================
+  // 2. INTERFACE COMPOSITION with extends
+  // ============================================================
 
   interface Address {
     street: string;
@@ -37,21 +49,32 @@ Interfaces can extend other interfaces, building up complex types from simple bu
     zip: string;
   }
 
-  // Extending interfaces
   interface UserWithAddress extends User {
     address: Address;
   }
 
-  import ProfileCard from './ProfileCard.svelte';
+  // You can extend multiple interfaces:
+  interface Timestamped {
+    createdAt: Date;
+    updatedAt: Date;
+  }
 
-  // Using interfaces with $state
-  let users: User[] = $state([
-    { name: 'Alice', email: 'alice@example.com', age: 28 },
-    { name: 'Bob', email: 'bob@example.com', age: 34, avatar: 'B' },
-    { name: 'Carol', email: 'carol@example.com', age: 22 }
+  interface FullUser extends UserWithAddress, Timestamped {
+    notes?: string;
+  }
+
+  // ============================================================
+  // 3. USING INTERFACES WITH $state
+  // ============================================================
+
+  let users = $state<User[]>([
+    { id: 1, name: 'Alice', email: 'alice@example.com', age: 28 },
+    { id: 2, name: 'Bob', email: 'bob@example.com', age: 34, avatar: 'B' },
+    { id: 3, name: 'Carol', email: 'carol@example.com', age: 22 }
   ]);
 
-  let fullUser: UserWithAddress = $state({
+  let fullUser = $state<UserWithAddress>({
+    id: 4,
     name: 'Dave',
     email: 'dave@example.com',
     age: 30,
@@ -63,15 +86,21 @@ Interfaces can extend other interfaces, building up complex types from simple bu
     }
   });
 
-  // New user form
+  // ============================================================
+  // 4. NEW USER FORM
+  // ============================================================
+
   let newName: string = $state('');
   let newEmail: string = $state('');
   let newAge: number = $state(25);
+  let nextId: number = 100;
 
   function addUser(): void {
-    if (!newName.trim() || !newEmail.trim()) return;
+    if (newName.trim().length === 0) return;
+    if (newEmail.trim().length === 0) return;
 
     const user: User = {
+      id: nextId++,
       name: newName.trim(),
       email: newEmail.trim(),
       age: newAge
@@ -83,35 +112,34 @@ Interfaces can extend other interfaces, building up complex types from simple bu
     newAge = 25;
   }
 
-  function removeUser(index: number): void {
-    users = users.filter((_: User, i: number) => i !== index);
-  }
-
-  // Helper function with typed params
-  function formatUser(user: User): string {
-    const avatarPart = user.avatar ? \` (\${user.avatar})\` : '';
-    return \`\${user.name}\${avatarPart}, age \${user.age}\`;
+  function removeUser(id: number): void {
+    users = users.filter((u) => u.id !== id);
   }
 
   function formatAddress(addr: Address): string {
     return \`\${addr.street}, \${addr.city}, \${addr.state} \${addr.zip}\`;
   }
+
+  // ============================================================
+  // 5. SHOW_EMAIL TOGGLE for the ProfileCard component
+  // ============================================================
+  let showEmails = $state(true);
 </script>
 
 <h1>Interfaces for Props</h1>
 
 <section>
-  <h2>User Interface</h2>
-  <pre class="code">
-interface User {'{'}
-  name: string;      // required
-  email: string;     // required
-  age: number;       // required
-  avatar?: string;   // optional (?)
-{'}'}</pre>
+  <h2>1. User Interface</h2>
+  <pre class="code">{\`interface User {
+  readonly id: number;   // cannot be reassigned
+  name: string;          // required
+  email: string;         // required
+  age: number;           // required
+  avatar?: string;       // optional (?)
+}\`}</pre>
 
   <div class="user-list">
-    {#each users as user, i}
+    {#each users as user (user.id)}
       <div class="user-card">
         <div class="user-avatar">{user.avatar || user.name[0]}</div>
         <div class="user-info">
@@ -119,7 +147,7 @@ interface User {'{'}
           <span>{user.email}</span>
           <span class="age">Age: {user.age}</span>
         </div>
-        <button class="remove" onclick={() => removeUser(i)}>x</button>
+        <button class="remove" onclick={() => removeUser(user.id)}>x</button>
       </div>
     {/each}
   </div>
@@ -133,11 +161,10 @@ interface User {'{'}
 </section>
 
 <section>
-  <h2>Extended Interface: UserWithAddress</h2>
-  <pre class="code">
-interface UserWithAddress extends User {'{'}
+  <h2>2. Extended Interface</h2>
+  <pre class="code">{\`interface UserWithAddress extends User {
   address: Address;
-{'}'}</pre>
+}\`}</pre>
 
   <div class="extended-card">
     <p><strong>{fullUser.name}</strong> ({fullUser.email})</p>
@@ -146,18 +173,21 @@ interface UserWithAddress extends User {'{'}
 </section>
 
 <section>
-  <h2>Interfaces for $props()</h2>
-  <p>The real power: type your component props so parents get autocomplete and error-checking.</p>
-  <pre class="code">
-// In ProfileCard.svelte:
-interface Props {'{'}
+  <h2>3. Interfaces for $props()</h2>
+  <p class="intro">Child component gets full autocomplete and type-checking.</p>
+  <pre class="code">{\`// In ProfileCard.svelte
+interface Props {
   user: User;
-  showEmail?: boolean;  // optional
-{'}'}
-let {'{'} user, showEmail = true {'}'} = $props&lt;Props&gt;();</pre>
+  showEmail?: boolean;
+}
+let { user, showEmail = true }: Props = $props();\`}</pre>
 
-  {#each users as user}
-    <ProfileCard {user} />
+  <label class="toggle">
+    <input type="checkbox" bind:checked={showEmails} /> Show emails
+  </label>
+
+  {#each users as user (user.id)}
+    <ProfileCard {user} showEmail={showEmails} />
   {/each}
 </section>
 
@@ -170,10 +200,10 @@ let {'{'} user, showEmail = true {'}'} = $props&lt;Props&gt;();</pre>
     padding: 0.75rem;
     border-radius: 6px;
     font-size: 0.8rem;
-    overflow-x: auto;
-    white-space: pre;
+    white-space: pre-wrap;
     margin: 0 0 1rem;
   }
+  .intro { font-size: 0.9rem; color: #555; }
   .user-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
   .user-card {
     display: flex;
@@ -227,6 +257,13 @@ let {'{'} user, showEmail = true {'}'} = $props&lt;Props&gt;();</pre>
     border-radius: 8px;
   }
   .address { color: #666; font-size: 0.9rem; }
+  .toggle {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
 </style>`,
 			language: 'svelte'
 		},
@@ -235,6 +272,7 @@ let {'{'} user, showEmail = true {'}'} = $props&lt;Props&gt;();</pre>
 			content: `<script lang="ts">
   // Define the shape this component expects
   interface User {
+    readonly id: number;
     name: string;
     email: string;
     age: number;

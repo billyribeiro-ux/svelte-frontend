@@ -8,375 +8,370 @@ const lesson: LessonData = {
 		module: 20,
 		lessonIndex: 5
 	},
-	description: `This capstone lesson brings together every SEO technique from Module 18: dynamic <svelte:head> with title and meta tags, JSON-LD structured data, XML sitemap generation, prerendering strategy, and Core Web Vitals optimization. Applied together, these techniques ensure your capstone project is fully discoverable, crawlable, and ranked by search engines.
+	description: `SEO is not a decoration — it is architecture. This capstone lesson wires together every SEO technique from Module 18 into a single reusable SEO component: dynamic <svelte:head> with title and meta, Open Graph and Twitter cards, canonical URLs, JSON-LD structured data for articles and products, a prerender strategy with a dynamic sitemap endpoint, and a robots.txt that matches your deploy target.
 
-The goal is a complete SEO implementation that you can adapt to any SvelteKit project.`,
+The result is one <SEO /> component you drop into every page and one +server.ts that produces a sitemap. Together they make every page discoverable, crawlable, and ranked.`,
 	objectives: [
-		'Implement a complete <svelte:head> SEO component with dynamic meta and OG tags',
-		'Add JSON-LD structured data schemas to key pages',
-		'Generate a dynamic XML sitemap and configure robots.txt',
-		'Apply prerendering to static pages for maximum SEO performance'
+		'Build a reusable <SEO /> component that handles title, meta, OG, and canonical',
+		'Generate JSON-LD structured data for articles and products',
+		'Implement a dynamic sitemap.xml via a +server.ts endpoint',
+		'Pick a prerender strategy per route (static, SSR, on-demand)',
+		'Preview Google and Twitter card results for a given page'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // Complete SEO implementation for a capstone project
+  type Tab = 'seo-component' | 'json-ld' | 'sitemap' | 'prerender' | 'preview';
+  let activeTab = $state<Tab>('seo-component');
 
-  type PageSEO = {
+  // Live SEO preview
+  let title = $state('Ship Svelte 5 faster with Acme');
+  let description = $state('Component kit and tooling for SvelteKit teams. Typed, accessible, production-ready.');
+  let url = $state('https://acme.dev/features');
+  let ogImage = $state('https://acme.dev/og/features.png');
+
+  let googleTitle = $derived(title.length > 60 ? title.slice(0, 57) + '…' : title);
+  let googleDesc = $derived(description.length > 155 ? description.slice(0, 152) + '…' : description);
+
+  const seoComponent = \`<!-- src/lib/components/SEO.svelte -->
+<script lang="ts">
+  import { page } from '$app/state';
+
+  type Props = {
     title: string;
     description: string;
-    url: string;
-    image: string;
-    type: 'website' | 'article';
-    author?: string;
-    publishedAt?: string;
-    modifiedAt?: string;
+    image?: string;
+    type?: 'website' | 'article' | 'product';
+    jsonLd?: Record<string, unknown>;
+    noindex?: boolean;
+    canonical?: string;
   };
 
-  let pageSeo = $state<PageSEO>({
-    title: 'My SvelteKit Capstone',
-    description: 'A production-ready SvelteKit application with full SEO, structured data, and Core Web Vitals optimization.',
-    url: 'https://my-capstone.com',
-    image: 'https://my-capstone.com/og-image.jpg',
-    type: 'website'
-  });
-
-  // SEO Component code
-  const seoComponentCode = \`<!-- src/lib/components/SEO.svelte -->
-<script lang="ts">
   let {
     title,
     description,
-    url,
-    image = 'https://my-capstone.com/default-og.jpg',
+    image = 'https://acme.dev/og/default.png',
     type = 'website',
-    author,
-    publishedAt,
-    modifiedAt,
-    noindex = false
-  }: {
-    title: string;
-    description: string;
-    url: string;
-    image?: string;
-    type?: 'website' | 'article';
-    author?: string;
-    publishedAt?: string;
-    modifiedAt?: string;
-    noindex?: boolean;
-  } = $props();
+    jsonLd,
+    noindex = false,
+    canonical
+  }: Props = $props();
 
-  const siteName = 'My Capstone';
+  const siteName = 'Acme';
+  const twitter = '@acme_dev';
+
   const fullTitle = \\\`\\\${title} — \\\${siteName}\\\`;
+  const canonicalUrl = canonical ?? \\\`https://acme.dev\\\${page.url.pathname}\\\`;
 <\\/script>
 
 <svelte:head>
   <title>{fullTitle}</title>
   <meta name="description" content={description} />
-  <link rel="canonical" href={url} />
+  <link rel="canonical" href={canonicalUrl} />
 
   {#if noindex}
     <meta name="robots" content="noindex, nofollow" />
+  {:else}
+    <meta name="robots" content="index, follow, max-image-preview:large" />
   {/if}
 
   <!-- Open Graph -->
-  <meta property="og:title" content={fullTitle} />
-  <meta property="og:description" content={description} />
-  <meta property="og:url" content={url} />
-  <meta property="og:image" content={image} />
-  <meta property="og:type" content={type} />
   <meta property="og:site_name" content={siteName} />
+  <meta property="og:type" content={type} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={image} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
 
-  {#if type === 'article' && publishedAt}
-    <meta property="article:published_time" content={publishedAt} />
-    {#if modifiedAt}
-      <meta property="article:modified_time" content={modifiedAt} />
-    {/if}
-    {#if author}
-      <meta property="article:author" content={author} />
-    {/if}
-  {/if}
-
-  <!-- Twitter Card -->
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content={fullTitle} />
+  <meta name="twitter:site" content={twitter} />
+  <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={image} />
-</svelte:head>\`;
 
-  // JSON-LD helper code
-  const jsonLdCode = \`// src/lib/utils/jsonld.ts
-export function articleSchema(data: {
+  {#if jsonLd}
+    {@html \\\`<script type="application/ld+json">\\\${JSON.stringify(jsonLd)}</scr\\\` + \\\`ipt>\\\`}
+  {/if}
+</svelte:head>
+
+<!-- Usage in a page -->
+<script lang="ts">
+  import SEO from '$lib/components/SEO.svelte';
+<\\/script>
+
+<SEO
+  title="Features"
+  description="Everything that ships in Acme 1.0"
+  image="https://acme.dev/og/features.png"
+/>\`;
+
+  const jsonLdCode = \`// src/lib/seo/schemas.ts — typed JSON-LD helpers
+
+export function articleSchema(params: {
   title: string;
   description: string;
-  url: string;
   image: string;
+  url: string;
   author: string;
-  publishedAt: string;
-  modifiedAt: string;
+  published: string;
+  modified: string;
 }) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: data.title,
-    description: data.description,
-    image: data.image,
-    author: { '@type': 'Person', name: data.author },
-    datePublished: data.publishedAt,
-    dateModified: data.modifiedAt,
-    mainEntityOfPage: { '@type': 'WebPage', '@id': data.url }
+    headline: params.title,
+    description: params.description,
+    image: [params.image],
+    datePublished: params.published,
+    dateModified: params.modified,
+    author: {
+      '@type': 'Person',
+      name: params.author
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Acme',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://acme.dev/logo.png'
+      }
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': params.url
+    }
   };
 }
 
-export function faqSchema(faqs: { question: string; answer: string }[]) {
+export function productSchema(params: {
+  name: string;
+  description: string;
+  image: string;
+  price: number;
+  currency: string;
+  availability: 'InStock' | 'OutOfStock';
+}) {
   return {
     '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqs.map(faq => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: { '@type': 'Answer', text: faq.answer }
-    }))
+    '@type': 'Product',
+    name: params.name,
+    description: params.description,
+    image: params.image,
+    offers: {
+      '@type': 'Offer',
+      price: params.price,
+      priceCurrency: params.currency,
+      availability: \\\`https://schema.org/\\\${params.availability}\\\`
+    }
   };
 }
 
-export function breadcrumbSchema(items: { name: string; url: string }[]) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: item.name,
-      item: item.url
-    }))
-  };
-}
+// In src/routes/blog/[slug]/+page.svelte
+<script lang="ts">
+  import SEO from '$lib/components/SEO.svelte';
+  import { articleSchema } from '$lib/seo/schemas';
+  import type { PageProps } from './$types';
 
-// Usage in +page.svelte:
-// {@html \\\`<script type="application/ld+json">
-//   \\\${JSON.stringify(articleSchema(data.post))}
-// </script>\\\`}\`;
+  let { data }: PageProps = $props();
+  const jsonLd = articleSchema({
+    title: data.post.title,
+    description: data.post.excerpt,
+    image: data.post.cover,
+    url: \\\`https://acme.dev/blog/\\\${data.post.slug}\\\`,
+    author: data.post.author,
+    published: data.post.publishedAt,
+    modified: data.post.updatedAt
+  });
+<\\/script>
 
-  // Sitemap endpoint code
+<SEO
+  title={data.post.title}
+  description={data.post.excerpt}
+  image={data.post.cover}
+  type="article"
+  {jsonLd}
+/>\`;
+
   const sitemapCode = \`// src/routes/sitemap.xml/+server.ts
 import type { RequestHandler } from './$types';
-import { fetchAllPosts } from '$lib/server/posts';
+import { getAllPosts } from '$lib/server/posts';
+import { getAllProducts } from '$lib/server/products';
 
-export const prerender = true;
+const site = 'https://acme.dev';
+
+const staticRoutes = ['/', '/about', '/pricing', '/blog', '/contact'];
 
 export const GET: RequestHandler = async () => {
-  const posts = await fetchAllPosts();
-  const pages = ['', '/about', '/blog', '/pricing'];
-  const baseUrl = 'https://my-capstone.com';
+  const posts = await getAllPosts();
+  const products = await getAllProducts();
 
-  const sitemap = \\\`<?xml version="1.0" encoding="UTF-8"?>
+  const urls = [
+    ...staticRoutes.map((path) => ({
+      loc: site + path,
+      changefreq: 'weekly',
+      priority: path === '/' ? 1.0 : 0.8
+    })),
+    ...posts.map((p) => ({
+      loc: \\\`\\\${site}/blog/\\\${p.slug}\\\`,
+      lastmod: p.updatedAt,
+      changefreq: 'monthly',
+      priority: 0.7
+    })),
+    ...products.map((p) => ({
+      loc: \\\`\\\${site}/products/\\\${p.slug}\\\`,
+      lastmod: p.updatedAt,
+      changefreq: 'weekly',
+      priority: 0.9
+    }))
+  ];
+
+  const xml = \\\`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  \\\${pages.map(page => \\\`<url>
-    <loc>\\\${baseUrl}\\\${page}</loc>
-    <changefreq>\\\${page === '' ? 'weekly' : 'monthly'}</changefreq>
-    <priority>\\\${page === '' ? '1.0' : '0.7'}</priority>
-  </url>\\\`).join('\\n  ')}
-  \\\${posts.map(post => \\\`<url>
-    <loc>\\\${baseUrl}/blog/\\\${post.slug}</loc>
-    <lastmod>\\\${post.updatedAt}</lastmod>
-    <priority>0.8</priority>
-  </url>\\\`).join('\\n  ')}
+\\\${urls.map((u) => \\\`  <url>
+    <loc>\\\${u.loc}</loc>
+    \\\${u.lastmod ? \\\`<lastmod>\\\${u.lastmod}</lastmod>\\\` : ''}
+    <changefreq>\\\${u.changefreq}</changefreq>
+    <priority>\\\${u.priority}</priority>
+  </url>\\\`).join('\\\\n')}
 </urlset>\\\`;
 
-  return new Response(sitemap, {
-    headers: { 'Content-Type': 'application/xml' }
+  return new Response(xml, {
+    headers: {
+      'Content-Type': 'application/xml',
+      'Cache-Control': 'max-age=0, s-maxage=3600'
+    }
+  });
+};
+
+// src/routes/robots.txt/+server.ts
+export const GET: RequestHandler = () => {
+  const body = \\\`User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /api
+Sitemap: \\\${site}/sitemap.xml\\\`;
+
+  return new Response(body, {
+    headers: { 'Content-Type': 'text/plain' }
   });
 };\`;
 
-  // Prerender config code
-  const prerenderCode = \`// Static pages — prerender for max speed + SEO
-// src/routes/+page.ts
-export const prerender = true;  // Homepage
+  const prerenderCode = \`// Per-route prerender strategy
 
-// src/routes/about/+page.ts
-export const prerender = true;  // About page
+// 1. Marketing pages — fully prerendered at build time
+// src/routes/(marketing)/+layout.ts
+export const prerender = true;
 
-// src/routes/blog/+page.ts
-export const prerender = true;  // Blog listing
+// 2. Blog — prerender all posts from the loader
+// src/routes/blog/[slug]/+page.server.ts
+export const prerender = true;
+export const entries = async () => {
+  const posts = await getAllPosts();
+  return posts.map((p) => ({ slug: p.slug }));
+};
 
-// src/routes/blog/[slug]/+page.ts
-export const prerender = true;  // Each blog post
-
-// Dynamic pages — SSR for fresh data + SEO
-// src/routes/search/+page.ts (default SSR)
-
-// Private pages — CSR only, no SEO needed
+// 3. Dashboard — never prerender (per-user data)
 // src/routes/(app)/+layout.ts
-export const ssr = false;       // Dashboard area\`;
+export const prerender = false;
+export const ssr = true;
 
-  type SEOChecklist = {
-    category: string;
-    items: { task: string; status: 'done' | 'pending' }[];
-  };
+// 4. Sitemap — prerender once
+// src/routes/sitemap.xml/+server.ts
+export const prerender = true;
 
-  let checklist = $state<SEOChecklist[]>([
-    {
-      category: 'Meta Tags',
-      items: [
-        { task: '<title> on every page (< 60 chars)', status: 'done' },
-        { task: 'Meta description (< 160 chars)', status: 'done' },
-        { task: 'Canonical URL on every page', status: 'done' },
-        { task: 'OG title, description, image, type', status: 'done' },
-        { task: 'Twitter card tags', status: 'done' }
-      ]
-    },
-    {
-      category: 'Structured Data',
-      items: [
-        { task: 'Article schema on blog posts', status: 'done' },
-        { task: 'BreadcrumbList schema', status: 'pending' },
-        { task: 'FAQ schema where applicable', status: 'pending' },
-        { task: 'Validated with Rich Results Test', status: 'pending' }
-      ]
-    },
-    {
-      category: 'Crawling & Indexing',
-      items: [
-        { task: 'XML sitemap at /sitemap.xml', status: 'done' },
-        { task: 'robots.txt at /robots.txt', status: 'done' },
-        { task: 'noindex on admin/private pages', status: 'done' },
-        { task: 'Submitted to Google Search Console', status: 'pending' }
-      ]
-    },
-    {
-      category: 'Performance',
-      items: [
-        { task: 'Prerender static pages', status: 'done' },
-        { task: 'Images optimized (WebP/AVIF)', status: 'pending' },
-        { task: 'Lighthouse Performance >= 90', status: 'pending' },
-        { task: 'Core Web Vitals passing', status: 'pending' }
-      ]
+// svelte.config.js — disallow accidental non-prerendered links
+export default {
+  kit: {
+    prerender: {
+      crawl: true,
+      entries: ['*'],
+      handleHttpError: ({ path, status }) => {
+        if (path.startsWith('/api')) return;
+        throw new Error(\\\`\\\${status} on \\\${path}\\\`);
+      }
     }
-  ]);
-
-  function toggleItem(catIndex: number, itemIndex: number) {
-    checklist[catIndex].items[itemIndex].status =
-      checklist[catIndex].items[itemIndex].status === 'done' ? 'pending' : 'done';
   }
-
-  let activeTab = $state<'component' | 'jsonld' | 'sitemap' | 'prerender'>('component');
+};\`;
 </script>
 
 <main>
   <h1>SEO Implementation</h1>
-  <p class="subtitle">Complete SEO setup for the capstone project</p>
+  <p class="subtitle">A complete SEO stack for the capstone</p>
 
-  <section class="checklist-section">
-    <h2>SEO Checklist</h2>
-    <div class="checklist-grid">
-      {#each checklist as category, ci}
-        <div class="checklist-card">
-          <h3>{category.category}</h3>
-          {#each category.items as item, ii}
-            <label class="check-item">
-              <input type="checkbox" checked={item.status === 'done'} onchange={() => toggleItem(ci, ii)} />
-              <span class:completed={item.status === 'done'}>{item.task}</span>
-            </label>
-          {/each}
-        </div>
-      {/each}
-    </div>
-  </section>
+  <nav class="tabs" aria-label="Sections">
+    <button class:active={activeTab === 'seo-component'} onclick={() => (activeTab = 'seo-component')}>SEO Component</button>
+    <button class:active={activeTab === 'json-ld'} onclick={() => (activeTab = 'json-ld')}>JSON-LD</button>
+    <button class:active={activeTab === 'sitemap'} onclick={() => (activeTab = 'sitemap')}>Sitemap</button>
+    <button class:active={activeTab === 'prerender'} onclick={() => (activeTab = 'prerender')}>Prerender</button>
+    <button class:active={activeTab === 'preview'} onclick={() => (activeTab = 'preview')}>Live Preview</button>
+  </nav>
 
-  <div class="code-tabs">
-    <button class:active={activeTab === 'component'} onclick={() => activeTab = 'component'}>SEO Component</button>
-    <button class:active={activeTab === 'jsonld'} onclick={() => activeTab = 'jsonld'}>JSON-LD</button>
-    <button class:active={activeTab === 'sitemap'} onclick={() => activeTab = 'sitemap'}>Sitemap</button>
-    <button class:active={activeTab === 'prerender'} onclick={() => activeTab = 'prerender'}>Prerender</button>
-  </div>
-
-  {#if activeTab === 'component'}
+  {#if activeTab === 'seo-component'}
     <section>
-      <h2>Reusable SEO Component</h2>
-      <pre><code>{seoComponentCode}</code></pre>
+      <h2>Reusable &lt;SEO /&gt; Component</h2>
+      <pre><code>{seoComponent}</code></pre>
     </section>
-  {:else if activeTab === 'jsonld'}
+  {:else if activeTab === 'json-ld'}
     <section>
-      <h2>JSON-LD Helper Functions</h2>
+      <h2>JSON-LD Structured Data</h2>
+      <p>JSON-LD tells search engines the <em>meaning</em> of your content. Articles get rich snippets; products get price/availability cards.</p>
       <pre><code>{jsonLdCode}</code></pre>
     </section>
   {:else if activeTab === 'sitemap'}
     <section>
-      <h2>Dynamic Sitemap Generation</h2>
+      <h2>Dynamic Sitemap + robots.txt</h2>
       <pre><code>{sitemapCode}</code></pre>
     </section>
-  {:else}
+  {:else if activeTab === 'prerender'}
     <section>
       <h2>Prerender Strategy</h2>
       <pre><code>{prerenderCode}</code></pre>
+    </section>
+  {:else}
+    <section>
+      <h2>Live SERP + Card Preview</h2>
+      <div class="preview-controls">
+        <label>Title <input bind:value={title} /></label>
+        <label>Description <textarea rows={2} bind:value={description}></textarea></label>
+        <label>URL <input bind:value={url} /></label>
+        <label>OG Image URL <input bind:value={ogImage} /></label>
+      </div>
+
+      <h3>Google Search Result</h3>
+      <div class="google-result">
+        <div class="g-url">{url}</div>
+        <div class="g-title">{googleTitle}</div>
+        <div class="g-desc">{googleDesc}</div>
+      </div>
+
+      <h3>Open Graph / Twitter Card</h3>
+      <div class="og-card">
+        <div class="og-image" style="background-image: linear-gradient(135deg, oklch(0.7 0.18 250), oklch(0.7 0.18 320))"></div>
+        <div class="og-body">
+          <div class="og-domain">acme.dev</div>
+          <div class="og-title">{title}</div>
+          <div class="og-desc">{description}</div>
+        </div>
+      </div>
     </section>
   {/if}
 </main>
 
 <style>
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem;
-    font-family: system-ui, sans-serif;
-  }
+  main { max-width: 920px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
+  .subtitle { color: #666; margin-bottom: 1.5rem; }
 
-  .subtitle { color: #666; margin-bottom: 2rem; }
+  .tabs { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0e0e0; flex-wrap: wrap; }
+  .tabs button { padding: 0.55rem 1rem; border: none; background: transparent; border-radius: 6px 6px 0 0; font-weight: 500; cursor: pointer; font-size: 0.86rem; }
+  .tabs button.active { background: #eef4fb; color: #1e40af; }
 
-  .checklist-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-
-  .checklist-card {
-    background: #f8f9fa;
-    padding: 1.25rem;
-    border-radius: 10px;
-    border: 1px solid #e0e0e0;
-  }
-
-  .checklist-card h3 {
-    margin: 0 0 0.75rem;
-    font-size: 0.95rem;
-  }
-
-  .check-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    margin-bottom: 0.4rem;
-    font-size: 0.85rem;
-    cursor: pointer;
-  }
-
-  .check-item input { margin-top: 0.15rem; }
-  .completed { text-decoration: line-through; color: #888; }
-
-  .code-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .code-tabs button {
-    flex: 1;
-    padding: 0.6rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    background: #f8f9fa;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.9rem;
-  }
-
-  .code-tabs button.active {
-    border-color: #4a90d9;
-    background: #eef4fb;
-  }
+  section { margin-bottom: 2rem; }
+  h2 { margin-top: 0; }
+  h3 { margin-top: 1.25rem; }
 
   pre {
     background: #1e1e1e;
@@ -384,11 +379,57 @@ export const ssr = false;       // Dashboard area\`;
     padding: 1rem;
     border-radius: 8px;
     overflow-x: auto;
-    font-size: 0.76rem;
-    line-height: 1.4;
+    font-size: 0.74rem;
+    line-height: 1.5;
+    max-height: 620px;
+  }
+  pre code { background: none; padding: 0; }
+  code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.82rem; }
+
+  .preview-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+  }
+  .preview-controls label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; }
+  .preview-controls input, .preview-controls textarea {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
   }
 
-  section { margin-bottom: 2rem; }
+  .google-result {
+    padding: 1rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: 'Arial', sans-serif;
+  }
+  .g-url { color: #202124; font-size: 0.82rem; }
+  .g-title { color: #1a0dab; font-size: 1.25rem; margin: 0.15rem 0; }
+  .g-desc { color: #4d5156; font-size: 0.88rem; line-height: 1.45; }
+
+  .og-card {
+    max-width: 520px;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+  }
+  .og-image {
+    aspect-ratio: 1200/630;
+    background-size: cover;
+  }
+  .og-body { padding: 0.75rem 1rem; }
+  .og-domain { color: #888; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .og-title { font-weight: 700; font-size: 1rem; margin: 0.2rem 0; }
+  .og-desc { color: #666; font-size: 0.85rem; }
 </style>`,
 			language: 'svelte'
 		}

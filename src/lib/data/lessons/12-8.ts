@@ -8,189 +8,227 @@ const lesson: LessonData = {
 		module: 12,
 		lessonIndex: 8
 	},
-	description: `Choosing between universal load (+page.ts) and server load (+page.server.ts) is a common decision in SvelteKit. Universal load runs on both server and client, making it faster for client-side navigation since it can call APIs directly from the browser. Server load runs only on the server, providing access to databases, secrets, and other server-only resources.
+	description: `You've seen both +page.ts (universal) and +page.server.ts (server-only). Now comes the real question: which should you reach for?
 
-This lesson provides a decision framework to help you choose the right approach for each situation.`,
+Universal load runs on both sides — on the server for SSR and then in the browser on client-side navigation. It's great for public data fetched from public APIs where you don't want a round trip through your own server. Server load runs exclusively on the server — it's the right choice whenever you need secrets, a database, cookies, or any server-only resource.
+
+Get this wrong and you either leak secrets to the browser or force an extra hop through your own server for no reason. This lesson gives you a decision tree, a side-by-side comparison, and five realistic scenarios with the right answer for each.`,
 	objectives: [
-		'Compare universal and server load function capabilities',
-		'Understand the serialization boundary and its implications',
-		'Apply a decision framework to choose the right load type',
-		'Know how to combine both load types when needed'
+		'State the fundamental rule that picks between +page.ts and +page.server.ts',
+		'Recite the capability matrix for both load types',
+		'Choose the right load type for 5 realistic scenarios',
+		'Explain the performance and security implications of each choice',
+		'Know when to use BOTH (+page.ts AND +page.server.ts) on the same route'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
+  // ---------------------------------------------------------------
+  // THE ONE-SENTENCE RULE
+  //
+  //   Use +page.server.ts whenever the load NEEDS server-only
+  //   resources (DB, secrets, private files, cookies you want to
+  //   mutate, server-only APIs). Otherwise, use +page.ts.
+  //
+  // That's it. Everything below is just elaboration.
+  // ---------------------------------------------------------------
+
   interface Scenario {
+    id: number;
     title: string;
-    description: string;
-    recommendation: 'universal' | 'server';
-    reason: string;
+    body: string;
+    answer: 'universal' | 'server' | 'both';
+    explanation: string;
   }
 
   const scenarios: Scenario[] = [
     {
-      title: 'Fetching from a public API',
-      description: 'Loading posts from a public REST API with no authentication',
-      recommendation: 'universal',
-      reason: 'No secrets needed. Universal load can fetch directly from the browser during client navigation, skipping your server.'
+      id: 1,
+      title: 'Public blog post from a public CMS',
+      body: 'You fetch https://cms.example.com/api/posts/hello — no auth, no secrets, anyone can GET it.',
+      answer: 'universal',
+      explanation:
+        '+page.ts is ideal. On client-side navigation, the browser hits the CMS directly — no hop through your server. During SSR it still works. No secrets, no cookies, no DB.'
     },
     {
-      title: 'Database queries',
-      description: 'Loading user data from PostgreSQL/MongoDB',
-      recommendation: 'server',
-      reason: 'Database connections must stay on the server. DB credentials must never reach the browser.'
+      id: 2,
+      title: 'User profile keyed on session cookie',
+      body: 'You need to look up the logged-in user from their session cookie and fetch their profile from your database.',
+      answer: 'server',
+      explanation:
+        '+page.server.ts only. You need cookies.get(), you need the DB client, and you definitely do not want the DB query running from the browser. This is the textbook case for server load.'
     },
     {
-      title: 'Authenticated API calls',
-      description: 'Fetching user-specific data from an API using a secret key',
-      recommendation: 'server',
-      reason: 'API keys and secrets must stay server-side. Use server load to add auth headers.'
+      id: 3,
+      title: 'Third-party API that requires a secret key',
+      body: 'You call https://api.weather.com/v1/forecast with an API key that must stay private.',
+      answer: 'server',
+      explanation:
+        '+page.server.ts. Import the key from $env/static/private. A universal load would leak the key to the browser bundle — a catastrophic mistake.'
     },
     {
-      title: 'Static content transformation',
-      description: 'Loading and transforming markdown files into HTML',
-      recommendation: 'universal',
-      reason: 'No server-only resources needed. Universal load lets the transformation happen on either side.'
+      id: 4,
+      title: 'Product listing with typing refinement on the client',
+      body: 'You fetch /api/products (your own public endpoint). You want SSR for SEO, but also instant client-side filtering via search params.',
+      answer: 'universal',
+      explanation:
+        '+page.ts. Your own API route is a public fetch; universal load is perfect so client-side navigations go straight to the API without bouncing off the SSR server. Use url.searchParams inside load to react to the filters.'
     },
     {
-      title: 'Reading cookies/sessions',
-      description: 'Checking if a user is logged in via cookies',
-      recommendation: 'server',
-      reason: 'The cookies object is only available in server load. HTTPOnly cookies are inaccessible in the browser.'
-    },
-    {
-      title: 'Returning component instances',
-      description: 'Choosing which Svelte component to render based on data',
-      recommendation: 'universal',
-      reason: 'Server load can only return serializable data. Components, functions, and classes require universal load.'
+      id: 5,
+      title: 'Layout data (current user) + per-page public data',
+      body: 'Your +layout.server.ts loads the current user from a cookie. Your +page.ts loads public posts that the layout reads from parent().',
+      answer: 'both',
+      explanation:
+        "Both. +layout.server.ts handles auth and cookies. +page.ts handles the public posts and can call await parent() to read the user. This is a very common SvelteKit pattern — don't collapse both into one server load unless you need to."
     }
   ];
 
-  let selectedScenario: number = $state(0);
+  let revealed: Record<number, boolean> = $state({});
+  let guess: Record<number, 'universal' | 'server' | 'both' | undefined> = $state({});
+
+  function pick(id: number, choice: 'universal' | 'server' | 'both'): void {
+    guess[id] = choice;
+    revealed[id] = true;
+  }
+
+  function scoreClass(s: Scenario): string {
+    if (!revealed[s.id]) return '';
+    return guess[s.id] === s.answer ? 'correct' : 'wrong';
+  }
 </script>
 
 <main>
   <h1>Universal vs Server: The Decision</h1>
 
+  <section class="rule">
+    <h2>The Rule in One Sentence</h2>
+    <p class="big-rule">
+      Use <code>+page.server.ts</code> whenever the load needs server-only resources
+      (DB, secrets, private APIs, cookies). Otherwise, use <code>+page.ts</code>.
+    </p>
+  </section>
+
   <section>
-    <h2>Side-by-Side Comparison</h2>
+    <h2>Capability Matrix</h2>
     <table>
       <thead>
-        <tr><th></th><th>+page.ts (Universal)</th><th>+page.server.ts (Server)</th></tr>
+        <tr>
+          <th></th>
+          <th>+page.ts (universal)</th>
+          <th>+page.server.ts</th>
+        </tr>
       </thead>
       <tbody>
-        <tr>
-          <td><strong>Runs on</strong></td>
-          <td>Server (SSR) + Browser</td>
-          <td>Server only</td>
-        </tr>
-        <tr>
-          <td><strong>Can access</strong></td>
-          <td>fetch, params, url</td>
-          <td>fetch, params, url + cookies, locals, env, request</td>
-        </tr>
-        <tr>
-          <td><strong>Can return</strong></td>
-          <td>Anything (functions, components, classes)</td>
-          <td>Serializable data only (JSON-safe)</td>
-        </tr>
-        <tr>
-          <td><strong>Client navigation</strong></td>
-          <td>Runs in browser (fast, no server round-trip)</td>
-          <td>Calls server via internal fetch</td>
-        </tr>
-        <tr>
-          <td><strong>Best for</strong></td>
-          <td>Public APIs, non-sensitive data</td>
-          <td>Databases, secrets, auth</td>
-        </tr>
+        <tr><td>Runs on server (SSR)</td><td>yes</td><td>yes</td></tr>
+        <tr><td>Runs in browser (CSR nav)</td><td>yes</td><td>no — fetches JSON from server</td></tr>
+        <tr><td>Access params, url, fetch</td><td>yes</td><td>yes</td></tr>
+        <tr><td>Access cookies</td><td>no</td><td>yes</td></tr>
+        <tr><td>Access $env/static/private</td><td>no</td><td>yes</td></tr>
+        <tr><td>Access database directly</td><td>no</td><td>yes</td></tr>
+        <tr><td>Access locals (from hooks)</td><td>no</td><td>yes</td></tr>
+        <tr><td>Return non-serializable values</td><td>yes (functions, classes)</td><td>no — JSON-safe only</td></tr>
+        <tr><td>Extra round trip on client nav</td><td>no — calls API directly</td><td>yes — one hop to server load</td></tr>
       </tbody>
     </table>
   </section>
 
   <section>
-    <h2>Decision Scenarios</h2>
-    <div class="scenarios">
-      {#each scenarios as scenario, i}
-        <button
-          class:active={selectedScenario === i}
-          onclick={() => selectedScenario = i}
-        >
-          {scenario.title}
-        </button>
-      {/each}
-    </div>
-
-    {#each scenarios as scenario, i}
-      {#if selectedScenario === i}
-        <div class="scenario-detail" class:universal={scenario.recommendation === 'universal'} class:server={scenario.recommendation === 'server'}>
-          <h3>{scenario.title}</h3>
-          <p>{scenario.description}</p>
-          <p class="recommendation">
-            Use: <strong>+page.{scenario.recommendation === 'server' ? 'server.' : ''}ts</strong>
-          </p>
-          <p class="reason">{scenario.reason}</p>
-        </div>
-      {/if}
-    {/each}
+    <h2>Decision Tree</h2>
+    <pre>{\`Does your load touch...
+│
+├── cookies / sessions / locals? ─────────────► +page.server.ts
+├── a database / $lib/server/*?  ─────────────► +page.server.ts
+├── private env vars / secrets?  ─────────────► +page.server.ts
+├── files on disk / the OS?       ─────────────► +page.server.ts
+│
+└── none of the above?
+      │
+      ├── Does it need to return non-serializable values
+      │   (functions, class instances, component ctors)?
+      │                                    ──► +page.ts
+      │
+      └── Does it fetch a PUBLIC third-party API
+          where you want the browser to call it directly
+          on client-side navigations?
+                                          ──► +page.ts
+          (Otherwise either works — default to +page.ts.)\`}</pre>
   </section>
 
   <section>
-    <h2>Combining Both</h2>
-    <pre>{\`// You can use BOTH for the same route!
-
-// +page.server.ts — loads sensitive data
-export const load: PageServerLoad = async ({ cookies }) => {
-  const session = cookies.get('session');
-  const user = await db.users.find(session);
-  return { user }; // serialized to client
+    <h2>Can I Use Both?</h2>
+    <p>
+      Yes — and it's common. On the same route you can have <code>+page.server.ts</code>
+      <em>and</em> <code>+page.ts</code>. The server load runs first; the universal load
+      receives its output via <code>await parent()</code> (or the merged data prop).
+    </p>
+    <pre>{\`// src/routes/dashboard/+page.server.ts
+export const load = async ({ locals }) => {
+  return { user: locals.user };
 };
 
-// +page.ts — adds non-serializable data
-export const load: PageLoad = async ({ data }) => {
-  // 'data' contains what +page.server.ts returned
-  return {
-    ...data,
-    // Add things server load can't return:
-    formatDate: (d: string) => new Date(d).toLocaleDateString(),
-    Component: data.user.role === 'admin' ? AdminPanel : UserPanel
-  };
-};\`}</pre>
+// src/routes/dashboard/+page.ts
+export const load = async ({ data, fetch }) => {
+  // 'data' is whatever the server load returned
+  const posts = await fetch('/api/posts/public').then(r => r.json());
+  return { ...data, posts };   // merge them
+};
+
+// The page sees { user, posts }\`}</pre>
   </section>
 
   <section>
-    <h2>Quick Decision</h2>
-    <div class="decision-tree">
-      <p>Do you need <strong>cookies, database, or secrets</strong>?</p>
-      <p class="answer yes">YES → <code>+page.server.ts</code></p>
-      <p class="answer no">NO → Do you need to return <strong>functions or components</strong>?</p>
-      <p class="answer yes" style="margin-left: 2rem;">YES → <code>+page.ts</code></p>
-      <p class="answer no" style="margin-left: 2rem;">NO → Either works! <code>+page.ts</code> is slightly faster for client nav.</p>
-    </div>
+    <h2>Quiz: Pick the Right Load</h2>
+    {#each scenarios as s (s.id)}
+      <div class="scenario {scoreClass(s)}">
+        <h3>#{s.id}. {s.title}</h3>
+        <p>{s.body}</p>
+        <div class="choices">
+          <button onclick={() => pick(s.id, 'universal')} disabled={revealed[s.id]}>
+            +page.ts
+          </button>
+          <button onclick={() => pick(s.id, 'server')} disabled={revealed[s.id]}>
+            +page.server.ts
+          </button>
+          <button onclick={() => pick(s.id, 'both')} disabled={revealed[s.id]}>
+            Both
+          </button>
+        </div>
+        {#if revealed[s.id]}
+          <div class="answer">
+            <strong>
+              {guess[s.id] === s.answer ? 'Correct!' : 'Actually:'}
+            </strong>
+            {s.answer === 'universal' ? '+page.ts' : s.answer === 'server' ? '+page.server.ts' : 'Both'}
+            — {s.explanation}
+          </div>
+        {/if}
+      </div>
+    {/each}
   </section>
 </main>
 
 <style>
-  main { max-width: 700px; margin: 0 auto; font-family: sans-serif; }
+  main { max-width: 720px; margin: 0 auto; font-family: sans-serif; }
   section { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
-  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
+  section.rule { background: #fffdf5; border-color: #e0d080; }
+  h2 { margin-top: 0; }
+  .big-rule { font-size: 1rem; line-height: 1.5; margin: 0; }
+  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; white-space: pre; }
+  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; vertical-align: top; }
   th { background: #f5f5f5; }
-  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; }
-  .scenarios { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
-  .scenarios button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid #ddd; border-radius: 4px; background: white; font-size: 0.85rem; }
-  .scenarios button.active { background: #4a90d9; color: white; border-color: #4a90d9; }
-  .scenario-detail { padding: 1rem; border-radius: 4px; }
-  .scenario-detail.universal { background: #e8f5e9; border: 1px solid #4caf50; }
-  .scenario-detail.server { background: #e3f2fd; border: 1px solid #2196f3; }
-  .recommendation { font-size: 1.1rem; }
-  .reason { font-style: italic; color: #555; }
-  .decision-tree { background: #f9f9f9; padding: 1rem; border-radius: 4px; }
-  .answer { margin-left: 1rem; }
-  .answer.yes { color: #2e7d32; }
-  .answer.no { color: #1565c0; }
+  .scenario { padding: 0.75rem 1rem; margin-bottom: 0.75rem; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; }
+  .scenario.correct { border-color: #4caf50; background: #e8f5e9; }
+  .scenario.wrong { border-color: #f44336; background: #ffebee; }
+  .scenario h3 { margin: 0 0 0.25rem; font-size: 1rem; }
+  .scenario p { margin: 0.25rem 0; font-size: 0.9rem; }
+  .choices { display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; }
+  .choices button { padding: 0.4rem 0.8rem; cursor: pointer; font-size: 0.85rem; }
+  .choices button:disabled { cursor: default; opacity: 0.7; }
+  .answer { margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.7); border-radius: 4px; font-size: 0.85rem; }
 </style>`,
 			language: 'svelte'
 		}

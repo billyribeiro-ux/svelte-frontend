@@ -8,235 +8,348 @@ const lesson: LessonData = {
 		module: 16,
 		lessonIndex: 6
 	},
-	description: `Advanced JavaScript patterns like Symbols, WeakMaps, and custom iterators integrate well with Svelte 5's reactivity system. Symbols provide guaranteed unique keys that prevent naming collisions — perfect for component registries or plugin systems. WeakMaps hold references to objects without preventing garbage collection, making them ideal for caching computed data or metadata about DOM elements.
+	description: `Advanced JavaScript primitives are extremely useful once you start building reactive classes and libraries in Svelte 5. Symbols give you unique, collision-free keys — perfect for marking metadata on objects without touching their public shape. WeakMap lets you associate data with objects without preventing garbage collection, ideal for caches and per-instance metadata.
 
-Custom iterators and generators let you define how your objects are iterated with for...of loops, enabling elegant patterns for tree traversal, pagination, and lazy evaluation within reactive Svelte components.`,
+Iterators and generator functions let your classes opt into the for..of protocol. By implementing [Symbol.iterator]() a class becomes iterable, and Array.from or spread will happily walk it. Generators (function*) make writing iterators trivial — \`yield\` values one at a time, even lazily for infinite sequences.
+
+In this lesson we build: a Playlist class that is iterable, a registry using WeakMap for object metadata (so entries vanish when objects are GC'd), and a handful of generator functions producing ranges, Fibonacci, and paginated chunks.`,
 	objectives: [
-		'Use Symbols as unique keys for component registries and context',
-		'Leverage WeakMap for caching data without memory leaks',
-		'Implement custom iterators using Symbol.iterator',
-		'Combine these patterns with Svelte reactivity for advanced state management'
+		'Create unique keys with Symbol() and well-known symbols',
+		'Implement [Symbol.iterator] to make a class iterable',
+		'Write generator functions with function* and yield',
+		'Use WeakMap to attach metadata to objects without leaking memory',
+		'Combine iterable classes with Svelte {#each} blocks'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  // === Symbols as unique keys ===
-  const THEME_KEY = Symbol('theme');
-  const AUTH_KEY = Symbol('auth');
+  // ============================================================
+  // 1) Symbol — unique, collision-free keys
+  // ============================================================
+  const STATUS = Symbol('status');
+  const STATUS_OTHER = Symbol('status');
+  const symbolsEqual = (STATUS as unknown) === (STATUS_OTHER as unknown);
 
-  // Symbol registry for component features
-  const featureRegistry = new Map<symbol, { name: string; enabled: boolean }>();
-  featureRegistry.set(THEME_KEY, { name: 'Dark Theme', enabled: false });
-  featureRegistry.set(AUTH_KEY, { name: 'Authentication', enabled: true });
+  type Tagged = { name: string; [STATUS]?: 'draft' | 'published' };
+  const doc: Tagged = { name: 'Intro to Runes' };
+  doc[STATUS] = 'draft';
 
-  // Reactive wrapper around feature state
-  let features: { key: symbol; name: string; enabled: boolean }[] = $state(
-    Array.from(featureRegistry.entries()).map(([key, val]) => ({
-      key,
-      name: val.name,
-      enabled: val.enabled,
-    }))
-  );
-
-  function toggleFeature(index: number): void {
-    features = features.map((f, i) =>
-      i === index ? { ...f, enabled: !f.enabled } : f
-    );
+  // ============================================================
+  // 2) Iterable class — Playlist implements [Symbol.iterator]
+  // ============================================================
+  class Track {
+    readonly title: string;
+    readonly artist: string;
+    readonly seconds: number;
+    constructor(title: string, artist: string, seconds: number) {
+      this.title = title;
+      this.artist = artist;
+      this.seconds = seconds;
+    }
+    get formatted(): string {
+      const m = Math.floor(this.seconds / 60);
+      const s = this.seconds % 60;
+      return \`\${m}:\${String(s).padStart(2, '0')}\`;
+    }
   }
 
-  // === WeakMap for caching ===
-  interface DataItem {
-    id: number;
-    rawValue: number;
+  class Playlist {
+    tracks: Track[] = $state([]);
+    name: string;
+
+    constructor(name: string, tracks: Track[] = []) {
+      this.name = name;
+      this.tracks = tracks;
+    }
+
+    add(track: Track): void {
+      this.tracks = [...this.tracks, track];
+    }
+
+    get totalSeconds(): number {
+      return this.tracks.reduce((sum, t) => sum + t.seconds, 0);
+    }
+
+    // Making Playlist iterable — for..of and Array.from work
+    [Symbol.iterator](): Iterator<Track> {
+      let i = 0;
+      const tracks = this.tracks;
+      return {
+        next(): IteratorResult<Track> {
+          return i < tracks.length
+            ? { value: tracks[i++], done: false }
+            : { value: undefined, done: true };
+        }
+      };
+    }
   }
 
-  // WeakMap stores computed results keyed by object reference
-  // When the object is garbage collected, the cache entry is too
-  const computeCache = new WeakMap<DataItem, { result: number; computed: boolean }>();
-
-  let dataItems: DataItem[] = $state([
-    { id: 1, rawValue: 42 },
-    { id: 2, rawValue: 17 },
-    { id: 3, rawValue: 88 },
+  const playlist = new Playlist('Focus Mix', [
+    new Track('Resonance', 'Home', 211),
+    new Track('Nightcall', 'Kavinsky', 253),
+    new Track('Midnight City', 'M83', 244),
+    new Track('Intro', 'The xx', 127)
   ]);
 
-  let computeCount: number = $state(0);
+  // Iterate via spread (uses [Symbol.iterator])
+  let iteratedTitles = $derived([...playlist].map((t) => t.title).join(', '));
 
-  function expensiveCompute(item: DataItem): number {
-    const cached = computeCache.get(item);
-    if (cached) return cached.result;
-
-    // Simulate expensive work
-    const result = item.rawValue * item.rawValue + Math.sqrt(item.rawValue);
-    computeCache.set(item, { result, computed: true });
-    computeCount++;
-    return result;
+  // ============================================================
+  // 3) Generator functions — lazy sequences
+  // ============================================================
+  function* range(start: number, end: number, step: number = 1): Generator<number> {
+    for (let i = start; i < end; i += step) yield i;
   }
 
-  function addDataItem(): void {
-    const newItem = { id: dataItems.length + 1, rawValue: Math.floor(Math.random() * 100) };
-    dataItems = [...dataItems, newItem];
-  }
-
-  // === Custom Iterator ===
-  class NumberRange {
-    #start: number;
-    #end: number;
-    #step: number;
-
-    constructor(start: number, end: number, step: number = 1) {
-      this.#start = start;
-      this.#end = end;
-      this.#step = step;
-    }
-
-    *[Symbol.iterator](): Iterator<number> {
-      for (let i = this.#start; i <= this.#end; i += this.#step) {
-        yield i;
-      }
-    }
-
-    get length(): number {
-      return Math.max(0, Math.floor((this.#end - this.#start) / this.#step) + 1);
+  function* fibonacci(limit: number): Generator<number> {
+    let [a, b] = [0, 1];
+    let count = 0;
+    while (count < limit) {
+      yield a;
+      [a, b] = [b, a + b];
+      count++;
     }
   }
 
-  let rangeStart: number = $state(1);
-  let rangeEnd: number = $state(10);
-  let rangeStep: number = $state(1);
-
-  let range = $derived(new NumberRange(rangeStart, rangeEnd, rangeStep));
-  let rangeValues = $derived(Array.from(range));
-  let rangeSum = $derived(rangeValues.reduce((a, b) => a + b, 0));
-
-  // === Generator for lazy pagination ===
-  function* paginate<T>(items: T[], pageSize: number): Generator<T[], void, unknown> {
-    for (let i = 0; i < items.length; i += pageSize) {
-      yield items.slice(i, i + pageSize);
+  function* chunk<T>(arr: T[], size: number): Generator<T[]> {
+    for (let i = 0; i < arr.length; i += size) {
+      yield arr.slice(i, i + size);
     }
   }
 
-  const allNames = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank', 'Grace', 'Heidi', 'Ivan', 'Judy', 'Karl', 'Lucy'];
-  let pageSize: number = $state(4);
-  let currentPage: number = $state(0);
+  let rangeLimit: number = $state(10);
+  let fibLimit: number = $state(10);
+  let chunkSize: number = $state(3);
 
-  let pages = $derived(Array.from(paginate(allNames, pageSize)));
-  let visiblePage = $derived(pages[currentPage] ?? []);
-  let totalPages = $derived(pages.length);
+  let rangeValues = $derived([...range(0, rangeLimit)]);
+  let fibValues = $derived([...fibonacci(fibLimit)]);
+  let chunks = $derived([...chunk([...range(1, 16)], chunkSize)]);
+
+  // ============================================================
+  // 4) WeakMap — associate data with objects without leaking
+  // ============================================================
+  type Meta = { createdAt: number; views: number };
+  const metadata = new WeakMap<object, Meta>();
+
+  function tagObject(obj: object): void {
+    metadata.set(obj, { createdAt: Date.now(), views: 0 });
+  }
+
+  function viewObject(obj: object): void {
+    const m = metadata.get(obj);
+    if (m) m.views += 1;
+  }
+
+  let demoObjects: { id: number; label: string }[] = $state([
+    { id: 1, label: 'Article A' },
+    { id: 2, label: 'Article B' },
+    { id: 3, label: 'Article C' }
+  ]);
+  $effect(() => {
+    for (const o of demoObjects) {
+      if (!metadata.has(o)) tagObject(o);
+    }
+  });
+
+  let metaTick: number = $state(0);
+  function touch(obj: object): void {
+    viewObject(obj);
+    metaTick += 1;
+  }
+  function removeObject(id: number): void {
+    demoObjects = demoObjects.filter((o) => o.id !== id);
+    // The removed object is no longer referenced — WeakMap entry
+    // will be garbage-collected automatically. No cleanup needed!
+  }
+
+  function getMeta(obj: object): Meta | undefined {
+    metaTick; // create reactive dep
+    return metadata.get(obj);
+  }
+
+  let nextObjectId: number = $state(4);
+  function addObject(): void {
+    const letter = String.fromCharCode(64 + nextObjectId);
+    demoObjects = [...demoObjects, { id: nextObjectId, label: \`Article \${letter}\` }];
+    nextObjectId += 1;
+  }
 </script>
 
-<h1>Symbol, WeakMap & Iterators</h1>
+<h1>Symbol, WeakMap &amp; Iterators</h1>
 
 <section>
-  <h2>Symbols as Unique Keys</h2>
-  <div class="feature-list">
-    {#each features as feature, i (feature.name)}
-      <div class="feature-item">
-        <label>
-          <input type="checkbox" checked={feature.enabled} onchange={() => toggleFeature(i)} />
-          {feature.name}
-        </label>
-        <code class="symbol-tag">Symbol('{feature.key.description}')</code>
-      </div>
-    {/each}
+  <h2>1. Symbol — unique keys</h2>
+  <div class="box">
+    <p>
+      <code>Symbol('status') === Symbol('status')</code>:
+      <strong>{symbolsEqual}</strong>
+    </p>
+    <p>
+      <code>Object.keys(doc)</code>:
+      <code>{JSON.stringify(Object.keys(doc))}</code>
+      — the Symbol key is invisible.
+    </p>
+    <p>
+      <code>doc[STATUS]</code>: <strong>{doc[STATUS]}</strong>
+    </p>
   </div>
-  <p class="hint">Each feature uses a unique Symbol key — no string collisions possible.</p>
 </section>
 
 <section>
-  <h2>WeakMap for Caching</h2>
-  <table>
-    <thead><tr><th>ID</th><th>Raw</th><th>Computed</th></tr></thead>
-    <tbody>
-      {#each dataItems as item (item.id)}
-        <tr>
-          <td>{item.id}</td>
-          <td>{item.rawValue}</td>
-          <td>{expensiveCompute(item).toFixed(2)}</td>
-        </tr>
+  <h2>2. Iterable Playlist — Symbol.iterator</h2>
+  <div class="playlist">
+    <strong>{playlist.name}</strong>
+    <ol>
+      {#each playlist.tracks as track, i (i)}
+        <li>
+          <span class="title">{track.title}</span>
+          <span class="artist">{track.artist}</span>
+          <span class="duration">{track.formatted}</span>
+        </li>
       {/each}
-    </tbody>
-  </table>
-  <div class="cache-info">
-    <button onclick={addDataItem}>Add Item</button>
-    <span>Computations performed: {computeCount}</span>
+    </ol>
+    <p class="meta">
+      Total: {Math.floor(playlist.totalSeconds / 60)}m {playlist.totalSeconds % 60}s
+    </p>
+    <p class="meta">
+      Spread into array via [...playlist]:
+      <em>{iteratedTitles}</em>
+    </p>
   </div>
-  <p class="hint">WeakMap caches results per object — re-renders don't recompute.</p>
 </section>
 
 <section>
-  <h2>Custom Iterator (for...of)</h2>
-  <div class="range-controls">
-    <label>Start: <input type="number" bind:value={rangeStart} /></label>
-    <label>End: <input type="number" bind:value={rangeEnd} /></label>
-    <label>Step: <input type="number" bind:value={rangeStep} min="1" /></label>
-  </div>
-  <div class="range-values">
-    {#each rangeValues as val}
-      <span class="range-item">{val}</span>
-    {/each}
-  </div>
-  <p class="meta">Length: {range.length} | Sum: {rangeSum}</p>
-</section>
+  <h2>3. Generator functions — lazy sequences</h2>
 
-<section>
-  <h2>Generator Pagination</h2>
-  <div class="page-controls">
-    <button onclick={() => currentPage = Math.max(0, currentPage - 1)} disabled={currentPage === 0}>Prev</button>
-    <span>Page {currentPage + 1} of {totalPages}</span>
-    <button onclick={() => currentPage = Math.min(totalPages - 1, currentPage + 1)} disabled={currentPage >= totalPages - 1}>Next</button>
+  <div class="gen-row">
     <label>
-      Page size: <input type="number" min="1" max="12" bind:value={pageSize}
-        oninput={() => currentPage = 0} />
+      range(0, n):
+      <input type="number" min="1" max="50" bind:value={rangeLimit} />
     </label>
+    <div class="numbers">
+      {#each rangeValues as n (n)}
+        <span class="num">{n}</span>
+      {/each}
+    </div>
   </div>
-  <div class="page-items">
-    {#each visiblePage as name}
-      <div class="page-item">{name}</div>
+
+  <div class="gen-row">
+    <label>
+      fibonacci(n):
+      <input type="number" min="1" max="30" bind:value={fibLimit} />
+    </label>
+    <div class="numbers">
+      {#each fibValues as n, i (i)}
+        <span class="num fib">{n}</span>
+      {/each}
+    </div>
+  </div>
+
+  <div class="gen-row">
+    <label>
+      chunk([1..15], size):
+      <input type="number" min="1" max="10" bind:value={chunkSize} />
+    </label>
+    <div class="chunks">
+      {#each chunks as c, i (i)}
+        <div class="chunk">[{c.join(', ')}]</div>
+      {/each}
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>4. WeakMap — per-object metadata without leaks</h2>
+  <p class="note">
+    Metadata is stored in a WeakMap keyed by the object itself. When we
+    remove an object from the array, its WeakMap entry becomes eligible
+    for garbage collection automatically.
+  </p>
+  <button class="add" onclick={addObject}>+ Add object</button>
+  <div class="objects">
+    {#each demoObjects as obj (obj.id)}
+      {@const meta = getMeta(obj)}
+      <div class="obj-card">
+        <div class="obj-label">{obj.label}</div>
+        {#if meta}
+          <div class="obj-meta">
+            Views: <strong>{meta.views}</strong><br />
+            Created: {new Date(meta.createdAt).toLocaleTimeString()}
+          </div>
+        {/if}
+        <div class="obj-actions">
+          <button onclick={() => touch(obj)}>View</button>
+          <button class="danger" onclick={() => removeObject(obj.id)}>x</button>
+        </div>
+      </div>
     {/each}
   </div>
 </section>
 
 <style>
   h1 { color: #2d3436; }
-  section { margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
-  h2 { margin-top: 0; color: #0984e3; font-size: 1.1rem; }
-  .feature-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0.5rem 0; border-bottom: 1px solid #eee;
+  section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #6c5ce7; font-size: 1.05rem; }
+  .box { background: white; padding: 0.75rem; border-radius: 6px; }
+  .box p { margin: 0.3rem 0; font-size: 0.9rem; }
+  code {
+    background: #dfe6e9; padding: 0.1rem 0.3rem;
+    border-radius: 3px; font-size: 0.8rem;
   }
-  .symbol-tag {
-    font-size: 0.75rem; padding: 0.2rem 0.5rem;
-    background: #dfe6e9; border-radius: 4px; color: #636e72;
+  .playlist { background: white; padding: 1rem; border-radius: 6px; }
+  .playlist ol { margin: 0.5rem 0; padding-left: 1.25rem; }
+  .playlist li {
+    display: flex; gap: 0.75rem; padding: 0.25rem 0; font-size: 0.9rem;
   }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; }
-  th, td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #eee; }
-  th { font-weight: 600; background: white; }
-  .cache-info { display: flex; align-items: center; gap: 1rem; }
-  .cache-info span { font-size: 0.85rem; color: #636e72; }
-  button {
-    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
-    background: #0984e3; color: white; cursor: pointer; font-weight: 600;
+  .title { flex: 1; font-weight: 600; }
+  .artist { color: #636e72; }
+  .duration { font-family: monospace; color: #b2bec3; }
+  .meta { font-size: 0.8rem; color: #636e72; margin: 0.25rem 0; }
+  .gen-row { margin-bottom: 0.75rem; }
+  .gen-row label {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.85rem; margin-bottom: 0.3rem;
   }
-  button:disabled { background: #b2bec3; cursor: not-allowed; }
-  .range-controls { display: flex; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
-  .range-controls label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.9rem; }
-  .range-controls input { width: 60px; padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px; }
-  .range-values { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-  .range-item {
-    padding: 0.3rem 0.6rem; background: #74b9ff; color: white;
-    border-radius: 4px; font-weight: 600; font-size: 0.9rem;
+  .gen-row input {
+    width: 4rem; padding: 0.2rem; border: 1px solid #ddd;
+    border-radius: 4px; text-align: center;
   }
-  .meta { font-size: 0.85rem; color: #636e72; }
-  .page-controls { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
-  .page-controls input { width: 50px; padding: 0.3rem; border: 1px solid #ddd; border-radius: 4px; }
-  .page-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.5rem; }
-  .page-item {
-    padding: 0.6rem; background: white; border: 1px solid #dfe6e9;
-    border-radius: 6px; text-align: center; font-weight: 600;
+  .numbers { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .num {
+    display: inline-block; padding: 0.2rem 0.5rem;
+    background: #74b9ff; color: white; border-radius: 3px;
+    font-size: 0.8rem; font-family: monospace;
   }
-  .hint { font-size: 0.8rem; color: #636e72; margin-top: 0.5rem; }
+  .num.fib { background: #a29bfe; }
+  .chunks { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chunk {
+    padding: 0.3rem 0.6rem; background: #55efc4; color: #00695c;
+    border-radius: 4px; font-family: monospace; font-size: 0.85rem;
+  }
+  .note { font-size: 0.85rem; color: #636e72; margin: 0 0 0.75rem 0; }
+  .add {
+    padding: 0.4rem 0.8rem; background: #00b894; color: white;
+    border: none; border-radius: 4px; cursor: pointer;
+    font-weight: 600; margin-bottom: 0.75rem;
+  }
+  .objects {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.5rem;
+  }
+  .obj-card {
+    background: white; padding: 0.75rem; border-radius: 6px;
+    border: 1px solid #dfe6e9;
+  }
+  .obj-label { font-weight: 600; margin-bottom: 0.25rem; color: #2d3436; }
+  .obj-meta { font-size: 0.75rem; color: #636e72; margin-bottom: 0.5rem; }
+  .obj-actions { display: flex; gap: 0.25rem; }
+  .obj-actions button {
+    padding: 0.2rem 0.5rem; border: none; border-radius: 3px;
+    background: #74b9ff; color: white; cursor: pointer;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .obj-actions button.danger { background: #ff7675; }
 </style>`,
 			language: 'svelte'
 		}

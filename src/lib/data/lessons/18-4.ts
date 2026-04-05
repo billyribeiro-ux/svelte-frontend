@@ -10,191 +10,279 @@ const lesson: LessonData = {
 	},
 	description: `Structured data using JSON-LD (JavaScript Object Notation for Linked Data) tells search engines exactly what your content represents — an article, a product, an FAQ, an event. By embedding Schema.org vocabulary in <svelte:head>, you unlock Rich Results in Google Search: star ratings, FAQ dropdowns, recipe cards, and more.
 
-Studies show structured data can increase click-through rates by 25–35%. SvelteKit makes it trivial to generate JSON-LD dynamically from load function data, ensuring every page carries machine-readable metadata.`,
+Studies show structured data can increase click-through rates by 25–35%. SvelteKit makes it trivial to generate JSON-LD dynamically from load function data, ensuring every page carries machine-readable metadata.
+
+This lesson provides an interactive schema builder for the five most common types — Article, FAQ, Product, Breadcrumb, and Organization — plus a preview of how the rich result will appear in Google search.`,
 	objectives: [
 		'Embed JSON-LD structured data within <svelte:head> in SvelteKit pages',
-		'Implement Article and FAQ schema types using Schema.org vocabulary',
+		'Implement Article, FAQ, Product, Breadcrumb, and Organization schema types',
 		'Understand how structured data enables Rich Results and increases CTR by 25–35%',
-		'Validate structured data with Google Rich Results Test'
+		'Validate structured data with Google Rich Results Test',
+		'Use {@html} to inject server-generated JSON-LD into the document head'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  type Article = {
-    title: string;
-    description: string;
-    author: string;
-    datePublished: string;
-    dateModified: string;
-    image: string;
-    url: string;
-  };
+  type SchemaType = 'Article' | 'FAQPage' | 'Product' | 'BreadcrumbList' | 'Organization';
 
-  type FAQ = {
-    question: string;
-    answer: string;
-  };
+  let activeType = $state<SchemaType>('Article');
 
-  // Simulated article data from a load function
-  let article = $state<Article>({
-    title: 'Understanding Structured Data for SEO',
-    description: 'A complete guide to implementing JSON-LD structured data in SvelteKit applications.',
-    author: 'Jane Developer',
-    datePublished: '2026-03-01',
-    dateModified: '2026-03-15',
-    image: 'https://example.com/images/structured-data.jpg',
-    url: 'https://example.com/blog/structured-data'
-  });
+  // Article state
+  let articleHeadline = $state('SvelteKit SEO in 2026: The Complete Guide');
+  let articleAuthor = $state('Jane Developer');
+  let articleDate = $state('2026-04-04');
+  let articleImage = $state('https://example.com/og.png');
 
-  let faqs = $state<FAQ[]>([
-    { question: 'What is JSON-LD?', answer: 'JSON-LD is a method of encoding Linked Data using JSON, recommended by Google for structured data markup.' },
-    { question: 'Does structured data improve rankings?', answer: 'Structured data does not directly boost rankings but enables Rich Results which can increase CTR by 25-35%.' },
-    { question: 'Where do I place JSON-LD in SvelteKit?', answer: 'Inside <svelte:head> using a <script type="application/ld+json"> tag, typically generated from load function data.' }
+  // FAQ state
+  type FAQEntry = { q: string; a: string };
+  let faqs = $state<FAQEntry[]>([
+    { q: 'What is SvelteKit?', a: 'SvelteKit is the official application framework built around Svelte.' },
+    { q: 'Is SvelteKit good for SEO?', a: 'Yes. SSR and prerendering give search engines full HTML immediately.' }
   ]);
 
-  // Generate Article JSON-LD
-  let articleJsonLd = $derived(JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: article.title,
-    description: article.description,
-    author: {
-      '@type': 'Person',
-      name: article.author
-    },
-    datePublished: article.datePublished,
-    dateModified: article.dateModified,
-    image: article.image,
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': article.url
+  function addFaq() {
+    faqs = [...faqs, { q: '', a: '' }];
+  }
+  function removeFaq(i: number) {
+    faqs = faqs.filter((_, idx) => idx !== i);
+  }
+
+  // Product state
+  let productName = $state('Svelte Mastery Course');
+  let productPrice = $state('199');
+  let productRating = $state(4.8);
+  let productReviews = $state(127);
+
+  // Breadcrumb state
+  type Crumb = { name: string; url: string };
+  let crumbs = $state<Crumb[]>([
+    { name: 'Home', url: 'https://example.com' },
+    { name: 'Blog', url: 'https://example.com/blog' },
+    { name: 'SvelteKit SEO', url: 'https://example.com/blog/sveltekit-seo' }
+  ]);
+
+  // Organization state
+  let orgName = $state('Svelte Mastery');
+  let orgUrl = $state('https://example.com');
+  let orgLogo = $state('https://example.com/logo.png');
+  let orgSameAs = $state('https://twitter.com/sveltejs, https://github.com/sveltejs');
+
+  const jsonLd = $derived.by(() => {
+    if (activeType === 'Article') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: articleHeadline,
+        image: [articleImage],
+        datePublished: articleDate,
+        author: { '@type': 'Person', name: articleAuthor }
+      };
     }
-  }, null, 2));
+    if (activeType === 'FAQPage') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a }
+        }))
+      };
+    }
+    if (activeType === 'Product') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: productName,
+        offers: {
+          '@type': 'Offer',
+          price: productPrice,
+          priceCurrency: 'USD'
+        },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: productRating,
+          reviewCount: productReviews
+        }
+      };
+    }
+    if (activeType === 'BreadcrumbList') {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: crumbs.map((c, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: c.name,
+          item: c.url
+        }))
+      };
+    }
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: orgName,
+      url: orgUrl,
+      logo: orgLogo,
+      sameAs: orgSameAs.split(',').map((s) => s.trim())
+    };
+  });
 
-  // Generate FAQ JSON-LD
-  let faqJsonLd = $derived(JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqs.map(faq => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer
-      }
-    }))
-  }, null, 2));
+  const jsonLdString = $derived(JSON.stringify(jsonLd, null, 2));
 
-  let activeTab = $state<'article' | 'faq'>('article');
+  const svelteHeadExample = $derived(
+    [
+      '<svelte:head>',
+      '  {@html \`<script type="application/ld+json">' +
+        '\${JSON.stringify(jsonLd)}<\\/script>\`}',
+      '</svelte:head>'
+    ].join('\\n')
+  );
 
-  type SchemaType = { name: string; richResult: string; ctrImpact: string };
-
-  const schemaTypes: SchemaType[] = [
-    { name: 'Article', richResult: 'Article carousel, AMP stories', ctrImpact: '+25%' },
-    { name: 'FAQPage', richResult: 'Expandable Q&A in SERP', ctrImpact: '+30%' },
-    { name: 'Product', richResult: 'Price, availability, ratings', ctrImpact: '+35%' },
-    { name: 'HowTo', richResult: 'Step-by-step instructions', ctrImpact: '+25%' },
-    { name: 'BreadcrumbList', richResult: 'Breadcrumb trail in results', ctrImpact: '+15%' },
-    { name: 'LocalBusiness', richResult: 'Map pack, business info', ctrImpact: '+30%' }
+  const schemaTypes: { value: SchemaType; label: string; description: string }[] = [
+    { value: 'Article', label: 'Article', description: 'Blog posts, news articles, editorials' },
+    { value: 'FAQPage', label: 'FAQ', description: 'Frequently asked questions with answers' },
+    { value: 'Product', label: 'Product', description: 'E-commerce items with price and reviews' },
+    { value: 'BreadcrumbList', label: 'Breadcrumb', description: 'Navigation path on category pages' },
+    { value: 'Organization', label: 'Organization', description: 'Your company for the knowledge panel' }
   ];
-
-  // SvelteKit code example
-  const svelteKitExample = \`<!-- +page.svelte -->
-<script lang="ts">
-  import type { PageData } from './$types';
-  let { data }: { data: PageData } = $props();
-
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: data.article.title,
-    author: { '@type': 'Person', name: data.article.author },
-    datePublished: data.article.publishedAt
-  };
-<\\/script>
-
-<svelte:head>
-  {\\u0040html \\\`<script type="application/ld+json">
-    \\\${JSON.stringify(jsonLd)}
-  </script>\\\`}
-</svelte:head>\`;
 </script>
 
-<svelte:head>
-  {@html \`<script type="application/ld+json">\${articleJsonLd}</script>\`}
-  {@html \`<script type="application/ld+json">\${faqJsonLd}</script>\`}
-</svelte:head>
-
 <main>
-  <h1>Structured Data & JSON-LD</h1>
-  <p class="subtitle">Machine-readable metadata for Rich Results</p>
+  <h1>Structured Data &amp; JSON-LD</h1>
+  <p class="subtitle">Interactive schema builder with rich result preview</p>
 
-  <section class="schema-types">
-    <h2>Common Schema.org Types</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Schema Type</th>
-          <th>Rich Result</th>
-          <th>CTR Impact</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each schemaTypes as schema}
-          <tr>
-            <td><code>{schema.name}</code></td>
-            <td>{schema.richResult}</td>
-            <td class="impact">{schema.ctrImpact}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+  <section class="type-picker">
+    <h2>Choose a Schema Type</h2>
+    <div class="type-grid">
+      {#each schemaTypes as type (type.value)}
+        <button
+          class="type-btn"
+          class:active={activeType === type.value}
+          onclick={() => (activeType = type.value)}
+        >
+          <strong>{type.label}</strong>
+          <small>{type.description}</small>
+        </button>
+      {/each}
+    </div>
   </section>
 
-  <section class="tabs">
-    <div class="tab-bar">
-      <button class:active={activeTab === 'article'} onclick={() => activeTab = 'article'}>
-        Article Schema
-      </button>
-      <button class:active={activeTab === 'faq'} onclick={() => activeTab = 'faq'}>
-        FAQ Schema
-      </button>
-    </div>
+  <section class="builder">
+    <h2>{activeType} Builder</h2>
 
-    {#if activeTab === 'article'}
-      <div class="tab-content">
-        <h3>Article JSON-LD</h3>
-        <div class="editor-fields">
-          <label>Headline <input bind:value={article.title} /></label>
-          <label>Author <input bind:value={article.author} /></label>
-          <label>Published <input type="date" bind:value={article.datePublished} /></label>
+    {#if activeType === 'Article'}
+      <label><span>Headline</span><input type="text" bind:value={articleHeadline} /></label>
+      <label><span>Author</span><input type="text" bind:value={articleAuthor} /></label>
+      <label><span>Date Published</span><input type="date" bind:value={articleDate} /></label>
+      <label><span>Image URL</span><input type="text" bind:value={articleImage} /></label>
+    {:else if activeType === 'FAQPage'}
+      {#each faqs as faq, i (i)}
+        <div class="faq-row">
+          <input type="text" placeholder="Question" bind:value={faq.q} />
+          <textarea placeholder="Answer" bind:value={faq.a} rows="2"></textarea>
+          <button class="remove-btn" onclick={() => removeFaq(i)}>Remove</button>
         </div>
-        <pre><code>{articleJsonLd}</code></pre>
+      {/each}
+      <button class="add-btn" onclick={addFaq}>+ Add FAQ</button>
+    {:else if activeType === 'Product'}
+      <label><span>Name</span><input type="text" bind:value={productName} /></label>
+      <label><span>Price (USD)</span><input type="text" bind:value={productPrice} /></label>
+      <label><span>Rating (0-5)</span><input type="number" step="0.1" min="0" max="5" bind:value={productRating} /></label>
+      <label><span>Review Count</span><input type="number" bind:value={productReviews} /></label>
+    {:else if activeType === 'BreadcrumbList'}
+      {#each crumbs as crumb, i (i)}
+        <div class="crumb-row">
+          <input type="text" placeholder="Name" bind:value={crumb.name} />
+          <input type="text" placeholder="URL" bind:value={crumb.url} />
+        </div>
+      {/each}
+    {:else}
+      <label><span>Name</span><input type="text" bind:value={orgName} /></label>
+      <label><span>URL</span><input type="text" bind:value={orgUrl} /></label>
+      <label><span>Logo URL</span><input type="text" bind:value={orgLogo} /></label>
+      <label><span>sameAs (comma-separated)</span><input type="text" bind:value={orgSameAs} /></label>
+    {/if}
+  </section>
+
+  <section class="json-output">
+    <h2>Generated JSON-LD</h2>
+    <pre><code>{jsonLdString}</code></pre>
+  </section>
+
+  <section class="rich-preview">
+    <h2>Rich Result Preview</h2>
+    {#if activeType === 'Article'}
+      <div class="preview article">
+        <div class="article-head">
+          <span class="article-tag">Article</span>
+          <span class="article-date">{articleDate}</span>
+        </div>
+        <h3>{articleHeadline}</h3>
+        <small>By {articleAuthor}</small>
+      </div>
+    {:else if activeType === 'FAQPage'}
+      <div class="preview faq">
+        <h3>People Also Ask</h3>
+        {#each faqs as f, i (i)}
+          <details>
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        {/each}
+      </div>
+    {:else if activeType === 'Product'}
+      <div class="preview product">
+        <h3>{productName}</h3>
+        <div class="stars">
+          {'★'.repeat(Math.round(productRating))}{'☆'.repeat(5 - Math.round(productRating))}
+          <span>{productRating} ({productReviews} reviews)</span>
+        </div>
+        <div class="price">\${productPrice}</div>
+      </div>
+    {:else if activeType === 'BreadcrumbList'}
+      <div class="preview breadcrumb">
+        {#each crumbs as c, i (i)}
+          <span class="crumb">{c.name}</span>
+          {#if i < crumbs.length - 1}<span class="sep">&rsaquo;</span>{/if}
+        {/each}
       </div>
     {:else}
-      <div class="tab-content">
-        <h3>FAQ JSON-LD</h3>
-        {#each faqs as faq, i}
-          <div class="faq-editor">
-            <label>Q{i + 1}: <input bind:value={faq.question} /></label>
-            <label>A{i + 1}: <textarea bind:value={faq.answer} rows={2}></textarea></label>
-          </div>
-        {/each}
-        <pre><code>{faqJsonLd}</code></pre>
+      <div class="preview organization">
+        <div class="org-logo"></div>
+        <div>
+          <h3>{orgName}</h3>
+          <a href={orgUrl}>{orgUrl}</a>
+        </div>
       </div>
     {/if}
   </section>
 
-  <section class="implementation">
-    <h2>SvelteKit Implementation</h2>
-    <pre><code>{svelteKitExample}</code></pre>
+  <section class="svelte-example">
+    <h2>Using in &lt;svelte:head&gt;</h2>
+    <pre><code>{svelteHeadExample}</code></pre>
+    <div class="callout">
+      <strong>Why {'{@html}'}?</strong> Svelte escapes {'<script>'} tags by default. We use
+      {'{@html}'} to inject the raw JSON-LD script tag. The JSON itself is safe because it is
+      produced by JSON.stringify, which escapes all user input.
+    </div>
+  </section>
+
+  <section class="validation">
+    <h2>Validation</h2>
+    <p>After deploying, validate your structured data with:</p>
+    <ul>
+      <li><strong>Google Rich Results Test:</strong> search.google.com/test/rich-results</li>
+      <li><strong>Schema.org Validator:</strong> validator.schema.org</li>
+      <li><strong>Google Search Console:</strong> Enhancements report shows live errors</li>
+    </ul>
   </section>
 </main>
 
 <style>
   main {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 2rem;
     font-family: system-ui, sans-serif;
@@ -205,88 +293,102 @@ Studies show structured data can increase click-through rates by 25–35%. Svelt
     margin-bottom: 2rem;
   }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
+  section {
+    margin-bottom: 2.5rem;
   }
 
-  th, td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  th {
-    background: #f0f0f0;
-  }
-
-  code {
-    background: #f0f0f0;
-    padding: 0.1rem 0.3rem;
-    border-radius: 3px;
-    font-size: 0.9rem;
-  }
-
-  pre code {
-    background: none;
-    padding: 0;
-  }
-
-  .impact {
-    color: #16a34a;
-    font-weight: 600;
-  }
-
-  .tab-bar {
-    display: flex;
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.5rem;
-    margin-bottom: 1rem;
   }
 
-  .tab-bar button {
-    padding: 0.6rem 1.2rem;
+  .type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.8rem;
+    background: #f8f9fa;
     border: 2px solid #e0e0e0;
     border-radius: 8px;
-    background: #f8f9fa;
     cursor: pointer;
-    font-weight: 500;
+    font: inherit;
+    text-align: left;
   }
 
-  .tab-bar button.active {
+  .type-btn.active {
     border-color: #4a90d9;
     background: #eef4fb;
-    color: #1a5bb5;
   }
 
-  .tab-content {
+  .type-btn small {
+    color: #666;
+    font-size: 0.75rem;
+    margin-top: 0.3rem;
+  }
+
+  .builder {
     background: #fafafa;
     padding: 1.5rem;
-    border-radius: 8px;
     border: 1px solid #e0e0e0;
+    border-radius: 8px;
   }
 
-  .editor-fields, .faq-editor {
-    display: grid;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-  }
-
-  label {
+  .builder label {
     display: block;
-    font-weight: 500;
+    margin-bottom: 0.8rem;
+  }
+
+  .builder label span {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
     font-size: 0.9rem;
   }
 
-  input, textarea {
-    display: block;
+  .builder input,
+  .builder textarea {
     width: 100%;
-    padding: 0.4rem;
-    margin-top: 0.2rem;
+    padding: 0.5rem;
     border: 1px solid #ccc;
     border-radius: 4px;
-    font-family: inherit;
-    font-size: 0.9rem;
+    font: inherit;
+    box-sizing: border-box;
+  }
+
+  .faq-row,
+  .crumb-row {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.8rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 0.6rem;
+  }
+
+  .crumb-row {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .add-btn {
+    padding: 0.5rem 1rem;
+    background: #4a90d9;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .remove-btn {
+    padding: 0.3rem 0.6rem;
+    background: #fee;
+    color: #c00;
+    border: 1px solid #fcc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    justify-self: end;
   }
 
   pre {
@@ -295,12 +397,107 @@ Studies show structured data can increase click-through rates by 25–35%. Svelt
     padding: 1rem;
     border-radius: 8px;
     overflow-x: auto;
-    font-size: 0.8rem;
-    line-height: 1.4;
+    font-size: 0.78rem;
   }
 
-  section {
-    margin-bottom: 2.5rem;
+  .preview {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .preview.article h3 {
+    color: #1a0dab;
+    margin: 0.3rem 0;
+  }
+
+  .article-tag {
+    background: #eef4fb;
+    color: #4a90d9;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+  }
+
+  .article-date {
+    color: #666;
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+  }
+
+  .preview.faq h3 {
+    margin-top: 0;
+  }
+
+  .preview.faq details {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+  }
+
+  .preview.faq summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .stars {
+    color: #f59e0b;
+    font-size: 1.1rem;
+  }
+
+  .stars span {
+    color: #666;
+    font-size: 0.85rem;
+    margin-left: 0.3rem;
+  }
+
+  .price {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #166534;
+    margin-top: 0.3rem;
+  }
+
+  .preview.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+  }
+
+  .crumb {
+    color: #1a0dab;
+  }
+
+  .sep {
+    color: #666;
+  }
+
+  .preview.organization {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .org-logo {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ff3e00, #4a90d9);
+    border-radius: 8px;
+  }
+
+  .preview.organization h3 {
+    margin: 0;
+  }
+
+  .callout {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+    font-size: 0.9rem;
   }
 </style>`,
 			language: 'svelte'

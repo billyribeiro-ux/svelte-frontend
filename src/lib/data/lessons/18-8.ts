@@ -10,305 +10,492 @@ const lesson: LessonData = {
 	},
 	description: `With 69% of Google searches ending in zero clicks, your content strategy must evolve. The March 2026 update's Information Gain scoring means rehashed content is penalized — Google rewards original research, unique datasets, first-hand experience, and expert perspectives that add genuinely new information to the web.
 
-For SvelteKit developers, mdsvex (Markdown + Svelte) enables rich, interactive content. Depth beats breadth: fewer, more comprehensive articles outperform many thin pages. This lesson teaches you to plan content that both humans and algorithms value.`,
+For SvelteKit developers, mdsvex (Markdown + Svelte) enables rich, interactive content. Depth beats breadth: fewer, more comprehensive articles outperform many thin pages. This lesson teaches you to plan content that both humans and algorithms value.
+
+You will explore zero-click statistics, build a topical authority cluster map, analyze content freshness, and see a working mdsvex blog post template.`,
 	objectives: [
 		'Develop content strategies that maximize Information Gain scoring',
 		'Balance depth vs breadth in content planning for zero-click search',
 		'Use mdsvex to create rich, interactive Markdown content in SvelteKit',
-		'Apply original research and unique data to differentiate content'
+		'Apply original research and unique data to differentiate content',
+		'Design topical authority clusters around pillar content'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  type ContentPrinciple = {
-    title: string;
-    description: string;
-    examples: string[];
-    infoGainScore: 'high' | 'medium' | 'low';
-  };
+  // Zero-click stats
+  const zeroClickStats = [
+    { year: 2020, percent: 50 },
+    { year: 2022, percent: 58 },
+    { year: 2024, percent: 65 },
+    { year: 2026, percent: 69 }
+  ];
 
-  const principles: ContentPrinciple[] = [
+  // Information Gain principles
+  type Principle = { title: string; description: string; example: string };
+
+  const principles: Principle[] = [
     {
-      title: 'Original Research',
-      description: 'Conduct surveys, experiments, or analysis that produces unique data points.',
-      examples: [
-        'Survey 500 developers about Svelte adoption',
-        'Benchmark SvelteKit vs Next.js build times',
-        'Analyze 1000 top-ranking pages for structured data usage'
-      ],
-      infoGainScore: 'high'
+      title: 'Original Data',
+      description: 'Publish numbers nobody else has. Surveys, benchmarks, experiments.',
+      example: 'Benchmark 12 frameworks on identical Hetzner hardware; publish the raw CSV.'
     },
     {
-      title: 'First-Hand Experience',
-      description: 'Write from direct personal experience, not second-hand summaries.',
-      examples: [
-        '"I migrated 50k LOC from React to Svelte — here\\'s what happened"',
-        'Production incident post-mortems with real metrics',
-        'Behind-the-scenes of building and launching a SaaS'
-      ],
-      infoGainScore: 'high'
+      title: 'First-hand Experience',
+      description: 'Tell stories only you can tell because you were there.',
+      example: '"We migrated 2.3M users from Next to SvelteKit. Here is what broke at 4am."'
     },
     {
-      title: 'Expert Commentary',
-      description: 'Provide insights that only someone with deep expertise could offer.',
-      examples: [
-        'Architecture decisions and their long-term consequences',
-        'Common mistakes with nuanced explanations',
-        'Predictions grounded in technical understanding'
-      ],
-      infoGainScore: 'high'
+      title: 'Synthesis Across Domains',
+      description: 'Connect ideas from fields that rarely talk to each other.',
+      example: 'Apply supply-chain queueing theory to front-end request batching.'
     },
     {
-      title: 'Comprehensive Depth',
-      description: 'Cover a topic more thoroughly than any existing resource.',
-      examples: [
-        'The definitive guide to SvelteKit routing (every edge case)',
-        'Complete SSR performance optimization playbook',
-        'Every structured data type explained with SvelteKit code'
-      ],
-      infoGainScore: 'medium'
+      title: 'Updated Primary Sources',
+      description: 'Replace stale data with current numbers, citing your methodology.',
+      example: 'Re-run the 2019 "cost of JavaScript" study on 2026 mid-range Android phones.'
     },
     {
-      title: 'Unique Angle',
-      description: 'Present familiar topics from a fresh, unexpected perspective.',
-      examples: [
-        '"CSS is a programming language" with formal proofs',
-        'Explaining reactivity through the lens of spreadsheets',
-        'What game design teaches us about form UX'
-      ],
-      infoGainScore: 'medium'
+      title: 'Counterintuitive Angles',
+      description: 'Challenge conventional wisdom with evidence.',
+      example: '"Prefetching everything made our site slower. Here is the flame graph."'
     }
   ];
 
-  let activePrinciple = $state(0);
+  // Topical cluster builder
+  type Cluster = { pillar: string; spokes: string[] };
 
-  const scoreColors = { high: '#16a34a', medium: '#ca8a04', low: '#dc2626' };
-
-  // Content strategy stats
-  const stats = [
-    { value: '69%', label: 'Zero-click searches', note: 'Users get answers without clicking' },
-    { value: '25-35%', label: 'CTR boost', note: 'From structured data / rich results' },
-    { value: '10x', label: 'Depth over breadth', note: '1 deep article > 10 shallow ones' },
-    { value: '3-6mo', label: 'Content maturity', note: 'Time for articles to reach peak ranking' }
+  const sampleClusters: Cluster[] = [
+    {
+      pillar: 'SvelteKit SEO (complete guide)',
+      spokes: [
+        'Crawling and indexing basics',
+        'Meta tags in svelte:head',
+        'JSON-LD structured data',
+        'Core Web Vitals in SvelteKit',
+        'Sitemaps via +server.ts',
+        'E-E-A-T for technical blogs',
+        'Prerender vs SSR decision tree'
+      ]
+    },
+    {
+      pillar: 'Production SvelteKit Deployment',
+      spokes: [
+        'Adapter selection (node, cloudflare, vercel)',
+        'Environment variables and secrets',
+        'Error handling and logging',
+        'CI/CD with GitHub Actions',
+        'Monitoring and alerting'
+      ]
+    }
   ];
+
+  let activeCluster = $state(0);
+
+  // Content freshness planner
+  type ContentAge = { title: string; published: string; lastUpdated: string; status: 'fresh' | 'stale' | 'rot' };
+
+  const contentInventory: ContentAge[] = [
+    { title: 'Svelte 5 migration guide', published: '2024-10-15', lastUpdated: '2026-03-10', status: 'fresh' },
+    { title: 'Legacy stores tutorial', published: '2022-01-20', lastUpdated: '2022-01-20', status: 'rot' },
+    { title: 'SvelteKit form actions', published: '2023-06-11', lastUpdated: '2025-09-22', status: 'stale' },
+    { title: 'Runes deep dive', published: '2025-02-05', lastUpdated: '2026-03-28', status: 'fresh' },
+    { title: 'Old adapter-node guide', published: '2021-11-03', lastUpdated: '2021-11-03', status: 'rot' }
+  ];
+
+  const statusColors: Record<string, string> = {
+    fresh: '#16a34a',
+    stale: '#f59e0b',
+    rot: '#ef4444'
+  };
+
+  const statusLabels: Record<string, string> = {
+    fresh: 'Fresh',
+    stale: 'Needs refresh',
+    rot: 'Archive or rewrite'
+  };
 
   // mdsvex example
-  const mdsvexExample = \`---
-title: "SvelteKit Performance Guide"
-date: "2026-03-15"
-author: "Jane Developer"
-description: "Original benchmarks comparing SSR strategies"
----
+  const mdsvexConfig = [
+    '// svelte.config.js',
+    "import { mdsvex } from 'mdsvex';",
+    "import adapter from '@sveltejs/adapter-auto';",
+    '',
+    'export default {',
+    "  extensions: ['.svelte', '.svx', '.md'],",
+    '  preprocess: [',
+    '    mdsvex({',
+    "      extensions: ['.svx', '.md'],",
+    '      layout: {',
+    "        blog: 'src/lib/layouts/BlogPost.svelte'",
+    '      }',
+    '    })',
+    '  ],',
+    '  kit: { adapter: adapter() }',
+    '};'
+  ].join('\\n');
 
-<script>
-  import Chart from '$lib/components/Chart.svelte';
-  import Callout from '$lib/components/Callout.svelte';
+  const mdsvexPost = [
+    '---',
+    'title: "We migrated 2.3M users from Next.js to SvelteKit"',
+    'author: "Jane Developer"',
+    'date: "2026-04-04"',
+    'layout: "blog"',
+    '---',
+    '',
+    '<script>',
+    "  import BenchmarkChart from '$lib/charts/BenchmarkChart.svelte';",
+    "  import { migrationData } from '$lib/data/migration';",
+    '</' + 'script>',
+    '',
+    '# We migrated 2.3M users from Next.js to SvelteKit',
+    '',
+    'In March 2026 we finished our 9-month migration. Here is what we learned,',
+    'including the raw numbers nobody else will share.',
+    '',
+    '## TL;DR',
+    '',
+    '- Bundle size dropped 62% (890 KB -> 338 KB)',
+    '- LCP improved from 3.1s to 1.4s on mid-range Android',
+    '- Infrastructure cost fell 41% on Cloudflare Workers',
+    '',
+    '## The benchmark (original data)',
+    '',
+    '<BenchmarkChart data={migrationData} />',
+    '',
+    '## What broke at 4am',
+    '',
+    'Our session middleware assumed Next.js request context. In SvelteKit...',
+    '(first-hand experience, specific details only we know)'
+  ].join('\\n');
 
-  // Data from our original benchmark study
-  const benchmarkData = [
-    { framework: 'SvelteKit SSR', ttfb: 45 },
-    { framework: 'Next.js SSR', ttfb: 120 },
-    { framework: 'Nuxt SSR', ttfb: 95 }
-  ];
-</script>
-
-# {title}
-
-<Callout type="info">
-  Based on benchmarks run on 2026-03-10 across
-  50 cold starts per framework on Cloudflare Workers.
-</Callout>
-
-## Original Benchmark Results
-
-<Chart data={benchmarkData} />
-
-Our testing shows SvelteKit's SSR is **2.6x faster**
-than Next.js on cold starts...\`;
-
-  type ContentType = { type: string; frequency: string; goal: string };
-
-  const contentCalendar: ContentType[] = [
-    { type: 'Pillar Article', frequency: 'Monthly', goal: 'Comprehensive, 3000+ word deep dive' },
-    { type: 'Original Research', frequency: 'Quarterly', goal: 'Unique data, benchmarks, surveys' },
-    { type: 'Tutorial', frequency: 'Bi-weekly', goal: 'Practical, step-by-step with code' },
-    { type: 'Case Study', frequency: 'Monthly', goal: 'Real-world results with metrics' },
-    { type: 'Quick Tip', frequency: 'Weekly', goal: 'Concise, high-value code snippets' }
-  ];
+  const maxPercent = $derived(Math.max(...zeroClickStats.map((s) => s.percent)));
 </script>
 
 <main>
   <h1>Content Strategy Post-March 2026</h1>
-  <p class="subtitle">Information Gain, zero-click search, and content that earns rankings</p>
+  <p class="subtitle">Depth beats breadth. Information Gain beats keyword density.</p>
 
-  <section class="stats-grid">
-    {#each stats as stat}
-      <div class="stat-card">
-        <span class="stat-value">{stat.value}</span>
-        <span class="stat-label">{stat.label}</span>
-        <span class="stat-note">{stat.note}</span>
-      </div>
-    {/each}
+  <section class="zero-click">
+    <h2>The Zero-Click Reality</h2>
+    <p>
+      In 2026, <strong>69% of Google searches end without a click</strong>. Users get their
+      answer from AI Overviews, featured snippets, and knowledge panels. Your content must be
+      good enough to either be that answer, or be interesting enough that people click through.
+    </p>
+
+    <div class="chart">
+      {#each zeroClickStats as stat (stat.year)}
+        <div class="bar-row">
+          <div class="bar-year">{stat.year}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: {(stat.percent / maxPercent) * 100}%">
+              <span>{stat.percent}%</span>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
   </section>
 
   <section class="principles">
     <h2>Information Gain Principles</h2>
     <div class="principle-list">
-      {#each principles as principle, i}
-        <button
-          class="principle-btn"
-          class:active={activePrinciple === i}
-          onclick={() => activePrinciple = i}
-        >
-          <span class="score-dot" style="background: {scoreColors[principle.infoGainScore]}"></span>
-          {principle.title}
+      {#each principles as p (p.title)}
+        <div class="principle">
+          <h3>{p.title}</h3>
+          <p>{p.description}</p>
+          <blockquote>{p.example}</blockquote>
+        </div>
+      {/each}
+    </div>
+  </section>
+
+  <section class="clusters">
+    <h2>Topical Authority Clusters</h2>
+    <p>
+      Pillar content covers a broad topic. Spoke articles drill into specific subtopics and link
+      back to the pillar. This demonstrates topical depth to Google.
+    </p>
+
+    <div class="cluster-picker">
+      {#each sampleClusters as cluster, i (cluster.pillar)}
+        <button class:active={activeCluster === i} onclick={() => (activeCluster = i)}>
+          {cluster.pillar}
         </button>
       {/each}
     </div>
 
-    <div class="principle-detail">
-      <div class="detail-header">
-        <h3>{principles[activePrinciple].title}</h3>
-        <span class="score-badge" style="background: {scoreColors[principles[activePrinciple].infoGainScore]}">
-          {principles[activePrinciple].infoGainScore} info gain
-        </span>
-      </div>
-      <p>{principles[activePrinciple].description}</p>
-      <ul>
-        {#each principles[activePrinciple].examples as example}
-          <li>{example}</li>
+    <div class="cluster-diagram">
+      <div class="pillar">{sampleClusters[activeCluster].pillar}</div>
+      <div class="spokes">
+        {#each sampleClusters[activeCluster].spokes as spoke (spoke)}
+          <div class="spoke">{spoke}</div>
         {/each}
-      </ul>
+      </div>
     </div>
   </section>
 
-  <section class="mdsvex">
-    <h2>mdsvex: Rich Content in SvelteKit</h2>
-    <p>mdsvex lets you write Markdown with embedded Svelte components — perfect for interactive, data-rich articles.</p>
-    <pre><code>{mdsvexExample}</code></pre>
-  </section>
-
-  <section class="calendar">
-    <h2>Content Calendar Template</h2>
+  <section class="freshness">
+    <h2>Content Freshness Audit</h2>
     <table>
       <thead>
-        <tr><th>Content Type</th><th>Frequency</th><th>Goal</th></tr>
+        <tr>
+          <th>Title</th>
+          <th>Published</th>
+          <th>Last Updated</th>
+          <th>Status</th>
+        </tr>
       </thead>
       <tbody>
-        {#each contentCalendar as item}
+        {#each contentInventory as content (content.title)}
           <tr>
-            <td><strong>{item.type}</strong></td>
-            <td>{item.frequency}</td>
-            <td>{item.goal}</td>
+            <td>{content.title}</td>
+            <td>{content.published}</td>
+            <td>{content.lastUpdated}</td>
+            <td>
+              <span class="status" style="background: {statusColors[content.status]}">
+                {statusLabels[content.status]}
+              </span>
+            </td>
           </tr>
         {/each}
       </tbody>
     </table>
+    <div class="callout">
+      <strong>Rule of thumb:</strong> refresh articles older than 18 months, archive or rewrite
+      anything older than 3 years. Google tracks lastmod in sitemaps and favors updated URLs.
+    </div>
+  </section>
+
+  <section class="mdsvex">
+    <h2>mdsvex for Rich Blog Content</h2>
+    <p>
+      mdsvex is a Svelte preprocessor that lets you import Svelte components directly into
+      Markdown files. This is how you ship interactive charts, live code demos, and
+      embedded widgets inside a blog post &mdash; exactly the kind of content Google rewards.
+    </p>
+
+    <h3>Configuration</h3>
+    <pre><code>{mdsvexConfig}</code></pre>
+
+    <h3>Example Post</h3>
+    <pre><code>{mdsvexPost}</code></pre>
+  </section>
+
+  <section class="depth-vs-breadth">
+    <h2>Depth vs Breadth: The Trade-off</h2>
+    <div class="two-col">
+      <div class="col breadth">
+        <h3>Breadth Strategy (Old)</h3>
+        <ul>
+          <li>100 thin posts per month</li>
+          <li>500-800 words each</li>
+          <li>Keyword-stuffed</li>
+          <li>Generic advice</li>
+          <li>Minimal research</li>
+        </ul>
+        <div class="verdict bad">Penalized by March 2026 update</div>
+      </div>
+      <div class="col depth">
+        <h3>Depth Strategy (Post-2026)</h3>
+        <ul>
+          <li>4-8 flagship posts per month</li>
+          <li>3000-8000 words each</li>
+          <li>Original data and benchmarks</li>
+          <li>First-hand stories</li>
+          <li>Interactive demos via mdsvex</li>
+        </ul>
+        <div class="verdict good">Rewarded by Information Gain</div>
+      </div>
+    </div>
   </section>
 </main>
 
 <style>
   main {
-    max-width: 850px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 2rem;
     font-family: system-ui, sans-serif;
   }
 
-  .subtitle { color: #666; margin-bottom: 2rem; }
+  .subtitle {
+    color: #666;
+    margin-bottom: 2rem;
+  }
 
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
+  section {
     margin-bottom: 2.5rem;
   }
 
-  .stat-card {
-    text-align: center;
-    padding: 1.25rem;
-    background: #f8f9fa;
+  .zero-click {
+    background: #fef3c7;
+    padding: 1.5rem;
     border-radius: 10px;
-    border: 1px solid #e0e0e0;
+    border-left: 4px solid #f59e0b;
   }
 
-  .stat-value {
-    display: block;
-    font-size: 1.6rem;
+  .chart {
+    margin-top: 1rem;
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.4rem;
+  }
+
+  .bar-year {
     font-weight: 700;
-    color: #1a5bb5;
+    color: #666;
   }
 
-  .stat-label {
-    display: block;
-    font-weight: 600;
+  .bar-track {
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 1.5rem;
+  }
+
+  .bar-fill {
+    background: linear-gradient(90deg, #f59e0b, #ef4444);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.5rem;
+    color: white;
+    font-weight: 700;
     font-size: 0.85rem;
-    margin: 0.25rem 0;
-  }
-
-  .stat-note {
-    display: block;
-    font-size: 0.75rem;
-    color: #888;
+    transition: width 0.4s;
   }
 
   .principle-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+  }
+
+  .principle {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .principle h3 {
+    margin: 0 0 0.3rem;
+    color: #4a90d9;
+  }
+
+  .principle p {
+    font-size: 0.9rem;
+    color: #444;
+  }
+
+  .principle blockquote {
+    border-left: 3px solid #4a90d9;
+    padding: 0.3rem 0.6rem;
+    margin: 0.5rem 0 0;
+    font-style: italic;
+    font-size: 0.8rem;
+    color: #666;
+    background: white;
+  }
+
+  .cluster-picker {
     display: flex;
-    flex-wrap: wrap;
     gap: 0.5rem;
+    flex-wrap: wrap;
     margin-bottom: 1rem;
   }
 
-  .principle-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
+  .cluster-picker button {
     padding: 0.5rem 1rem;
     border: 2px solid #e0e0e0;
-    border-radius: 8px;
     background: #f8f9fa;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font: inherit;
   }
 
-  .principle-btn.active {
+  .cluster-picker button.active {
     border-color: #4a90d9;
     background: #eef4fb;
   }
 
-  .score-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  .principle-detail {
+  .cluster-diagram {
     background: #fafafa;
     padding: 1.5rem;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px solid #e0e0e0;
+    text-align: center;
   }
 
-  .detail-header {
+  .pillar {
+    display: inline-block;
+    background: #4a90d9;
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  .spokes {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
-  .detail-header h3 { margin: 0; }
+  .spoke {
+    padding: 0.5rem 0.8rem;
+    background: #eef4fb;
+    border: 1px solid #c7dcf3;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #1a4b7a;
+  }
 
-  .score-badge {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: #f0f0f0;
+  }
+
+  .status {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
     color: white;
     font-size: 0.75rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    text-transform: uppercase;
-    font-weight: 600;
+    font-weight: 700;
   }
 
-  .principle-detail ul { padding-left: 1.2rem; }
-  .principle-detail li { margin-bottom: 0.4rem; font-size: 0.9rem; }
+  .callout {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
 
   pre {
     background: #1e1e1e;
@@ -317,14 +504,54 @@ than Next.js on cold starts...\`;
     border-radius: 8px;
     overflow-x: auto;
     font-size: 0.78rem;
-    line-height: 1.4;
   }
 
-  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-  th, td { padding: 0.6rem; text-align: left; border-bottom: 1px solid #e0e0e0; }
-  th { background: #f0f0f0; }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
 
-  section { margin-bottom: 2.5rem; }
+  .col {
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+  }
+
+  .col.breadth {
+    background: #fef2f2;
+  }
+
+  .col.depth {
+    background: #f0fdf4;
+  }
+
+  .col h3 {
+    margin-top: 0;
+  }
+
+  .col ul {
+    padding-left: 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .verdict {
+    padding: 0.5rem;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .verdict.bad {
+    background: #fecaca;
+    color: #991b1b;
+  }
+
+  .verdict.good {
+    background: #dcfce7;
+    color: #166534;
+  }
 </style>`,
 			language: 'svelte'
 		}

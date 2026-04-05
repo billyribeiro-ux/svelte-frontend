@@ -8,69 +8,80 @@ const lesson: LessonData = {
 		module: 11,
 		lessonIndex: 6
 	},
-	description: `Errors are inevitable — network failures, invalid data, bugs. Svelte 5 introduces <svelte:boundary> as an error boundary that catches runtime errors in child components. It renders a "failed" snippet when an error occurs and provides a reset function to retry. This replaces SvelteKit's +error.svelte for component-level error handling.
+	description: `Errors are inevitable — network failures, invalid data, bugs. SvelteKit gives you three complementary tools for handling them:
 
-As of SvelteKit 2.54 and Svelte 5.53, error boundaries can now catch rendering errors on the SERVER as well. Enable the experimental.handleRenderingErrors flag in svelte.config.js to wrap your route components in an error boundary that routes SSR errors to the nearest +error.svelte page — previously these became generic 500 pages.
+1. <svelte:boundary> — Svelte 5's component-level error boundary. Catches runtime errors in child components and renders a failed snippet with a reset function.
+2. +error.svelte — SvelteKit's route-level error page. Catches errors thrown from load functions, form actions, or (with handleRenderingErrors) rendering.
+3. handleError hook — the lowest-level catch-all in hooks.server.ts and hooks.client.ts for logging and transforming errors into App.Error.
 
-This lesson covers <svelte:boundary> for component errors, +error.svelte for route errors, and the new server-side rendering error pathway.`,
+Boundaries nest: an inner boundary catches errors first, and only unhandled errors propagate out. As of SvelteKit 2.54 and Svelte 5.53, error boundaries can catch rendering errors on the SERVER as well. Enable the experimental.handleRenderingErrors flag in svelte.config.js.`,
 	objectives: [
 		'Use <svelte:boundary> to catch and handle component errors',
-		'Render a fallback UI with the failed snippet when errors occur',
+		'Render a fallback UI with the failed snippet',
 		'Use the reset function to retry after an error',
-		'Understand how SvelteKit +error.svelte pages work for route errors',
+		'Nest boundaries so granular failures do not take down the whole page',
+		'Distinguish expected errors (error(404)) from unexpected ones',
+		'Wire up +error.svelte at multiple route levels',
+		'Use the handleError hook for logging and App.Error shaping',
 		'Enable handleRenderingErrors for server-side error boundaries (kit@2.54)'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  let shouldError: boolean = $state(false);
+  let widgetAError: boolean = $state(false);
+  let widgetBError: boolean = $state(false);
+  let outerError: boolean = $state(false);
   let errorCount: number = $state(0);
 
-  function riskyOperation(): string {
-    if (shouldError) {
-      throw new Error('Something went wrong! (Error #' + (++errorCount) + ')');
+  function riskyWidget(label: string, shouldFail: boolean): string {
+    if (shouldFail) {
+      throw new Error(\`Widget "\${label}" failed (#\${++errorCount})\`);
     }
-    return 'Operation succeeded!';
+    return \`Widget \${label}: OK\`;
   }
-
-  let triggerChild: boolean = $state(false);
 </script>
 
 <main>
   <h1>Error Pages & &lt;svelte:boundary&gt;</h1>
 
   <section>
-    <h2>&lt;svelte:boundary&gt; — Error Boundaries</h2>
-    <pre>{\`<!-- Catches errors in child components -->
-<svelte:boundary>
+    <h2>&lt;svelte:boundary&gt; — Component Error Boundaries</h2>
+    <pre>{\`<!-- Catches errors thrown during render or in effects of child components -->
+<svelte:boundary onerror={(err, reset) => console.error(err)}>
   <RiskyComponent />
 
   {#snippet failed(error, reset)}
-    <p>Error: {error.message}</p>
+    <p>Error: {(error as Error).message}</p>
     <button onclick={reset}>Try Again</button>
   {/snippet}
 </svelte:boundary>\`}</pre>
+    <p class="callout">
+      The <code>failed</code> snippet receives <code>(error, reset)</code>.
+      Calling <code>reset()</code> re-creates the boundary's children from
+      scratch. An optional <code>onerror</code> handler fires for every caught
+      error — perfect for reporting to Sentry.
+    </p>
   </section>
 
   <section>
-    <h2>Live Demo</h2>
+    <h2>Single Boundary Demo</h2>
     <label>
-      <input type="checkbox" bind:checked={shouldError} />
-      Enable error mode
+      <input type="checkbox" bind:checked={outerError} />
+      Enable error in outer boundary
     </label>
 
     <svelte:boundary>
       <div class="safe-zone">
-        <p>Result: <strong>{riskyOperation()}</strong></p>
-        <p>This content is inside the error boundary.</p>
+        <p>Result: <strong>{riskyWidget('outer', outerError)}</strong></p>
+        <p>This content is inside a single error boundary.</p>
       </div>
 
-      {#snippet failed(error: App.Error, reset: () => void)}
+      {#snippet failed(error, reset)}
         <div class="error-ui">
           <h3>Something Broke</h3>
-          <p class="error-msg">{error.message}</p>
-          <button onclick={() => { shouldError = false; reset(); }}>
+          <p class="error-msg">{(error as Error).message}</p>
+          <button onclick={() => { outerError = false; reset(); }}>
             Fix & Retry
           </button>
           <button onclick={reset}>
@@ -79,6 +90,58 @@ This lesson covers <svelte:boundary> for component errors, +error.svelte for rou
         </div>
       {/snippet}
     </svelte:boundary>
+  </section>
+
+  <section>
+    <h2>Nested Boundaries — Granular Recovery</h2>
+    <p>
+      Wrap each independent widget in its own boundary so one broken component
+      doesn't take down the entire page. Errors bubble up to the <em>nearest</em>
+      boundary only.
+    </p>
+    <label>
+      <input type="checkbox" bind:checked={widgetAError} />
+      Break Widget A
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={widgetBError} />
+      Break Widget B
+    </label>
+
+    <div class="dashboard">
+      <svelte:boundary>
+        <div class="widget">
+          <h4>Widget A</h4>
+          <p>{riskyWidget('A', widgetAError)}</p>
+        </div>
+        {#snippet failed(error, reset)}
+          <div class="widget widget-failed">
+            <h4>Widget A — failed</h4>
+            <p class="error-msg">{(error as Error).message}</p>
+            <button onclick={() => { widgetAError = false; reset(); }}>Recover</button>
+          </div>
+        {/snippet}
+      </svelte:boundary>
+
+      <svelte:boundary>
+        <div class="widget">
+          <h4>Widget B</h4>
+          <p>{riskyWidget('B', widgetBError)}</p>
+        </div>
+        {#snippet failed(error, reset)}
+          <div class="widget widget-failed">
+            <h4>Widget B — failed</h4>
+            <p class="error-msg">{(error as Error).message}</p>
+            <button onclick={() => { widgetBError = false; reset(); }}>Recover</button>
+          </div>
+        {/snippet}
+      </svelte:boundary>
+    </div>
+    <p class="callout">
+      Break one widget — the other keeps working. Each boundary is a blast
+      radius. In a real app this might be a charts panel, a chat widget, and
+      a notifications list all on one dashboard.
+    </p>
   </section>
 
   <section>
@@ -113,56 +176,134 @@ export default {
   </section>
 
   <section>
-    <h2>SvelteKit Error Pages</h2>
+    <h2>SvelteKit Route Error Pages</h2>
+    <p>
+      <code>+error.svelte</code> is SvelteKit's route-level error page. It renders
+      whenever a load function or form action in that route (or any descendant)
+      throws. Place one at each level of your tree to provide context-aware
+      fallbacks.
+    </p>
     <pre>{\`src/routes/
-├── +error.svelte          ← Root error page
+├── +error.svelte          ← Root fallback (catches everything)
 ├── +page.svelte
-└── blog/
-    ├── +error.svelte      ← Blog-specific error page
-    └── [slug]/
-        └── +page.svelte
-
-<!-- +error.svelte -->
+├── blog/
+│   ├── +error.svelte      ← Blog-specific error page
+│   ├── +page.svelte
+│   └── [slug]/
+│       ├── +page.svelte
+│       └── +page.server.ts
+└── admin/
+    ├── +error.svelte      ← Admin-specific (maybe different styling)
+    └── +page.svelte\`}</pre>
+    <pre>{\`<!-- src/routes/+error.svelte -->
 <script lang="ts">
   import { page } from '$app/state';
 </script>
 
-<h1>{page.status}: {page.error?.message}</h1>
+<h1>{page.status}</h1>
+<p>{page.error?.message}</p>
 
 {#if page.status === 404}
-  <p>Page not found.</p>
+  <p>The page you're looking for doesn't exist.</p>
+  <a href="/">Go home</a>
+{:else if page.status === 403}
+  <p>You don't have permission to view this page.</p>
 {:else}
-  <p>Something went wrong.</p>
+  <p>Something went wrong. We've been notified.</p>
 {/if}\`}</pre>
   </section>
 
   <section>
-    <h2>Throwing Errors in Load</h2>
+    <h2>Expected Errors: error(status, message)</h2>
     <pre>{\`// +page.server.ts
 import { error } from '@sveltejs/kit';
+import type { PageServerLoad } from './$types';
 
-export function load({ params }) {
-  const post = db.getPost(params.slug);
-
+export const load: PageServerLoad = async ({ params }) => {
+  const post = await db.getPost(params.slug);
   if (!post) {
-    // This renders the nearest +error.svelte
+    // This is an EXPECTED error — 404, renders the nearest +error.svelte
     error(404, { message: 'Post not found' });
   }
-
+  if (post.draft && !locals.user?.isAdmin) {
+    error(403, { message: 'Not published yet' });
+  }
   return { post };
-}\`}</pre>
+};\`}</pre>
+    <p class="callout">
+      <code>error(status, message)</code> throws a special error that SvelteKit
+      recognizes as <em>expected</em>. It does NOT go through <code>handleError</code>
+      and is not logged as a crash. Unexpected errors (anything else thrown) DO
+      go through <code>handleError</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Typed Errors with App.Error</h2>
+    <pre>{\`// src/app.d.ts
+declare global {
+  namespace App {
+    interface Error {
+      message: string;
+      code?: string;      // your custom fields
+      requestId?: string;
+    }
+  }
+}
+
+export {};\`}</pre>
+    <pre>{\`// Anywhere in the app — error() now accepts your shape
+error(500, {
+  message: 'Database unreachable',
+  code: 'DB_DOWN',
+  requestId: crypto.randomUUID()
+});\`}</pre>
+  </section>
+
+  <section>
+    <h2>handleError Hook</h2>
+    <pre>{\`// src/hooks.server.ts
+import type { HandleServerError } from '@sveltejs/kit';
+import * as Sentry from '@sentry/sveltekit';
+
+export const handleError: HandleServerError = async ({ error, event, status, message }) => {
+  const requestId = crypto.randomUUID();
+
+  // Log & report — only unexpected errors reach this hook
+  console.error('[server error]', requestId, error);
+  Sentry.captureException(error, { extra: { requestId, url: event.url.href } });
+
+  // The return value becomes page.error on the error page
+  return {
+    message: 'An unexpected error occurred',
+    code: 'INTERNAL',
+    requestId
+  };
+};\`}</pre>
+    <pre>{\`// src/hooks.client.ts — same API, for client-side errors
+import type { HandleClientError } from '@sveltejs/kit';
+
+export const handleError: HandleClientError = async ({ error, event }) => {
+  console.error('[client error]', error);
+  return { message: 'Something went wrong on the client' };
+};\`}</pre>
   </section>
 </main>
 
 <style>
-  main { max-width: 600px; margin: 0 auto; font-family: sans-serif; }
+  main { max-width: 720px; margin: 0 auto; font-family: sans-serif; padding: 1rem; }
   section { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
-  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; }
+  pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.78rem; }
+  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
   .safe-zone { background: #e8f5e9; padding: 1rem; border-radius: 4px; border: 2px solid #4caf50; }
   .error-ui { background: #ffebee; padding: 1rem; border-radius: 4px; border: 2px solid #f44336; }
-  .error-msg { color: #d32f2f; font-family: monospace; }
-  label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 1rem; }
-  button { padding: 0.5rem 1rem; cursor: pointer; margin-right: 0.5rem; }
+  .error-msg { color: #d32f2f; font-family: monospace; font-size: 0.85rem; }
+  label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem; }
+  button { padding: 0.4rem 0.8rem; cursor: pointer; margin-right: 0.5rem; font-size: 0.85rem; }
+  .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem; }
+  .widget { background: #e8f5e9; border: 2px solid #4caf50; border-radius: 6px; padding: 0.75rem; }
+  .widget h4 { margin: 0 0 0.5rem; font-size: 0.9rem; }
+  .widget-failed { background: #ffebee; border-color: #f44336; }
   .note {
     margin-top: 0.75rem;
     padding: 0.6rem 0.8rem;
