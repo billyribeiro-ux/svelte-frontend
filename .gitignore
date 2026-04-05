@@ -3,6 +3,12 @@ node_modules
 build
 dist
 electron/build
+test-results
+playwright-report
+tests/reports/*
+!tests/reports/.gitkeep
+coverage
+.vitest-cache
 .env
 .env.*
 !.env.example
