@@ -146,6 +146,94 @@ In this lesson we build **two fully worked compound patterns** in a single file:
   // Reference useTabs / useAccordion so TS does not warn about unused.
   void useTabs;
   void useAccordion;
+
+  // ----------------------------------------------------------------
+  // Source snippets shown in the <details> sections below.
+  // We build them with string concatenation so the literal
+  // "</scr" + "ipt>" does not get parsed as the end of THIS script.
+  // ----------------------------------------------------------------
+  const tabsSource =
+\`<!-- Tabs.svelte — root, provides context -->
+<script lang="ts">
+  import { setContext, type Snippet } from 'svelte';
+  const TABS_KEY = Symbol('tabs');
+  interface TabsContext {
+    readonly active: string;
+    select(id: string): void;
+  }
+  let { children, initial = '' }: { children: Snippet; initial?: string } = $props();
+  let active = $state(initial);
+  setContext<TabsContext>(TABS_KEY, {
+    get active() { return active; },
+    select(id) { active = id; }
+  });
+</\` + \`script>
+{@render children()}
+
+<!-- Tab.svelte — reads context, renders a button -->
+<\` + \`script lang="ts">
+  import { getContext } from 'svelte';
+  let { id, children } = $props();
+  const tabs = getContext(TABS_KEY);
+</\` + \`script>
+<button
+  class:active={tabs.active === id}
+  onclick={() => tabs.select(id)}
+>{@render children()}</button>
+
+<!-- TabPanel.svelte — only renders if active -->
+<\` + \`script lang="ts">
+  import { getContext } from 'svelte';
+  let { id, children } = $props();
+  const tabs = getContext(TABS_KEY);
+</\` + \`script>
+{#if tabs.active === id}
+  <div role="tabpanel">{@render children()}</div>
+{/if}\`;
+
+  const accordionSource =
+\`<!-- Accordion.svelte — root -->
+<script lang="ts">
+  import { setContext, type Snippet } from 'svelte';
+  const KEY = Symbol('accordion');
+  interface Ctx {
+    isOpen(id: string): boolean;
+    toggle(id: string): void;
+  }
+  let { children, allowMultiple = false }:
+    { children: Snippet; allowMultiple?: boolean } = $props();
+  let open: string[] = $state([]);
+  setContext<Ctx>(KEY, {
+    isOpen: (id) => open.includes(id),
+    toggle(id) {
+      if (open.includes(id))  open = open.filter((x) => x !== id);
+      else if (allowMultiple) open = [...open, id];
+      else                    open = [id];
+    }
+  });
+</\` + \`script>
+{@render children()}
+
+<!-- AccordionTrigger.svelte -->
+<\` + \`script lang="ts">
+  import { getContext } from 'svelte';
+  let { id, children } = $props();
+  const ctx = getContext(KEY);
+</\` + \`script>
+<button
+  onclick={() => ctx.toggle(id)}
+  aria-expanded={ctx.isOpen(id)}
+>{@render children()}</button>
+
+<!-- AccordionContent.svelte -->
+<\` + \`script lang="ts">
+  import { getContext } from 'svelte';
+  let { id, children } = $props();
+  const ctx = getContext(KEY);
+</\` + \`script>
+{#if ctx.isOpen(id)}
+  <div>{@render children()}</div>
+{/if}\`;
 </script>
 
 <main>
@@ -198,43 +286,7 @@ In this lesson we build **two fully worked compound patterns** in a single file:
 
     <details class="source">
       <summary>Show the component source</summary>
-      <pre>{\`<!-- Tabs.svelte — root, provides context -->
-<script lang="ts">
-  import { setContext, type Snippet } from 'svelte';
-  const TABS_KEY = Symbol('tabs');
-  interface TabsContext {
-    readonly active: string;
-    select(id: string): void;
-  }
-  let { children, initial = '' }: { children: Snippet; initial?: string } = \\$props();
-  let active = \\$state(initial);
-  setContext<TabsContext>(TABS_KEY, {
-    get active() { return active; },
-    select(id) { active = id; }
-  });
-</script>
-{@render children()}
-
-<!-- Tab.svelte — reads context, renders a button -->
-<script lang="ts">
-  import { getContext } from 'svelte';
-  let { id, children } = \\$props();
-  const tabs = getContext(TABS_KEY);
-</script>
-<button
-  class:active={tabs.active === id}
-  onclick={() => tabs.select(id)}
->{@render children()}</button>
-
-<!-- TabPanel.svelte — only renders if active -->
-<script lang="ts">
-  import { getContext } from 'svelte';
-  let { id, children } = \\$props();
-  const tabs = getContext(TABS_KEY);
-</script>
-{#if tabs.active === id}
-  <div role="tabpanel">{@render children()}</div>
-{/if}\`}</pre>
+      <pre>{tabsSource}</pre>
     </details>
   </section>
 
@@ -273,48 +325,7 @@ In this lesson we build **two fully worked compound patterns** in a single file:
 
     <details class="source">
       <summary>Show the component source</summary>
-      <pre>{\`<!-- Accordion.svelte — root -->
-<script lang="ts">
-  import { setContext, type Snippet } from 'svelte';
-  const KEY = Symbol('accordion');
-  interface Ctx {
-    isOpen(id: string): boolean;
-    toggle(id: string): void;
-  }
-  let { children, allowMultiple = false }:
-    { children: Snippet; allowMultiple?: boolean } = \\$props();
-  let open: string[] = \\$state([]);
-  setContext<Ctx>(KEY, {
-    isOpen: (id) => open.includes(id),
-    toggle(id) {
-      if (open.includes(id))       open = open.filter((x) => x !== id);
-      else if (allowMultiple)      open = [...open, id];
-      else                         open = [id];
-    }
-  });
-</script>
-{@render children()}
-
-<!-- AccordionTrigger.svelte -->
-<script lang="ts">
-  import { getContext } from 'svelte';
-  let { id, children } = \\$props();
-  const ctx = getContext(KEY);
-</script>
-<button
-  onclick={() => ctx.toggle(id)}
-  aria-expanded={ctx.isOpen(id)}
->{@render children()}</button>
-
-<!-- AccordionContent.svelte -->
-<script lang="ts">
-  import { getContext } from 'svelte';
-  let { id, children } = \\$props();
-  const ctx = getContext(KEY);
-</script>
-{#if ctx.isOpen(id)}
-  <div>{@render children()}</div>
-{/if}\`}</pre>
+      <pre>{accordionSource}</pre>
     </details>
   </section>
 
