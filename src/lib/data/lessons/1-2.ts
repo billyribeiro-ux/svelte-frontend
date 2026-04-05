@@ -237,7 +237,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
   h2 { font-size: 16px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
   section { margin-bottom: 24px; }
   .input-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-  input:not([type]), input[type="text"] {
+  input:not([type]) {
     padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px;
     font-size: 13px; flex: 1; min-width: 140px;
   }

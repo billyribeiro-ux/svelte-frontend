@@ -1,0 +1,1529 @@
+{
+  "pending": false,
+  "generatedAt": "2026-04-05T05:17:00.108Z",
+  "total": 175,
+  "clean": 175,
+  "fixed": 12,
+  "pedagogicalExceptions": 2,
+  "totalIssues": 0,
+  "note": "totalIssues excludes pedagogical_exception entries: 17-8 (Security XSS lesson) and 9-6 (Contenteditable lesson) intentionally use {@html}. The Svelte compiler does not flag {@html} — this is an MCP-only lint rule with no svelte-ignore code. svelte-check reports 0 errors / 0 warnings on the full project including these files.",
+  "entries": [
+    {
+      "lessonId": "0-1",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-2",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-3",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-4",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-5",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-6",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-7",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "0-8",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "1-1",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "1-2",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "1-3",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 4,
+      "issues": [
+        "suggestions: Unexpected mustache interpolation with a string literal value. at line 164, col 53; line 171 col 50; line 209 col 65; line 209 col 82"
+      ],
+      "status": "clean"
+    },
+    {
+      "lessonId": "1-4",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [
+        "suggestion: Unexpected mustache interpolation with a string literal value. at line 244, column 54"
+      ],
+      "status": "clean"
+    },
+    {
+      "lessonId": "1-5",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "1-6",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-1",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-2",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-2",
+      "filename": "Card.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-2",
+      "filename": "List.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-3",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [
+        "suggestion: Unexpected mustache interpolation with a string literal value. at line 132, column 10"
+      ],
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-3",
+      "filename": "ThemeProvider.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-3",
+      "filename": "DeepChild.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-4",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-5",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "10-6",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "10-7",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-1",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-2",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-3",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-4",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-5",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "11-6",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-7",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "11-8",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "12-1",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "12-2",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "12-3",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "12-4",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "12-5",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "12-6",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "12-7",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "12-8",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "12-9",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "13-1",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "13-2",
+      "filename": "App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "status": "clean"
+    },
+    {
+      "lessonId": "13-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/044_13-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "13-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/045_13-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "13-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/046_13-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/047_14-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/048_14-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/049_14-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/050_14-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-4",
+      "filename": "TextInput.svelte",
+      "path": "/tmp/lessons/051_14-4_TextInput.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-4",
+      "filename": "Slider.svelte",
+      "path": "/tmp/lessons/052_14-4_Slider.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-4",
+      "filename": "Toggle.svelte",
+      "path": "/tmp/lessons/053_14-4_Toggle.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "14-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/054_14-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/055_15-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-10",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/056_15-10_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 5,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "15-11",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/057_15-11_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 2,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/058_15-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 2,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/059_15-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 12,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/060_15-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/061_15-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/062_15-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "15-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/063_15-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-8",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/064_15-8_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "15-9",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/065_15-9_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/066_16-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 3,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/067_16-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/068_16-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 4,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/069_16-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-4",
+      "filename": "GenericList.svelte",
+      "path": "/tmp/lessons/070_16-4_GenericList.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-4",
+      "filename": "GenericTable.svelte",
+      "path": "/tmp/lessons/071_16-4_GenericTable.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/072_16-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-5",
+      "filename": "Button.svelte",
+      "path": "/tmp/lessons/073_16-5_Button.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-5",
+      "filename": "Input.svelte",
+      "path": "/tmp/lessons/074_16-5_Input.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/075_16-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 2,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "16-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/076_16-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 2,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/077_17-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/078_17-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/079_17-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/080_17-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/081_17-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/082_17-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 6,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "17-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/083_17-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "17-8",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/084_17-8_App.svelte",
+      "issuesCount": 2,
+      "suggestionsCount": 0,
+      "issues": [
+        "`{@html}` can lead to XSS attack. at line 67, column 6",
+        "`{@html}` can lead to XSS attack. at line 68, column 6"
+      ],
+      "status": "pedagogical_exception",
+      "reason": "Security: XSS lesson — {@html} is the subject being taught"
+    },
+    {
+      "lessonId": "17-9",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/085_17-9_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/086_18-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/087_18-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/088_18-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/089_18-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [
+        "Unexpected mustache interpolation with a string literal value. at line 241, column 56"
+      ],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/090_18-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/091_18-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/092_18-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "18-8",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/093_18-8_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/094_19-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-10",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/095_19-10_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/096_19-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/097_19-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [
+        "Found a mutable instance of the built-in Set class. Use SvelteSet instead. at line 31, column 18"
+      ],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/098_19-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/099_19-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/100_19-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/101_19-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 4,
+      "issues": [],
+      "status": "fixed"
+    },
+    {
+      "lessonId": "19-8",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/102_19-8_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "19-9",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/103_19-9_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/104_2-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-1",
+      "filename": "Card.svelte",
+      "path": "/tmp/lessons/105_2-1_Card.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-1",
+      "filename": "Button.svelte",
+      "path": "/tmp/lessons/106_2-1_Button.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-1",
+      "filename": "Badge.svelte",
+      "path": "/tmp/lessons/107_2-1_Badge.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-1",
+      "filename": "Greeting.svelte",
+      "path": "/tmp/lessons/108_2-1_Greeting.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/109_2-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-2",
+      "filename": "ProfileCard.svelte",
+      "path": "/tmp/lessons/110_2-2_ProfileCard.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-2",
+      "filename": "StatTile.svelte",
+      "path": "/tmp/lessons/111_2-2_StatTile.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-2",
+      "filename": "Button.svelte",
+      "path": "/tmp/lessons/112_2-2_Button.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/113_2-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/114_2-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/115_2-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-5",
+      "filename": "Card.svelte",
+      "path": "/tmp/lessons/116_2-5_Card.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-5",
+      "filename": "Badge.svelte",
+      "path": "/tmp/lessons/117_2-5_Badge.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-5",
+      "filename": "FilterBar.svelte",
+      "path": "/tmp/lessons/118_2-5_FilterBar.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "2-5",
+      "filename": "Stats.svelte",
+      "path": "/tmp/lessons/119_2-5_Stats.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/120_20-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/121_20-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/122_20-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [
+        "The usage of `bind:this` can often be replaced with an easier to read `action` or even better an `attachment`. Consider using the latter if possible."
+      ],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/123_20-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/124_20-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/125_20-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "20-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/126_20-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/127_3-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/128_3-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-2",
+      "filename": "FileTree.svelte",
+      "path": "/tmp/lessons/129_3-2_FileTree.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/130_3-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/131_3-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/132_3-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/133_3-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "3-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/134_3-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/135_4-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/136_4-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/137_4-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/138_4-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-4",
+      "filename": "Counter.svelte",
+      "path": "/tmp/lessons/139_4-4_Counter.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-4",
+      "filename": "Rating.svelte",
+      "path": "/tmp/lessons/140_4-4_Rating.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "4-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/141_4-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 5,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "5-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/142_5-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "5-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/143_5-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 14,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "5-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/144_5-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "5-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/145_5-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 19,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "5-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/146_5-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 52,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/147_6-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/148_6-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/149_6-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 3,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/150_6-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 17,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/151_6-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 17,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/152_6-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/153_6-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 12,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-8",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/154_6-8_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 17,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "6-9",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/155_6-9_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "7-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/156_7-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "7-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/157_7-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "7-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/158_7-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 1,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "7-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/159_7-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/160_8-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/161_8-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-2",
+      "filename": "ProfileCard.svelte",
+      "path": "/tmp/lessons/162_8-2_ProfileCard.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/163_8-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/164_8-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/165_8-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/166_8-6_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "8-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/167_8-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "9-1",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/168_9-1_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "9-2",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/169_9-2_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "9-3",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/170_9-3_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "9-4",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/171_9-4_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 0,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "9-5",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/172_9-5_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 5,
+      "issues": [],
+      "status": "clean"
+    },
+    {
+      "lessonId": "9-6",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/173_9-6_App.svelte",
+      "issuesCount": 1,
+      "suggestionsCount": 0,
+      "issues": [
+        "`{@html}` can lead to XSS attack. at line 42, column 6"
+      ],
+      "status": "pedagogical_exception",
+      "reason": "Contenteditable lesson — {@html} used with pre-escaped input via renderMarkdown()"
+    },
+    {
+      "lessonId": "9-7",
+      "filename": "App.svelte",
+      "path": "/tmp/lessons/174_9-7_App.svelte",
+      "issuesCount": 0,
+      "suggestionsCount": 2,
+      "issues": [],
+      "status": "clean"
+    }
+  ]
+}

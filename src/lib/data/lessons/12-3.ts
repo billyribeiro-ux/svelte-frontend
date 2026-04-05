@@ -178,7 +178,7 @@ Beyond request/response: when you need push-style updates, the Svelte ecosystem 
 
   // Always check response.ok!
   if (!response.ok) {
-    throw new Error(\`HTTP \${response.status}\`);
+    throw new Error(\\\`HTTP \\\${response.status}\\\`);
   }
 
   const data = await response.json();

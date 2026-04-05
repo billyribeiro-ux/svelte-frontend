@@ -89,11 +89,11 @@ export function load() {
 }
 
 // src/routes/+page.svelte
-<script lang="ts">
+<\${''}script lang="ts">
   let { data } = $props();
   // data.title = 'Welcome'
   // data.message = 'Hello from load!'
-</script>
+</\${''}script>
 
 <h1>{data.title}</h1>
 <p>{data.message}</p>\`}</pre>
@@ -126,9 +126,9 @@ function formatTitle(slug: string): string {
 }
 
 // src/routes/blog/[slug]/+page.svelte
-<script lang="ts">
+<\${''}script lang="ts">
   let { data } = $props();
-</script>
+</\${''}script>
 <h1>{data.title}</h1>\`}</pre>
     </section>
 
@@ -153,13 +153,13 @@ export const load: PageLoad = async ({ fetch }) => {
 };
 
 // src/routes/posts/+page.svelte
-<script lang="ts">
+<\${''}script lang="ts">
   interface Post {
     id: number;
     title: string;
   }
   let { data }: { data: { posts: Post[] } } = $props();
-</script>
+</\${''}script>
 
 {#each data.posts as post}
   <article>
@@ -315,10 +315,10 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 // The page automatically gets typed data:
 // src/routes/users/[id]/+page.svelte
-<script lang="ts">
+<\${''}script lang="ts">
   // TypeScript knows data.user exists and its shape
   let { data } = $props();
-</script>
+</\${''}script>
 
 <h1>{data.user.name}</h1>
 <p>{data.user.email}</p>\`}</pre>

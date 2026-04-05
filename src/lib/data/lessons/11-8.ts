@@ -287,12 +287,12 @@ export default {
         tool or a third-party icon pack and don't want dozens of
         <code>.svelte</code> files.
       </p>
-      <pre>{\`<script lang="ts">
+      <pre>{\`<\${''}script lang="ts">
   import { svgToSvelte } from 'svg-to-svelte';
 
   const homeSvg = \\\`<svg viewBox="0 0 24 24"><path d="M12 2L2 12..." /></svg>\\\`;
   const HomeIcon = svgToSvelte(homeSvg);
-</script>
+</\${''}script>
 
 <HomeIcon class="w-6 h-6 text-blue-500" />\`}</pre>
 

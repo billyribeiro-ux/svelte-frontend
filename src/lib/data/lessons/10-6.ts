@@ -124,7 +124,7 @@ room.send({ type: 'hello', text: 'world' });\`
       install: 'pnpm add motion-gpu',
       snippet: \`<script lang="ts">
   import { Shader } from 'motion-gpu';
-</script>
+<\\/script>
 
 <Shader code={\\\`
   @fragment fn main(@location(0) uv: vec2f) -> @location(0) vec4f {
@@ -156,7 +156,7 @@ export default defineConfig({
       snippet: \`<script lang="ts">
   import { Player, Waveform, VolumeSlider } from 'svelte-audio-ui';
   let src = $state('/song.mp3');
-</script>
+<\\/script>
 
 <Player {src}>
   <Waveform />
@@ -171,7 +171,7 @@ export default defineConfig({
       snippet: \`// src/routes/+layout.svelte
 <script lang="ts">
   import 'svelte-agentation/init';
-</script>
+<\\/script>
 
 <!-- Click any element in the browser:
      jumps straight to the source file. -->\`
@@ -202,7 +202,7 @@ export const router = createRouter({
   const Icon = svg(\\\`<svg viewBox="0 0 24 24">
     <path d="M12 2L2 22h20z" />
   </svg>\\\`);
-</script>
+<\\/script>
 
 <Icon class="hero-icon" />\`
     }

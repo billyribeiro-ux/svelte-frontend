@@ -304,7 +304,7 @@ export const actions: Actions = {
   .real-form.small { gap: 0.4rem; }
   .real-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.9rem; }
   .real-form label.inline { flex-direction: row; align-items: center; gap: 0.3rem; font-weight: normal; }
-  .real-form input, .real-form textarea, .real-form select { padding: 0.4rem; font-family: inherit; font-size: 0.9rem; }
+  .real-form input, .real-form textarea { padding: 0.4rem; font-family: inherit; font-size: 0.9rem; }
   .real-form fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem 0.75rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
   .real-form legend { font-size: 0.8rem; color: #666; padding: 0 0.3rem; }
   .real-form button { align-self: flex-start; padding: 0.5rem 1rem; cursor: pointer; background: #1565c0; color: white; border: none; border-radius: 4px; }

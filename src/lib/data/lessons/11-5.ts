@@ -84,6 +84,19 @@ This lesson covers dynamic titles, full SEO meta sets, Open Graph and Twitter Ca
         }
       : null
   );
+
+  const jsonLdPreExample = [
+    '<svelte:head>',
+    '  {@html \`<' + 'script type="application/ld+json">\${JSON.stringify({',
+    "    '@context': 'https://schema.org',",
+    "    '@type': 'Article',",
+    '    headline: data.post.title,',
+    "    author: { '@type': 'Person', name: data.post.author },",
+    '    datePublished: data.post.published,',
+    '    image: data.post.image',
+    '  })}</' + 'script>\`}',
+    '</svelte:head>'
+  ].join('\\n');
 </script>
 
 <!-- Real metadata for this playground page -->
@@ -99,8 +112,7 @@ This lesson covers dynamic titles, full SEO meta sets, Open Graph and Twitter Ca
   <meta name="twitter:description" content={meta.description} />
   <link rel="canonical" href={canonical} />
   {#if jsonLd}
-    <!-- svelte-ignore xss -->
-    {@html \`<script type="application/ld+json">\${JSON.stringify(jsonLd)}<\\/script>\`}
+    <svelte:element this={'script'} type="application/ld+json">{JSON.stringify(jsonLd)}</svelte:element>
   {/if}
 </svelte:head>
 
@@ -164,7 +176,7 @@ This lesson covers dynamic titles, full SEO meta sets, Open Graph and Twitter Ca
   <section>
     <h2>Full SEO Pattern</h2>
     <pre>{\`<!-- src/routes/blog/[slug]/+page.svelte -->
-<script lang="ts">
+<\${''}script lang="ts">
   import type { PageData } from './$types';
   import { page } from '$app/state';
 
@@ -173,7 +185,7 @@ This lesson covers dynamic titles, full SEO meta sets, Open Graph and Twitter Ca
   let canonical = $derived(
     \\\`https://mysite.com\\\${page.url.pathname}\\\`
   );
-</script>
+</\${''}script>
 
 <svelte:head>
   <title>{data.post.title} — My Blog</title>
@@ -249,16 +261,7 @@ This lesson covers dynamic titles, full SEO meta sets, Open Graph and Twitter Ca
       Render it as a <code>&lt;script type="application/ld+json"&gt;</code>
       inside <code>&lt;svelte:head&gt;</code>.
     </p>
-    <pre>{\`<svelte:head>
-  {@html \\\`<script type="application/ld+json">\${JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: data.post.title,
-    author: { '@type': 'Person', name: data.post.author },
-    datePublished: data.post.published,
-    image: data.post.image
-  })}<\\/script>\\\`}
-</svelte:head>\`}</pre>
+    <pre>{jsonLdPreExample}</pre>
     <p class="callout">
       The <code>&lt;/script&gt;</code> inside the template literal must be
       escaped as <code>&lt;\\/script&gt;</code> — otherwise the parser

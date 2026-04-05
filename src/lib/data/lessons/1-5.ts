@@ -240,7 +240,7 @@ By the end, you'll write clearer conditionals, avoid type-coercion bugs, and kno
   label { color: #444; font-size: 14px; display: flex; align-items: center; gap: 6px; }
   input[type="number"] { width: 70px; padding: 4px; border: 2px solid #ddd; border-radius: 4px; }
   input[type="range"] { width: 200px; }
-  input[type="text"], input:not([type]) { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; }
+  input:not([type]) { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; }
   .banner {
     background: #4ec9b0; color: white; padding: 10px 16px;
     border-radius: 6px; margin: 8px 0; font-weight: 600;
