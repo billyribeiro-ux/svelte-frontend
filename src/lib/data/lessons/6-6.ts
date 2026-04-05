@@ -14,7 +14,9 @@ The main trap: **destructuring** reactive values into plain variables kills the 
 
 Another trap: **primitive assignment** like <code>let copy = count</code>. Primitives are copied by value, so <code>copy</code> is frozen at its current number. Passing a primitive as a prop has the same effect.
 
-The fix: keep the **reactive source** accessible. Read <code>user.name</code> directly where you need it, or pass a **getter function** <code>() => user.name</code> across boundaries so the value is re-read each time.`,
+The fix: keep the **reactive source** accessible. Read <code>user.name</code> directly where you need it, or pass a **getter function** <code>() => user.name</code> across boundaries so the value is re-read each time.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Identify when destructuring breaks reactivity and why',
 		'Understand pass-by-value for primitives vs pass-by-reference for state',
@@ -243,6 +245,36 @@ formatName(() => user.name);\`}</pre>
   </ul>
 </div>
 
+<section class="pitfalls">
+  <h2>Common Pitfalls & Pro Tips</h2>
+  <ul class="pitfall-list">
+    <li>
+      <strong>Destructuring reactive state loses reactivity</strong>
+      Writing <code>const &#123; name &#125; = user</code> snapshots the current value — later mutations to <code>user.name</code> won't update it.
+    </li>
+    <li>
+      <strong>Passing $state to a function captures the current value</strong>
+      Function parameters receive primitives by value, so the callee sees a frozen copy unless you pass a getter.
+    </li>
+    <li>
+      <strong>Spreading &#123;...state&#125; creates a plain copy</strong>
+      The spread produces a snapshot object detached from the reactive graph — mutations to the original aren't reflected.
+    </li>
+    <li>
+      <strong>Use the getter pattern for cross-module reactivity</strong>
+      Export <code>() => value</code> (or an object with a getter) instead of the value itself so consumers always read the latest.
+    </li>
+    <li>
+      <strong>$state in a plain object field vs inside a class</strong>
+      Top-level <code>$state</code> fields must live in a class or be exported via a getter — a bare object field won't be picked up by the compiler.
+    </li>
+    <li>
+      <strong>$derived re-establishes reactivity over a primitive</strong>
+      When you must have a local reactive variable, wrap the expression in <code>$derived</code> rather than a plain <code>let</code>.
+    </li>
+  </ul>
+</section>
+
 <style>
   h1 { color: #333; }
   .lead { color: #555; max-width: 720px; }
@@ -316,6 +348,13 @@ formatName(() => user.name);\`}</pre>
   .rules h3 { margin: 0 0 0.5rem; }
   .rules ul { margin: 0; padding-left: 1.2rem; }
   .rules li { font-size: 0.9rem; margin: 0.25rem 0; }
+
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 
   @media (max-width: 760px) {
     .comparison { grid-template-columns: 1fr; }

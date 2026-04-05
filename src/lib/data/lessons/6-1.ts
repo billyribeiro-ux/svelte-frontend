@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 <code>$derived(expression)</code> works for simple expressions like <code>count * 2</code>. For multi-statement logic — loops, conditionals, intermediate variables — use <code>$derived.by(() => { ... return value; })</code>. Both give you the same reactive guarantees.
 
-The key insight: **derived values are read-only**. You don't set them — Svelte computes them for you. This eliminates an entire category of bugs where computed values get out of sync with their source. Derived values are also **lazy** and **memoised** — they only recompute when someone reads them and a dependency has actually changed.`,
+The key insight: **derived values are read-only**. You don't set them — Svelte computes them for you. This eliminates an entire category of bugs where computed values get out of sync with their source. Derived values are also **lazy** and **memoised** — they only recompute when someone reads them and a dependency has actually changed.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Create derived state with $derived for simple expressions',
 		'Use $derived.by for multi-step computed values',
@@ -219,6 +221,25 @@ The key insight: **derived values are read-only**. You don't set them — Svelte
   that's the #1 source of stale-state bugs.
 </div>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Add a <code>parity</code> derived value that reads <code>'even'</code> or <code>'odd'</code> based on <code>count</code>, and display it next to the count.
+      <span class="hint">Hint: <code>$derived(count % 2 === 0 ? 'even' : 'odd')</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Add two new <code>$state</code> inputs (<code>width</code> and <code>height</code>) plus derived <code>area</code> and <code>perimeter</code> values, all shown in a small rectangle card.
+      <span class="hint">Hint: <code>$derived(width * height)</code> and <code>$derived(2 * (width + height))</code>.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Compute a <code>factorial</code> of <code>count</code> using <code>$derived.by</code> with a loop. Guard against negative numbers.
+      <span class="hint">Hint: <code>$derived.by(() =&gt; { let r = 1; for (let i = 2; i &lt;= count; i++) r *= i; return r; })</code>.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #333; }
   .lead { color: #555; max-width: 720px; }
@@ -356,6 +377,24 @@ The key insight: **derived values are read-only**. You don't set them — Svelte
     margin-top: 1.5rem;
   }
   code { background: #e5e7eb; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice .hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
+  }
 </style>`,
 			language: 'svelte'
 		}

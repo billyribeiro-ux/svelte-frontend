@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 This pattern is powerful for modelling domain objects with encapsulated reactive state and methods. A Todo class can have a reactive done field and a toggle method, and Svelte will track all reads and writes automatically. Class instances behave just like any other reactive state — they work with $derived, $effect, and bind: directives.
 
-Reactive classes replace the old writable-store pattern in Svelte 5. Instead of writing stores that expose subscribe/set/update, you write a plain TypeScript class with runes inside. The class is typed, introspectable, composable, and works with any reactive context — component markup, $derived chains, $effect bodies, or other classes.`,
+Reactive classes replace the old writable-store pattern in Svelte 5. Instead of writing stores that expose subscribe/set/update, you write a plain TypeScript class with runes inside. The class is typed, introspectable, composable, and works with any reactive context — component markup, $derived chains, $effect bodies, or other classes.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Declare reactive class fields using $state() in class definitions',
 		'Create class methods that mutate reactive state',
@@ -321,6 +323,25 @@ Reactive classes replace the old writable-store pattern in Svelte 5. Instead of 
   {/if}
 </section>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Add an <code>undo()</code> method to the <code>TodoList</code> class that restores the most recently removed todo.
+      <span class="practice-hint">Hint: keep a private <code>lastRemoved</code> field; set it in <code>remove()</code> and push it back in <code>undo()</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Add a <code>sortedByPriority</code> <code>$derived</code> getter on the <code>TodoList</code> class that returns todos with <code>high</code> first, then <code>medium</code>, then <code>low</code>.
+      <span class="practice-hint">Hint: define it like <code>sortedByPriority = $derived.by(() =&gt; [...this.todos].sort(...))</code> using a priority-to-number map.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Add a <code>discount</code> field to the <code>Cart</code> class (a percent) and a derived <code>discountedTotal</code> that applies it before tax.
+      <span class="practice-hint">Hint: <code>discount: number = $state(0)</code> and a new <code>$derived</code> that multiplies <code>subtotal * (1 - discount / 100)</code>.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   section {
@@ -402,6 +423,24 @@ Reactive classes replace the old writable-store pattern in Svelte 5. Instead of 
   .totals .grand {
     margin-top: 0.25rem; padding-top: 0.25rem;
     border-top: 1px solid #eee; font-size: 1rem;
+  }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
   }
 </style>`,
 			language: 'svelte'

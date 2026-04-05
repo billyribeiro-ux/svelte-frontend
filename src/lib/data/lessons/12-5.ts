@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 AbortController is the standard cancellation mechanism for fetch (and many other APIs). You create one, pass its .signal to fetch, and call .abort() to cancel. The fetch rejects with an AbortError — which you handle separately from real errors.
 
-SvelteKit layers a modern helper on top: getAbortSignal() inside $derived and $effect returns a signal that is automatically aborted when the computation re-runs or the effect cleans up. This kills an entire class of "stale request" bugs without any manual bookkeeping.`,
+SvelteKit layers a modern helper on top: getAbortSignal() inside $derived and $effect returns a signal that is automatically aborted when the computation re-runs or the effect cleans up. This kills an entire class of "stale request" bugs without any manual bookkeeping.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Create an AbortController and wire its signal into fetch',
 		'Handle AbortError separately from real network errors',
@@ -301,6 +303,36 @@ export const load: PageLoad = async ({ fetch, params }) => {
     </div>
     <button onclick={clearLog}>Clear</button>
   </section>
+
+  <section class="pitfalls">
+    <h2>Common Pitfalls & Pro Tips</h2>
+    <ul class="pitfall-list">
+      <li>
+        <strong>Forgetting to abort old requests on navigation</strong>
+        Without cancellation, a slow load from the previous page can resolve after navigation and clobber the new page's data.
+      </li>
+      <li>
+        <strong>Swallowing AbortError vs re-throwing</strong>
+        Check <code>err.name === 'AbortError'</code> and return silently — re-throwing it surfaces a fake "error" to the user.
+      </li>
+      <li>
+        <strong>Using getAbortSignal outside an effect or derived</strong>
+        It only works inside a reactive context; calling it from a regular function throws at runtime.
+      </li>
+      <li>
+        <strong>Debounce without cancellation causes pile-ups</strong>
+        Debouncing alone delays requests but doesn't cancel in-flight ones — combine debounce with an AbortController.
+      </li>
+      <li>
+        <strong>Aborting after resolve is a harmless no-op</strong>
+        Calling <code>abort()</code> on a finished request does nothing, so you can always call it defensively in cleanup.
+      </li>
+      <li>
+        <strong>One controller per logical request</strong>
+        Reuse a controller for a group of related fetches you want to cancel together; never share across unrelated features.
+      </li>
+    </ul>
+  </section>
 </main>
 
 <style>
@@ -319,6 +351,12 @@ export const load: PageLoad = async ({ fetch, params }) => {
   .empty { color: #666; font-style: italic; }
   button { padding: 0.5rem 1rem; cursor: pointer; }
   .callout { margin-top: 0.75rem; padding: 0.75rem 1rem; background: #fff3e0; border-left: 3px solid #ff9800; border-radius: 4px; font-size: 0.9rem; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

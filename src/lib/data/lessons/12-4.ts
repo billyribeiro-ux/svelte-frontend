@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 JavaScript gives you four: Promise.all (all must succeed), Promise.allSettled (collect every outcome), Promise.race (first to settle wins), and Promise.any (first to succeed wins, failures ignored until all fail). Choosing the wrong one turns an elegant dashboard into a brittle page that goes fully blank if any single widget fails.
 
-This lesson covers all four combinators and the partial-failure pattern that real production dashboards depend on.`,
+This lesson covers all four combinators and the partial-failure pattern that real production dashboards depend on.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Use Promise.all for "all must succeed" workloads',
 		'Use Promise.allSettled to collect every outcome (partial failure tolerance)',
@@ -337,6 +339,25 @@ try {
     </div>
     <button onclick={clearLog}>Clear</button>
   </section>
+
+  <section class="practice">
+    <h2>Try It Yourself</h2>
+    <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+    <ol>
+      <li>
+        <strong>1.</strong> Add a new demo that fetches a fake <code>user</code>, <code>posts</code> and <code>comments</code> in parallel with <code>Promise.all</code> and logs the total time.
+        <span class="practice-hint">Hint: wrap three <code>fakeFetch</code> calls in <code>Promise.all([...])</code> and subtract <code>performance.now()</code>.</span>
+      </li>
+      <li>
+        <strong>2.</strong> Add a fifth widget to the dashboard that always throws, and confirm the other four still render thanks to <code>Promise.allSettled</code>.
+        <span class="practice-hint">Hint: push another entry into the widgets state and return a rejected promise from its loader.</span>
+      </li>
+      <li>
+        <strong>3.</strong> Build a "redundant search" demo: race two <code>fakeFetch</code> calls with different delays using <code>Promise.race</code> and display whichever wins.
+        <span class="practice-hint">Hint: <code>await Promise.race([fastMirror(), slowMirror()])</code> and log the winner.</span>
+      </li>
+    </ol>
+  </section>
 </main>
 
 <style>
@@ -361,6 +382,24 @@ try {
   .widget-body { margin-top: 0.25rem; font-size: 0.9rem; }
   .widget-body.err { color: #c62828; }
   .widget-body.muted { color: #999; font-style: italic; }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
+  }
 </style>`,
 			language: 'svelte'
 		}

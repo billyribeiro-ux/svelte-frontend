@@ -8,14 +8,35 @@ const lesson: LessonData = {
 		module: 10,
 		lessonIndex: 6
 	},
-	description: `Real applications rely on external packages from npm. Understanding how to install, import, and use third-party libraries is essential for building production Svelte apps. The package.json file tracks your dependencies, and bundlers resolve imports automatically.
+	description: `Real applications are glued together from **packages** — small, versioned units of code published to a registry (npm) and installed via a package manager (\`npm\`, \`pnpm\`, \`yarn\`, or \`bun\`). Understanding the mechanics of this ecosystem is essential the moment you step outside of a single-file playground.
 
-This lesson covers the mechanics of working with packages in a Svelte project, from installing a library to importing and using it. It also introduces the Svelte Ecosystem of April 2026 — eight community-maintained libraries that cover realtime networking, GPU shaders, documentation, accessible audio, dev inspection, cross-framework routing, and asset pipelines. Knowing what's available saves you from reinventing wheels.`,
+**\`package.json\`** is the contract of your project. It declares:
+
+- **\`dependencies\`** — packages needed at runtime in the browser or on the server. Examples: \`date-fns\`, \`zod\`, \`svelte\` itself.
+- **\`devDependencies\`** — tools used only during development or at build time: \`vite\`, \`typescript\`, \`@sveltejs/kit\`, linters, formatters. Not shipped to production.
+- **\`peerDependencies\`** — what the package expects its *host* project to provide (common for plugins and component libraries).
+- **\`scripts\`** — named shortcuts run with \`npm run <name>\`.
+
+**Semver** — version numbers have the form \`MAJOR.MINOR.PATCH\`. \`^3.6.0\` means "anything compatible with 3.6.0" (i.e. \`< 4.0.0\`). \`~3.6.0\` is stricter — only patch bumps. An exact pin like \`3.6.0\` accepts only that version.
+
+**\`pnpm\` vs \`npm\` vs \`yarn\`** — for Svelte projects in 2026, **pnpm** is the de-facto standard: it's dramatically faster, uses hard links to share packages across projects (saving disk space), and catches phantom-dependency bugs by default. Commands mirror npm: \`pnpm add foo\`, \`pnpm add -D foo\`, \`pnpm install\`, \`pnpm dlx create-svelte\`.
+
+**Install flags** worth knowing:
+- \`-D\` / \`--save-dev\` — adds to \`devDependencies\`.
+- \`-E\` / \`--save-exact\` — pins the exact version, no \`^\`.
+- \`--save-peer\` — adds to \`peerDependencies\`.
+- \`-g\` / \`--global\` — installs system-wide (prefer \`pnpm dlx\` / \`npx\` for one-shot runs).
+
+**Importing** — ES modules let you pull in just what you need. Bundlers like Vite tree-shake unused exports, so \`import { format } from 'date-fns'\` only bills you for \`format\` in the final bundle. Dynamic \`import()\` gives you code splitting: the imported module becomes its own chunk and loads on demand.
+
+Beyond the mechanics, this lesson also tours the **Svelte Ecosystem — April 2026**: eight community-maintained libraries worth knowing, covering realtime networking, GPU shaders, documentation, accessible audio, dev inspection, cross-framework routing, and asset pipelines. Click through the cards to see install commands and usage snippets.`,
 	objectives: [
-		'Understand the role of package.json and node_modules',
-		'Import and use third-party packages in Svelte components',
-		'Distinguish between dependencies and devDependencies',
-		'Handle common package import patterns and side effects',
+		'Understand package.json, node_modules, and the role of a lockfile',
+		'Distinguish between dependencies, devDependencies, and peerDependencies',
+		'Read and write semver ranges with ^, ~, and exact pins',
+		'Pick between npm, pnpm, and yarn, and know the common install flags',
+		'Use named, default, type-only, and dynamic imports effectively',
+		'Avoid side-effect imports and understand tree-shaking',
 		'Know the curated Svelte Ecosystem libraries for April 2026'
 	],
 	files: [
@@ -203,38 +224,136 @@ export const router = createRouter({
   <h1>Packages & Dependencies</h1>
 
   <section>
-    <h2>Installing Packages</h2>
-    <pre>{\`# Install a runtime dependency
-npm install date-fns
+    <h2>1. Package managers &amp; install flags</h2>
+    <p>
+      Svelte projects in 2026 overwhelmingly use <strong>pnpm</strong>.
+      It's faster than <code>npm</code>, uses content-addressed
+      hard links to share packages across every project on your
+      machine, and refuses to resolve "phantom dependencies"
+      by default. Commands are near-identical:
+    </p>
+    <pre>{\`# Create a new SvelteKit app
+pnpm create svelte@latest my-app
+cd my-app
+pnpm install
 
-# Install a dev-only dependency
-npm install -D @sveltejs/adapter-auto
+# Add a runtime dependency
+pnpm add date-fns              # or: npm install date-fns
 
-# package.json tracks everything:
-{
-  "dependencies": {
-    "date-fns": "^3.6.0"    // needed at runtime
-  },
-  "devDependencies": {
-    "@sveltejs/kit": "^2.0.0"  // needed only for building
-  }
-}\`}</pre>
+# Add a dev-only dependency
+pnpm add -D vitest             # or: npm install -D vitest
+
+# Pin an exact version (no ^)
+pnpm add -E zod@3.23.8
+
+# Run a one-shot tool without installing it permanently
+pnpm dlx degit user/repo my-clone
+\`}</pre>
+    <p class="hint">
+      <code>-D</code> puts the package in <code>devDependencies</code>.
+      <code>-E</code> writes the exact version with no caret.
+      <code>dlx</code> is the pnpm equivalent of <code>npx</code>.
+    </p>
   </section>
 
   <section>
-    <h2>Using a Package</h2>
+    <h2>2. <code>package.json</code> anatomy</h2>
+    <pre>{\`{
+  "name": "my-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/kit": "^2.0.0",
+    "svelte": "^5.40.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.0.0"
+  }
+}\`}</pre>
+    <p class="hint">
+      <code>dependencies</code> ship to production.
+      <code>devDependencies</code> are only installed when you
+      run <code>pnpm install</code> in development — CI/CD
+      servers install both; production deploys skip dev deps.
+    </p>
+  </section>
+
+  <section>
+    <h2>3. Semver ranges</h2>
+    <pre>{\`"^3.6.0"  // >=3.6.0 <4.0.0   (caret: compatible)
+"~3.6.0"  //  >=3.6.0 <3.7.0   (tilde: patch only)
+"3.6.0"   //  exactly 3.6.0    (pinned)
+">=3.6"   //  3.6 or later     (open-ended — avoid)
+"*"       //  literally any    (never do this)\`}</pre>
+    <p class="hint">
+      Default to <code>^</code>. Pin (<code>-E</code>) for
+      security-sensitive libraries and for anything where a
+      minor version bump has historically broken you.
+    </p>
+    <p>
+      The exact version that actually got installed is recorded
+      in your <strong>lockfile</strong>
+      (<code>pnpm-lock.yaml</code>, <code>package-lock.json</code>,
+      or <code>yarn.lock</code>). Commit it! It's what keeps
+      every teammate and every deploy on identical trees.
+    </p>
+  </section>
+
+  <section>
+    <h2>4. Importing flavours</h2>
+    <p>
+      ES modules let you pull in exactly what you want. Bundlers
+      like Vite statically analyse imports and strip unused
+      exports — "tree shaking" — so you only ship the code you
+      actually used.
+    </p>
     <pre>{\`<script lang="ts">
-  // Named imports (tree-shakeable)
+  // Named imports — tree-shakeable.
+  // If you only use format(), addDays() never ships.
   import { format, addDays } from 'date-fns';
 
-  // Default import
+  // Default import — one primary export per package.
   import confetti from 'canvas-confetti';
 
-  // Type-only import (stripped at build time)
+  // Namespace import — everything under one name.
+  import * as mathHelpers from 'my-math-lib';
+
+  // Type-only import — stripped entirely at build time.
+  // No runtime cost, even if the package is dev-only.
   import type { Duration } from 'date-fns';
 
-  let formatted = format(new Date(), 'PPPP');
+  // Re-export from a barrel file.
+  export { default as Button } from './Button.svelte';
+
+  // Side-effect-only import — runs the module's top level
+  // but binds no names. Common for polyfills and CSS.
+  import 'normalize.css';
+
+  // Dynamic import — returns a Promise. Becomes a separate
+  // chunk in the bundle, loaded on demand.
+  async function loadHeavyThing() {
+    const mod = await import('./heavy.js');
+    return mod.default;
+  }
 </script>\`}</pre>
+    <p class="hint">
+      Prefer <strong>named imports</strong> whenever possible —
+      they give the bundler the most information for
+      tree-shaking. Avoid side-effect imports except for CSS
+      and polyfills you genuinely need.
+    </p>
 
     <h3>Live Demo (simulated)</h3>
     <select bind:value={selectedFormat}>
@@ -248,16 +367,38 @@ npm install -D @sveltejs/adapter-auto
   </section>
 
   <section>
-    <h2>Common Patterns</h2>
-    <pre>{\`// Re-exporting from a barrel file (index.ts)
-export { default as Button } from './Button.svelte';
-export { default as Input } from './Input.svelte';
-
-// Importing CSS from a package
-import 'some-package/styles.css';
-
-// Dynamic import (code splitting)
-const module = await import('heavy-library');\`}</pre>
+    <h2>5. Finding trustworthy packages</h2>
+    <p>
+      Before you add a dependency, spend thirty seconds on its
+      npm page:
+    </p>
+    <ul>
+      <li>
+        <strong>Weekly downloads</strong> — is anyone using it?
+        Under a few thousand is a red flag for a library you'd
+        put on a critical path.
+      </li>
+      <li>
+        <strong>Last publish date</strong> — a package that
+        hasn't been touched in two years is fine for stable
+        utilities, scary for anything touching the network,
+        auth, or security.
+      </li>
+      <li>
+        <strong>Bundle size</strong> — check
+        <code>bundlephobia.com</code>. A 300 KB library that
+        formats dates has alternatives.
+      </li>
+      <li>
+        <strong>Open issues &amp; PRs</strong> — responsive
+        maintainers matter more than star counts.
+      </li>
+      <li>
+        <strong>License</strong> — MIT, ISC, and Apache-2.0
+        are safe defaults. Avoid GPL in commercial closed
+        source unless you know what you're agreeing to.
+      </li>
+    </ul>
   </section>
 
   <section>

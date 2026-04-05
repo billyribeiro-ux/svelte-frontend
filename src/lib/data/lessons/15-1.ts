@@ -10,7 +10,9 @@ const lesson: LessonData = {
 	},
 	description: `{@attach fn} is Svelte 5's modern replacement for use:action. An attachment is a plain function: it receives the DOM element when mounted, optionally returns a teardown function, and re-runs automatically when any reactive values it reads change. You can place multiple {@attach} directives on the same element and they all compose.
 
-The factory pattern is the idiomatic way to pass parameters: write a function that returns the attachment handler. This keeps the outer scope clean and makes the attachment easy to reuse across components. Compared to use:action, attachments integrate with $state, work inside {#if}/{#each} without surprises, and use plain closures instead of a separate update/destroy lifecycle object.`,
+The factory pattern is the idiomatic way to pass parameters: write a function that returns the attachment handler. This keeps the outer scope clean and makes the attachment easy to reuse across components. Compared to use:action, attachments integrate with $state, work inside {#if}/{#each} without surprises, and use plain closures instead of a separate update/destroy lifecycle object.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Author attachments with the factory pattern for parameterized behaviour',
 		'Compose multiple {@attach} directives on a single element',
@@ -225,6 +227,36 @@ The factory pattern is the idiomatic way to pass parameters: write a function th
 &lt;div {'{@attach'} factory(params){'}'} /&gt;</pre>
 </section>
 
+<section class="pitfalls">
+  <h2>Common Pitfalls & Pro Tips</h2>
+  <ul class="pitfall-list">
+    <li>
+      <strong>Returning cleanup is optional but recommended</strong>
+      Any listeners, observers, or timers the attachment creates should be torn down in the returned function.
+    </li>
+    <li>
+      <strong>Factory vs inline function changes reactivity</strong>
+      A factory called with current params captures them; reading <code>$state</code> inside the attachment body makes it re-run on change.
+    </li>
+    <li>
+      <strong>Reading state inside the attachment re-runs it</strong>
+      Every reactive read becomes a dependency — be deliberate about which values you read versus pass in as factory args.
+    </li>
+    <li>
+      <strong>Don't mutate state inside an attachment</strong>
+      Same rules as <code>$effect</code>: writing to reactive state from an attachment can cause infinite loops.
+    </li>
+    <li>
+      <strong>Multiple {@attach} directives compose freely</strong>
+      Stack as many as you need on one element — unlike use:action there's no ordering footgun.
+    </li>
+    <li>
+      <strong>Prefer {@attach} over use: in new code</strong>
+      The directive syntax still works for compat, but attachments integrate with runes and are the documented path forward.
+    </li>
+  </ul>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
@@ -275,6 +307,12 @@ The factory pattern is the idiomatic way to pass parameters: write a function th
     border-radius: 6px; font-size: 0.78rem;
   }
   code { background: #eef; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

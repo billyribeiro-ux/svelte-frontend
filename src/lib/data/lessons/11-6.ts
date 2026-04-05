@@ -14,7 +14,9 @@ const lesson: LessonData = {
 2. +error.svelte — SvelteKit's route-level error page. Catches errors thrown from load functions, form actions, or (with handleRenderingErrors) rendering.
 3. handleError hook — the lowest-level catch-all in hooks.server.ts and hooks.client.ts for logging and transforming errors into App.Error.
 
-Boundaries nest: an inner boundary catches errors first, and only unhandled errors propagate out. As of SvelteKit 2.54 and Svelte 5.53, error boundaries can catch rendering errors on the SERVER as well. Enable the experimental.handleRenderingErrors flag in svelte.config.js.`,
+Boundaries nest: an inner boundary catches errors first, and only unhandled errors propagate out. As of SvelteKit 2.54 and Svelte 5.53, error boundaries can catch rendering errors on the SERVER as well. Enable the experimental.handleRenderingErrors flag in svelte.config.js.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Use <svelte:boundary> to catch and handle component errors',
 		'Render a fallback UI with the failed snippet',
@@ -288,6 +290,36 @@ export const handleError: HandleClientError = async ({ error, event }) => {
   return { message: 'Something went wrong on the client' };
 };\`}</pre>
   </section>
+
+  <section class="pitfalls">
+    <h2>Common Pitfalls & Pro Tips</h2>
+    <ul class="pitfall-list">
+      <li>
+        <strong>Forgetting the failed snippet entirely</strong>
+        Without a <code>failed</code> snippet, <code>&lt;svelte:boundary&gt;</code> silently renders nothing on error — always provide fallback UI.
+      </li>
+      <li>
+        <strong>reset() doesn't clear errored state</strong>
+        It re-runs the children but leaves whatever reactive state caused the crash — clean up the bad state yourself before calling reset.
+      </li>
+      <li>
+        <strong>Errors in event handlers are NOT caught</strong>
+        Boundaries catch render and effect errors only; wrap event handlers in try/catch or report manually.
+      </li>
+      <li>
+        <strong>error() from @sveltejs/kit vs throwing plain Error</strong>
+        Use <code>error(status, body)</code> for expected HTTP errors (they don't hit handleError); plain throws are treated as unexpected and get logged.
+      </li>
+      <li>
+        <strong>App.Error shape must be declared in app.d.ts</strong>
+        If you return extra fields from handleError without declaring them, TypeScript will strip them out.
+      </li>
+      <li>
+        <strong>Don't leak internals in error messages</strong>
+        handleError is the place to sanitize — never surface raw database or stack-trace text to users.
+      </li>
+    </ul>
+  </section>
 </main>
 
 <style>
@@ -314,6 +346,12 @@ export const handleError: HandleClientError = async ({ error, event }) => {
     color: #78350f;
   }
   .note code { background: #fde68a; padding: 0.1rem 0.3rem; border-radius: 3px; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

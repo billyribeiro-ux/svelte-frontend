@@ -19,7 +19,9 @@ const lesson: LessonData = {
 
 Every keystroke calls the setter, every render calls the getter. This lets you build masked inputs, auto-formatters, and clamped fields with a single source of truth — no duplicate "raw" and "normalised" copies in state.
 
-This lesson builds six real examples: auto-trim, auto-lowercase, a phone mask, a currency mask that stores cents as an integer, a clamped number, and a "hidden prefix" tag input. Each one is something you'd ordinarily write five lines of event handling for — function bindings collapse it into three.`,
+This lesson builds six real examples: auto-trim, auto-lowercase, a phone mask, a currency mask that stores cents as an integer, a clamped number, and a "hidden prefix" tag input. Each one is something you'd ordinarily write five lines of event handling for — function bindings collapse it into three.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Understand the [getter, setter] form of bind:value introduced in Svelte 5.9',
 		'Trim and lowercase input values at the binding boundary',
@@ -254,6 +256,36 @@ let username = $state('');
         don't accumulate "raw" + "normalised" copies in state.
       </p>
     </section>
+
+    <section class="pitfalls">
+      <h2>Common Pitfalls & Pro Tips</h2>
+      <ul class="pitfall-list">
+        <li>
+          <strong>The setter must actually assign</strong>
+          Returning a value from the setter does nothing — you must write <code>x = newValue</code> inside the body.
+        </li>
+        <li>
+          <strong>The getter runs on every keystroke</strong>
+          Keep it cheap — no heavy formatting, regex replacement only as needed, because it runs every render.
+        </li>
+        <li>
+          <strong>Not a replacement for $derived</strong>
+          Function bindings are for two-way data transformation, not pure computation — use <code>$derived</code> for read-only values.
+        </li>
+        <li>
+          <strong>Can't be used with bind:group or bind:files</strong>
+          Those bindings don't accept the <code>[getter, setter]</code> form — you need manual change handlers instead.
+        </li>
+        <li>
+          <strong>Validate in the setter, not the getter</strong>
+          Rejecting or clamping input belongs in the write path so stored state is always canonical.
+        </li>
+        <li>
+          <strong>Returning without assigning silently drops input</strong>
+          A forgotten assignment looks correct but the field never updates — watch for this in copy-pasted snippets.
+        </li>
+      </ul>
+    </section>
   </div>
 </main>
 
@@ -305,6 +337,12 @@ let username = $state('');
   }
   .vs-derived { grid-column: 1 / -1; background: #f0fdf4; border-left-color: #22c55e; }
   pre { background: #0f172a; color: #e2e8f0; padding: 0.75rem; border-radius: 4px; font-size: 0.75rem; overflow-x: auto; }
+  .pitfalls { grid-column: 1 / -1; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

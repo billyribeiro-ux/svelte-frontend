@@ -14,7 +14,9 @@ const lesson: LessonData = {
 
 • $effect.tracking() returns true when called from inside a reactive dependency graph (a $derived, $effect, or template expression). Use it when writing library code that should behave differently inside vs. outside a reactive context.
 
-• $effect.root creates a manually-managed reactive scope outside the normal component lifecycle. Return the teardown function, call it yourself, and you've got effects that outlive — or are independent of — component mount/unmount. Essential for app-level services, global shortcut handlers, and integration code.`,
+• $effect.root creates a manually-managed reactive scope outside the normal component lifecycle. Return the teardown function, call it yourself, and you've got effects that outlive — or are independent of — component mount/unmount. Essential for app-level services, global shortcut handlers, and integration code.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Use $effect.pre for scroll-preservation and pre-render measurement',
 		'Detect reactive context with $effect.tracking() for library integration',
@@ -247,6 +249,36 @@ const lesson: LessonData = {
   </div>
 </section>
 
+<section class="pitfalls">
+  <h2>Common Pitfalls & Pro Tips</h2>
+  <ul class="pitfall-list">
+    <li>
+      <strong>$effect.pre still runs asynchronously</strong>
+      It runs before DOM updates but not synchronously with your write — use <code>await tick()</code> when you need precise ordering.
+    </li>
+    <li>
+      <strong>$effect.root needs manual cleanup</strong>
+      The teardown returned by <code>$effect.root</code> is yours to call; forgetting it is an instant memory leak.
+    </li>
+    <li>
+      <strong>$effect.tracking() is rarely needed outside libraries</strong>
+      App code should use plain <code>$effect</code>; reach for tracking only when writing primitives that need to detect reactive context.
+    </li>
+    <li>
+      <strong>Don't create $effect.root inside another effect</strong>
+      Nesting a root inside a component effect is almost always a mistake — it bypasses the cleanup you'd otherwise get for free.
+    </li>
+    <li>
+      <strong>Measure before switching from $effect to $effect.pre</strong>
+      The "pre" variant has subtle timing — only switch when you actually need old-DOM reads, otherwise stick with plain <code>$effect</code>.
+    </li>
+    <li>
+      <strong>Pair $effect.root with a global registry</strong>
+      For long-lived services, hold the teardown in a module-level variable so HMR and tests can dispose cleanly.
+    </li>
+  </ul>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   section { margin-bottom: 1.75rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
@@ -295,6 +327,12 @@ const lesson: LessonData = {
   }
   .entry { font-family: ui-monospace, monospace; font-size: 0.78rem; padding: 0.1rem 0; }
   code { background: #eef; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

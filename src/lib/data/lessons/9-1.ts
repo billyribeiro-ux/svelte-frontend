@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 Under the hood \`bind:value={x}\` is sugar for \`value={x}\` plus an \`oninput\` handler that writes the new value back to \`x\`. Svelte picks the right event and the right coercion automatically — \`<input type="number">\` gives you a real \`number\` (or \`null\` when empty), \`<input type="range">\` gives you a \`number\`, \`<input type="date">\` gives you a \`YYYY-MM-DD\` string, \`<input type="color">\` gives you an \`#rrggbb\` string, and \`<textarea>\` gives you a plain \`string\`.
 
-This lesson walks through every common input type, shows how \`$derived\` pairs naturally with bound values to build live previews and filtered lists, and calls out the pitfalls that trip people up — especially the \`null\` from empty number inputs and the string-not-Date surprise from date inputs.`,
+This lesson walks through every common input type, shows how \`$derived\` pairs naturally with bound values to build live previews and filtered lists, and calls out the pitfalls that trip people up — especially the \`null\` from empty number inputs and the string-not-Date surprise from date inputs.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Understand that bind:value is sugar for value={x} plus an oninput handler',
 		'Use bind:value on text, number, textarea, range, color, date, and time inputs',
@@ -271,6 +273,25 @@ This lesson walks through every common input type, shows how \`$derived\` pairs 
       </li>
     </ul>
   </section>
+
+  <section class="practice">
+    <h2>Try It Yourself</h2>
+    <p class="practice-intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+    <ol>
+      <li>
+        <strong>1.</strong> Add a character-count limit of 280 to the bio textarea, and show "X / 280" that turns red once exceeded.
+        <span class="practice-hint">Hint: build a <code>tooLong</code> derived from <code>charCount &gt; 280</code> and toggle a class on the counter.</span>
+      </li>
+      <li>
+        <strong>2.</strong> Add a temperature converter: two number inputs, <code>celsius</code> and <code>fahrenheit</code>. Changing one should update the other.
+        <span class="practice-hint">Hint: don't bind both to a shared state — use <code>oninput</code> on each to write the converted value to the other.</span>
+      </li>
+      <li>
+        <strong>3.</strong> Add a password field with a "Show/Hide" button that toggles its <code>type</code> between <code>password</code> and <code>text</code>.
+        <span class="practice-hint">Hint: store a boolean <code>showPwd</code> and set the input type dynamically from it.</span>
+      </li>
+    </ol>
+  </section>
 </main>
 
 <style>
@@ -362,6 +383,24 @@ This lesson walks through every common input type, shows how \`$derived\` pairs 
     padding: 0 0.25rem;
     border-radius: 3px;
     font-size: 0.8em;
+  }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; }
+  .practice-intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; font-size: 0.85rem; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
   }
 </style>`,
 			language: 'svelte'

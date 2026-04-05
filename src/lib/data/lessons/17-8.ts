@@ -14,7 +14,9 @@ XSS (Cross-Site Scripting): by default Svelte escapes everything you interpolate
 
 CSRF (Cross-Site Request Forgery): SvelteKit's default form action handler checks that the request's origin matches the host — a same-origin policy enforced for every non-GET form submission. You can configure allowed origins in svelte.config.js.
 
-CSP (Content Security Policy): an HTTP header that tells the browser which scripts, styles, images, and connections are allowed. SvelteKit's kit.csp config generates the header for you, including nonces for inline scripts so your strict CSP doesn't break hydration.`,
+CSP (Content Security Policy): an HTTP header that tells the browser which scripts, styles, images, and connections are allowed. SvelteKit's kit.csp config generates the header for you, including nonces for inline scripts so your strict CSP doesn't break hydration.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		"Understand Svelte's automatic escaping and when {@html} is safe",
 		'Sanitize user HTML with DOMPurify before rendering',
@@ -300,6 +302,36 @@ export const handle: Handle = async ({ event, resolve }) => {
 \`}</code></pre>
 </section>
 
+<section class="pitfalls">
+  <h2>Common Pitfalls & Pro Tips</h2>
+  <ul class="pitfall-list">
+    <li>
+      <strong>{@html} with user input is always an XSS risk</strong>
+      Never render unsanitized user HTML — Svelte's auto-escape is your friend, and the escape hatch bypasses it.
+    </li>
+    <li>
+      <strong>DOMPurify is required, not optional</strong>
+      If you must render rich HTML from users, sanitize it with DOMPurify before <code>{@html}</code>.
+    </li>
+    <li>
+      <strong>CSRF checking only protects form actions</strong>
+      The built-in same-origin check covers form POSTs; custom fetch endpoints must implement their own token or origin check.
+    </li>
+    <li>
+      <strong>CSP nonces need server coordination</strong>
+      Nonces are injected at request time — your svelte.config.js directives and any inline scripts must all use <code>%sveltekit.nonce%</code>.
+    </li>
+    <li>
+      <strong>Test CSP in report-only mode first</strong>
+      A strict CSP can break third-party widgets silently; deploy report-only, collect violations, then flip to enforce.
+    </li>
+    <li>
+      <strong>HSTS, X-Content-Type-Options, Referrer-Policy round it out</strong>
+      Set these headers in <code>hooks.server.ts</code> — CSP alone is not a complete security posture.
+    </li>
+  </ul>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
@@ -406,6 +438,12 @@ export const handle: Handle = async ({ event, resolve }) => {
     overflow-x: auto; margin: 0;
   }
   .code code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; font-family: monospace; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 On the page side, Svelte's {#await} block handles all three states — pending, then, and catch — in one readable chunk of markup. Together they turn a blank 2-second page wait into an instant shell plus progressively-filling widgets.
 
-This lesson covers {#await} in detail and shows how to wire it to streamed load data for a fast, resilient user experience.`,
+This lesson covers {#await} in detail and shows how to wire it to streamed load data for a fast, resilient user experience.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Render promise states with {#await}/{:then}/{:catch}',
 		'Use the {#await expr then value} short form when you do not need a pending state',
@@ -291,6 +293,36 @@ export const load: PageServerLoad = async ({ locals }) => {
       </tbody>
     </table>
   </section>
+
+  <section class="pitfalls">
+    <h2>Common Pitfalls & Pro Tips</h2>
+    <ul class="pitfall-list">
+      <li>
+        <strong>Streaming requires a runtime that supports streaming responses</strong>
+        Some edge and serverless platforms buffer the whole response — verify your adapter streams before relying on it.
+      </li>
+      <li>
+        <strong>Errors in streamed promises crash the client unless handled</strong>
+        Always supply a <code>&#123;:catch&#125;</code> block; an unhandled rejection from a streamed field surfaces as a runtime error.
+      </li>
+      <li>
+        <strong>Awaited promises block SSR; unawaited ones stream</strong>
+        Only await values you genuinely need in the initial HTML — everything else should be returned as a bare promise.
+      </li>
+      <li>
+        <strong>Don't stream above-the-fold content</strong>
+        Critical content needs to be in the first paint for both UX and SEO — streaming is for secondary widgets.
+      </li>
+      <li>
+        <strong>Skeletons hide the latency</strong>
+        Pair <code>&#123;#await&#125;</code> with a skeleton block in the pending branch to avoid layout shift when data arrives.
+      </li>
+      <li>
+        <strong>Stream fields independently</strong>
+        Returning <code>&#123; a: slowA(), b: slowB() &#125;</code> lets each resolve on its own — the slower one doesn't block the faster.
+      </li>
+    </ul>
+  </section>
 </main>
 
 <style>
@@ -318,6 +350,12 @@ export const load: PageServerLoad = async ({ locals }) => {
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
   th { background: #f5f5f5; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

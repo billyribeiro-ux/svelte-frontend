@@ -14,7 +14,9 @@ The basic form is \`{#each items as item}\`. Add an index with \`{#each items as
 
 Why keys matter: without a key, Svelte matches items by position. If you delete the first item, Svelte sees "same item in slot 0, same item in slot 1, one fewer slot". It might update every slot instead of removing the first one. With a key, Svelte recognizes "this item still exists, it just moved" — and the DOM update is precise and fast. With keys, focus and input state also stay with the right item during reorders.
 
-In this lesson you'll iterate strings, objects, and nested arrays; filter and sort a live list; render a leaderboard with rank badges; and see exactly when keys rescue you from visual glitches.`,
+In this lesson you'll iterate strings, objects, and nested arrays; filter and sort a live list; render a leaderboard with rank badges; and see exactly when keys rescue you from visual glitches.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Render lists of data with {#each} blocks',
 		'Use keyed iteration with (item.id) for correct & efficient updates',
@@ -206,6 +208,25 @@ In this lesson you'll iterate strings, objects, and nested arrays; filter and so
   </p>
 </section>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Show an "Active tasks: N" counter in the task list header using a <code>$derived</code>.
+      <span class="hint">Hint: <code>$derived(tasks.filter(t =&gt; !t.done).length)</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Sort the task list so <code>high</code> priority items come first, then <code>medium</code>, then <code>low</code>.
+      <span class="hint">Hint: add a <code>$derived</code> that returns <code>[...visibleTasks].sort((a, b) =&gt; order[a.priority] - order[b.priority])</code> with an order map.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Add a "Promote to high" button on each medium/low task that flips its priority — see keyed <code>{'{#each}'}</code> keep focus on the right row.
+      <span class="hint">Hint: mutate <code>task.priority = 'high'</code> directly; deep reactivity handles the rest.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
   h2 { font-size: 16px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
@@ -263,6 +284,24 @@ In this lesson you'll iterate strings, objects, and nested arrays; filter and so
   }
   .star.filled { color: #ffc107; }
   .star:hover { color: #ffc107; }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; border: none; padding: 0; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice .hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
+  }
 </style>`,
 			language: 'svelte'
 		}

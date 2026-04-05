@@ -31,7 +31,9 @@ You can also use bare \`let\`s with **getter functions** instead of a class. The
 
 **SSR safety** is the elephant in the room. On the server, modules are shared between every request in the same Node process. Put user-specific data in a module and it leaks between users. Use module state only for things that genuinely should be shared: feature flags, static config, cached lookup tables. For per-user data, use context (previous lesson) — it's instance-scoped.
 
-This lesson builds a full shopping cart singleton with a class-based store, a preferences "object of getters" to show the alternative style, and a blunt discussion of when stores still matter and when module state is a footgun.`,
+This lesson builds a full shopping cart singleton with a class-based store, a preferences "object of getters" to show the alternative style, and a blunt discussion of when stores still matter and when module state is a footgun.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Create a .svelte.ts module with runes and export it as a singleton',
 		'Build a reactive store class with $state, $derived, and arrow-field methods',
@@ -251,6 +253,36 @@ This lesson builds a full shopping cart singleton with a class-based store, a pr
       it's instance-scoped.
     </p>
   </section>
+
+  <section class="pitfalls">
+    <h2>Common Pitfalls & Pro Tips</h2>
+    <ul class="pitfall-list">
+      <li>
+        <strong>SSR leak: module state is shared across users</strong>
+        On the server the module cache is global — per-request data in a module will leak to the next visitor.
+      </li>
+      <li>
+        <strong>Export a class instance, not a raw $state</strong>
+        A class with <code>$state</code> fields gives you a stable reference; consumers read <code>store.value</code> and stay reactive.
+      </li>
+      <li>
+        <strong>The getter pattern is the other acceptable style</strong>
+        <code>export const count = &#123; get value() &#123; return n &#125; &#125;</code> works when you don't want a class.
+      </li>
+      <li>
+        <strong>Never export $state directly</strong>
+        Writing <code>export const x = $state(0)</code> breaks when the importer destructures or re-binds — the reactive link is lost.
+      </li>
+      <li>
+        <strong>File extension matters</strong>
+        Runes only work in <code>.svelte.ts</code> / <code>.svelte.js</code> files — the compiler ignores them in plain <code>.ts</code>.
+      </li>
+      <li>
+        <strong>Prefer context for per-request state</strong>
+        When SSR safety matters, set state via <code>setContext</code> in the root layout so each request gets a fresh instance.
+      </li>
+    </ul>
+  </section>
 </main>
 
 <style>
@@ -333,6 +365,12 @@ This lesson builds a full shopping cart singleton with a class-based store, a pr
   main.dark code { background: #334155; }
   ul { padding-left: 1.2rem; font-size: 0.9rem; }
   li { margin: 0.3rem 0; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

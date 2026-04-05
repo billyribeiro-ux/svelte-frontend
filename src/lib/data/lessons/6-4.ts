@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 Svelte automatically tracks which reactive values you read inside <code>$effect</code> and re-runs the function when any of them change. You can return a **cleanup function** that runs right before the next execution (or when the component is destroyed). Cleanup is where you cancel timers, remove listeners, and close sockets.
 
-The golden rule: <code>$effect</code> is for syncing reactive state with something **outside** Svelte's reactive system. If you're just computing a new value from existing state, use <code>$derived</code> instead — you'll learn why in the next lesson.`,
+The golden rule: <code>$effect</code> is for syncing reactive state with something **outside** Svelte's reactive system. If you're just computing a new value from existing state, use <code>$derived</code> instead — you'll learn why in the next lesson.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Use $effect to run side effects when reactive values change',
 		'Return a cleanup function from $effect for proper teardown',
@@ -208,6 +210,25 @@ The golden rule: <code>$effect</code> is for syncing reactive state with somethi
   faster, and doesn't require cleanup.
 </div>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Add a <code>$effect</code> that logs every change to <code>count</code> to the browser console with <code>console.log</code>.
+      <span class="hint">Hint: <code>$effect(() =&gt; console.log('count is', count))</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Add a new <code>$state</code> boolean <code>darkMode</code> with a toggle button, and an <code>$effect</code> that sets <code>document.body.style.background</code> based on its value. Don't forget to reset the background in a cleanup.
+      <span class="hint">Hint: return a cleanup that restores the previous <code>background</code> value.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Play a short beep whenever <code>tickCount</code> hits a multiple of 5, using an <code>$effect</code>.
+      <span class="hint">Hint: inside the effect, <code>if (tickCount &gt; 0 &amp;&amp; tickCount % 5 === 0) new Audio('...').play()</code>; any short sound URL works.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #333; }
   .lead { color: #555; max-width: 720px; }
@@ -299,6 +320,24 @@ The golden rule: <code>$effect</code> is for syncing reactive state with somethi
     padding: 1rem;
     border-radius: 0 8px 8px 0;
     margin-top: 1.5rem;
+  }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice .hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
   }
 </style>`,
 			language: 'svelte'

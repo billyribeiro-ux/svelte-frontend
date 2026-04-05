@@ -16,7 +16,9 @@ In JavaScript you use regexes through string and RegExp methods. \`regex.test(st
 
 The most common real uses: form validation (emails, phones, URLs, passwords), extracting data from text (finding all URLs in a document), search-and-highlight UIs, and input normalization (collapsing whitespace, stripping formatting). This lesson demonstrates all of these.
 
-Pitfalls to watch: writing overly strict email regexes (the official spec is absurdly complex — go for "good enough"), forgetting the \`/g\` flag when you want all matches, not escaping user input before building dynamic regexes (a security issue), and using \`{@html}\` with regex-produced HTML (dangerous XSS). This lesson shows the *safe* way to do search highlighting by splitting text into chunks and rendering each as real text — no \`@html\` needed.`,
+Pitfalls to watch: writing overly strict email regexes (the official spec is absurdly complex — go for "good enough"), forgetting the \`/g\` flag when you want all matches, not escaping user input before building dynamic regexes (a security issue), and using \`{@html}\` with regex-produced HTML (dangerous XSS). This lesson shows the *safe* way to do search highlighting by splitting text into chunks and rendering each as real text — no \`@html\` needed.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Read and write basic regex patterns using anchors, character classes, and quantifiers',
 		'Validate form input with .test() for emails, phones, URLs, and passwords',
@@ -194,6 +196,25 @@ Pitfalls to watch: writing overly strict email regexes (the official spec is abs
   <p>Collapse whitespace (<code>/\\s+/g</code>): <code class="out">"{normalized}"</code></p>
 </section>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="practice-intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Add a US ZIP code validator that accepts either <code>12345</code> or <code>12345-6789</code>.
+      <span class="practice-hint">Hint: <code>/^\\d{'{5}'}(-\\d{'{4}'})?$/.test(zip)</code> inside a <code>$derived</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Extract every hashtag (<code>#example</code>) from the corpus and display them as a list.
+      <span class="practice-hint">Hint: <code>corpus.match(/#\\w+/g) || []</code> — the <code>/g</code> flag returns every match.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Tighten the password check to require the order-independent combination of upper + lower + digit + symbol in a single regex.
+      <span class="practice-hint">Hint: positive lookaheads — <code>/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{'{8,}'}$/</code>.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
   h2 { font-size: 16px; color: #333; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
@@ -217,6 +238,24 @@ Pitfalls to watch: writing overly strict email regexes (the official spec is abs
   .fail { color: #c62828; }
   .highlighted { background: #f8f8f8; padding: 10px; border-radius: 6px; line-height: 1.5; }
   mark { background: #ffeb3b; padding: 0 2px; border-radius: 2px; }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; border: none; padding: 0; }
+  .practice-intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
+  }
 </style>`,
 			language: 'svelte'
 		}

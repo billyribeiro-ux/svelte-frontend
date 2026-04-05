@@ -17,7 +17,9 @@ const lesson: LessonData = {
 
 There are no event handlers that write to \`errors\`, no manual revalidation calls, no stale error messages. The error state is a pure function of the form state, and Svelte's reactivity guarantees they stay in sync.
 
-This lesson builds a full registration form with seven fields, a password strength meter (also \`$derived\`), per-field "touched" tracking, and a live JSON debug panel so you can watch the reactive state flow.`,
+This lesson builds a full registration form with seven fields, a password strength meter (also \`$derived\`), per-field "touched" tracking, and a live JSON debug panel so you can watch the reactive state flow.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Store form data in a single $state object for tidy access',
 		'Derive a reactive errors object with $derived.by containing per-field rules',
@@ -319,6 +321,25 @@ This lesson builds a full registration form with seven fields, a password streng
     <h2>Live state (debug view)</h2>
     <pre>{JSON.stringify({ form, errors, isValid }, null, 2)}</pre>
   </aside>
+
+  <section class="practice">
+    <h2>Try It Yourself</h2>
+    <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+    <ol>
+      <li>
+        <strong>1.</strong> Add a <code>confirmPassword</code> field and derive an error when it does not match <code>form.password</code>.
+        <span class="practice-hint">Hint: add a new key to the errors derivation — <code>if (form.confirmPassword !== form.password) errs.confirmPassword = 'Passwords must match'</code>.</span>
+      </li>
+      <li>
+        <strong>2.</strong> Show a visible password strength label ("Weak" / "Okay" / "Good" / "Strong") alongside the existing bar.
+        <span class="practice-hint">Hint: derive <code>strengthLabel</code> from the existing strength score with a small lookup.</span>
+      </li>
+      <li>
+        <strong>3.</strong> Simulate an async "username is taken" check with <code>setTimeout(500)</code> after each keystroke, and merge the result into the errors display.
+        <span class="practice-hint">Hint: keep the async result in its own <code>$state</code>, run the check from an <code>$effect</code> on <code>form.username</code>, and read it inside the errors derivation.</span>
+      </li>
+    </ol>
+  </section>
 </main>
 
 <style>
@@ -448,6 +469,25 @@ This lesson builds a full registration form with seven fields, a password streng
     font-size: 0.72rem;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+    grid-column: 1 / -1;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; text-transform: none; letter-spacing: 0; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
   }
 </style>`,
 			language: 'svelte'

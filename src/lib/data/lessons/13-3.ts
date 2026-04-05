@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 SvelteKit gives you fail(status, data) for validation errors. It returns the data to the page via the 'form' prop without touching URL state, so you can render field-level errors next to the inputs and repopulate values the user already entered. For unexpected errors (DB down, network) you throw — SvelteKit renders +error.svelte.
 
-This lesson covers the fail vs throw distinction, field-level errors, and the repopulation pattern that keeps users from re-typing their whole form.`,
+This lesson covers the fail vs throw distinction, field-level errors, and the repopulation pattern that keeps users from re-typing their whole form.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Return validation errors with fail(status, {...})',
 		'Receive them on the page via let { form } = $props()',
@@ -314,6 +316,36 @@ export const actions = {
   }
 };\`}</pre>
   </section>
+
+  <section class="pitfalls">
+    <h2>Common Pitfalls & Pro Tips</h2>
+    <ul class="pitfall-list">
+      <li>
+        <strong>fail() must be RETURNED, not thrown</strong>
+        Throwing <code>fail(...)</code> produces an unexpected error; always <code>return fail(status, data)</code>.
+      </li>
+      <li>
+        <strong>Return data for repopulation, not null</strong>
+        Pass the submitted values back in the <code>fail()</code> payload so the page prop can refill inputs.
+      </li>
+      <li>
+        <strong>Field-specific error shape for the form prop</strong>
+        Use <code>&#123; errors: &#123; fieldName: 'msg' &#125; &#125;</code> so the template can render errors next to each input.
+      </li>
+      <li>
+        <strong>Server validation is mandatory</strong>
+        Client-side checks are UX, not security — always re-validate on the server before writing to the database.
+      </li>
+      <li>
+        <strong>Never repopulate passwords</strong>
+        Return every field on failure EXCEPT password — sending it back is a security anti-pattern.
+      </li>
+      <li>
+        <strong>fail() vs error()</strong>
+        Use <code>fail()</code> for expected validation problems, <code>error()</code> for unexpected conditions that should render +error.svelte.
+      </li>
+    </ul>
+  </section>
 </main>
 
 <style>
@@ -338,6 +370,12 @@ export const actions = {
   .banner { padding: 0.6rem 0.8rem; border-radius: 4px; font-size: 0.85rem; }
   .banner.ok { background: #e8f5e9; border-left: 3px solid #4caf50; }
   .banner.fail { background: #ffebee; border-left: 3px solid #f44336; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

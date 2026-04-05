@@ -15,7 +15,9 @@ The three knobs:
 2) invalidate(urlOrKey) re-runs matching loads on the current page without a full navigation.
 3) invalidateAll() re-runs every load on the current page (the big hammer).
 
-SvelteKit 2 adds refreshAll() which broadcasts an invalidation across browser tabs via BroadcastChannel — great for cross-tab consistency after a mutation. This lesson shows how to wire all three into a typical CRUD workflow.`,
+SvelteKit 2 adds refreshAll() which broadcasts an invalidation across browser tabs via BroadcastChannel — great for cross-tab consistency after a mutation. This lesson shows how to wire all three into a typical CRUD workflow.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Declare a dependency key with depends() in load functions',
 		'Invalidate a single key with invalidate()',
@@ -283,6 +285,36 @@ async function saveSettings(data: Settings) {
   <pre class="code"><code>{examples[showCode]}</code></pre>
 </section>
 
+<section class="pitfalls">
+  <h2>Common Pitfalls & Pro Tips</h2>
+  <ul class="pitfall-list">
+    <li>
+      <strong>invalidateAll() re-runs ALL loads</strong>
+      It's the nuclear option — expensive on pages with many parallel loads, so reach for targeted <code>invalidate()</code> first.
+    </li>
+    <li>
+      <strong>depends() strings must be consistent across calls</strong>
+      Typos mean the load registers one key and invalidation targets another — pull the key into a shared constant.
+    </li>
+    <li>
+      <strong>URL-based depends is tracked automatically</strong>
+      A <code>fetch()</code> inside load registers the URL as a dependency, so <code>invalidate('/api/foo')</code> re-runs it without an explicit <code>depends</code> call.
+    </li>
+    <li>
+      <strong>use:enhance invalidates after form actions automatically</strong>
+      Manual invalidation after a successful action is usually redundant — <code>use:enhance</code> already re-runs affected loads.
+    </li>
+    <li>
+      <strong>Namespace your keys</strong>
+      Prefix keys with an app or feature name (<code>app:cart</code>) to avoid collisions as the codebase grows.
+    </li>
+    <li>
+      <strong>refreshAll() is cross-tab only</strong>
+      It broadcasts to other tabs via BroadcastChannel; use <code>invalidate()</code>/<code>invalidateAll()</code> within the current tab.
+    </li>
+  </ul>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
@@ -360,6 +392,12 @@ async function saveSettings(data: Settings) {
     overflow-x: auto; margin: 0;
   }
   .code code { color: #dfe6e9; font-size: 0.8rem; line-height: 1.5; font-family: monospace; }
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 </style>`,
 			language: 'svelte'
 		}

@@ -14,7 +14,9 @@ Arrays are everywhere in real apps. Every list you see in a UI — search result
 
 Before Svelte 5, mutating arrays with methods like \`.push()\` or \`.splice()\` didn't always trigger reactivity — you had to reassign the whole array. In Svelte 5, \`$state\` arrays have **deep reactivity**: \`.push()\`, \`.pop()\`, \`.splice()\`, and even modifying items by index all "just work".
 
-In this lesson you'll build three increasingly realistic examples: a simple string list, a list of objects (todos), and a mini shopping list with totals. Along the way you'll learn the most common array methods and patterns you'll use every day.`,
+In this lesson you'll build three increasingly realistic examples: a simple string list, a list of objects (todos), and a mini shopping list with totals. Along the way you'll learn the most common array methods and patterns you'll use every day.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Create and initialize arrays with $state',
 		'Use .push(), .pop(), .splice(), and index assignment to modify arrays reactively',
@@ -211,6 +213,25 @@ In this lesson you'll build three increasingly realistic examples: a simple stri
   <p class="total">Total: <strong>\${cartTotal.toFixed(2)}</strong></p>
 </section>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Add an "Average price" display under the shopping cart that shows the mean price of all items.
+      <span class="hint">Hint: use <code>.reduce()</code> to sum prices, then divide by <code>cart.length</code> inside a <code>$derived</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Add a "Double all quantities" button to the cart that doubles every item's <code>qty</code>.
+      <span class="hint">Hint: loop with <code>for (const item of cart) item.qty *= 2</code> — mutation is reactive in Svelte 5.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Add a "Clear completed" button to the todo list that removes every todo whose <code>done</code> is true.
+      <span class="hint">Hint: reassign <code>todos = todos.filter(t => !t.done)</code> — filter returns a new array.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
   h2 { font-size: 16px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
@@ -248,6 +269,24 @@ In this lesson you'll build three increasingly realistic examples: a simple stri
   .cart .subtotal { font-weight: 600; color: #ff3e00; text-align: right; }
   .total { margin-top: 12px; font-size: 16px; text-align: right; }
   .total strong { color: #ff3e00; font-size: 20px; }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; border: none; padding: 0; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; display: list-item; border: none; }
+  .practice .hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
+  }
 </style>`,
 			language: 'svelte'
 		}

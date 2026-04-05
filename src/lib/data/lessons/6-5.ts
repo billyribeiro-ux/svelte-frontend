@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 If you find yourself reading reactive state inside <code>$effect</code> and writing to another <code>$state</code>, you almost certainly want <code>$derived</code> instead. Effects-that-set-state create indirect data flows that are harder to trace, run an extra re-render cycle, and can briefly show stale values before the effect catches up.
 
-Think of it this way: <code>$derived</code> = "this value is computed from those values". <code>$effect</code> = "when those values change, do something outside Svelte". Mixing them produces the anti-patterns below.`,
+Think of it this way: <code>$derived</code> = "this value is computed from those values". <code>$effect</code> = "when those values change, do something outside Svelte". Mixing them produces the anti-patterns below.
+
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Identify the anti-pattern: setting $state inside $effect to sync values',
 		'Refactor five common anti-patterns into correct $derived form',
@@ -247,6 +249,36 @@ $effect(() =&gt; {'{'}
   with <code>$derived</code>. If you end up needing the escape hatch, you'll know.
 </div>
 
+<section class="pitfalls">
+  <h2>Common Pitfalls & Pro Tips</h2>
+  <ul class="pitfall-list">
+    <li>
+      <strong>Setting state inside $effect</strong>
+      If you're reading one piece of state and writing to another, reach for <code>$derived</code> — it's cheaper, clearer, and runs in the same tick.
+    </li>
+    <li>
+      <strong>Using $effect for derived data</strong>
+      Any value that is purely a function of other reactive values belongs in <code>$derived</code>, not an effect with manual assignment.
+    </li>
+    <li>
+      <strong>Wrapping effects in if (browser)</strong>
+      Effects never run on the server anyway, so the guard is dead code — just write the effect directly.
+    </li>
+    <li>
+      <strong>onMount is legacy — $effect is the modern pattern</strong>
+      Return a cleanup from <code>$effect</code> for teardown; there's no need to reach for <code>onMount</code> in new code.
+    </li>
+    <li>
+      <strong>Syncing state between components via $effect</strong>
+      Prefer <code>$bindable</code>, context, or a shared class instance — effect-based sync loops are fragile and hard to debug.
+    </li>
+    <li>
+      <strong>Effects can re-run more than you expect</strong>
+      Any reactive read during the effect body is a dependency; narrow scope with <code>untrack()</code> if you only want some reads to trigger re-runs.
+    </li>
+  </ul>
+</section>
+
 <style>
   h1 { color: #333; }
   .lead { color: #555; max-width: 720px; }
@@ -315,6 +347,13 @@ $effect(() =&gt; {'{'}
     border-radius: 0 8px 8px 0;
     margin-top: 1.5rem;
   }
+
+  .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
+  .pitfall-list { list-style: none; padding: 0; margin: 0; }
+  .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
+  .pitfall-list li:last-child { border-bottom: none; }
+  .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
 
   @media (max-width: 760px) {
     .comparison { grid-template-columns: 1fr; }

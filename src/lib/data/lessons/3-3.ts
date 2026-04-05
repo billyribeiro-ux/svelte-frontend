@@ -16,7 +16,9 @@ The key insight is that all three return **new** values — they never mutate th
 
 These three are joined by a small cast of supporting actors: **findIndex** tells you the *position* of the first match, **some** asks "does at least one match?", **every** asks "do all of them match?", and **includes** checks for a specific value. Chained together, they let you express data pipelines top-to-bottom, where each line has a single responsibility.
 
-Common pitfalls: forgetting that filter/map/find don't mutate (assign the result somewhere!), using \`filter(...)[0]\` instead of \`find(...)\` (wasteful — find stops at the first match), and writing one giant filter predicate instead of several small ones (harder to read and debug). In Svelte 5, you'll usually want these chained inside a \`$derived(...)\` so the UI automatically updates when inputs change.`,
+Common pitfalls: forgetting that filter/map/find don't mutate (assign the result somewhere!), using \`filter(...)[0]\` instead of \`find(...)\` (wasteful — find stops at the first match), and writing one giant filter predicate instead of several small ones (harder to read and debug). In Svelte 5, you'll usually want these chained inside a \`$derived(...)\` so the UI automatically updates when inputs change.
+
+A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Use .map() to transform arrays one-to-one into new shapes',
 		'Stack multiple .filter() calls to compose readable compound conditions',
@@ -194,6 +196,25 @@ Common pitfalls: forgetting that filter/map/find don't mutate (assign the result
   </ul>
 </section>
 
+<section class="practice">
+  <h2>Try It Yourself</h2>
+  <p class="intro">Edit the code above to add these features. Answers are at the bottom of the lesson (but resist peeking!)</p>
+  <ol>
+    <li>
+      <strong>1.</strong> Add a <code>cartTotal</code> derived value that sums the prices of every product currently in <code>filtered</code>, and display it above the results.
+      <span class="hint">Hint: <code>filtered.reduce((sum, p) =&gt; sum + p.price, 0)</code> inside a <code>$derived</code>.</span>
+    </li>
+    <li>
+      <strong>2.</strong> Add a "Most expensive in filtered results" display.
+      <span class="hint">Hint: <code>filtered.reduce((max, p) =&gt; p.price &gt; max.price ? p : max, filtered[0])</code> — guard against an empty list.</span>
+    </li>
+    <li>
+      <strong>3.</strong> Build an <code>avgRating</code> derived that shows the average <code>rating</code> of the filtered list.
+      <span class="hint">Hint: sum ratings with <code>.reduce()</code>, divide by <code>filtered.length</code>, guard against zero.</span>
+    </li>
+  </ol>
+</section>
+
 <style>
   h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
   h2 { font-size: 16px; color: #333; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
@@ -226,6 +247,25 @@ Common pitfalls: forgetting that filter/map/find don't mutate (assign the result
   .empty { color: #999; font-style: italic; text-align: center; padding: 16px; }
   .top-picks { color: #444; font-size: 13px; padding-left: 20px; }
   .top-picks li { padding: 2px 0; }
+  .practice {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .practice h2 { color: #1e3a8a; margin: 0 0 0.5rem; font-size: 1rem; border: none; padding: 0; }
+  .practice .intro { font-size: 0.88rem; color: #1e40af; margin-bottom: 0.75rem; }
+  .practice ol { padding-left: 1.25rem; margin: 0; }
+  .practice li { padding: 0.4rem 0; font-size: 0.85rem; color: #1e3a8a; }
+  .practice .hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #475569;
+    font-style: italic;
+    font-weight: normal;
+  }
 </style>`,
 			language: 'svelte'
 		}
