@@ -5,51 +5,52 @@
 	}
 
 	@keyframes sf-slide-up {
-		from { opacity: 0; transform: translateY(8px); }
-		to { opacity: 1; transform: translateY(0); }
+		from { opacity: 0; transform: translateY(12px) scale(0.98); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
 	}
 
 	@keyframes sf-slide-down {
-		from { opacity: 0; transform: translateY(-8px); }
-		to { opacity: 1; transform: translateY(0); }
+		from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
 	}
 
 	@keyframes sf-slide-in-right {
-		from { opacity: 0; transform: translateX(12px); }
+		from { opacity: 0; transform: translateX(20px); }
 		to { opacity: 1; transform: translateX(0); }
 	}
 
 	@keyframes sf-slide-in-left {
-		from { opacity: 0; transform: translateX(-12px); }
+		from { opacity: 0; transform: translateX(-20px); }
 		to { opacity: 1; transform: translateX(0); }
 	}
 
 	@keyframes sf-scale-in {
-		from { opacity: 0; transform: scale(0.95); }
-		to { opacity: 1; transform: scale(1); }
+		from { opacity: 0; transform: scale(0.95); filter: blur(4px); }
+		to { opacity: 1; transform: scale(1); filter: blur(0); }
 	}
 
 	@keyframes sf-bounce-in {
-		0% { opacity: 0; transform: scale(0.3); }
-		50% { opacity: 1; transform: scale(1.05); }
-		70% { transform: scale(0.95); }
+		0% { opacity: 0; transform: scale(0.6); filter: blur(4px); }
+		40% { opacity: 1; transform: scale(1.05); filter: blur(0); }
+		70% { transform: scale(0.98); }
 		100% { transform: scale(1); }
 	}
 
 	@keyframes sf-celebration {
-		0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-		50% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+		0% { transform: scale(0.5) rotate(-15deg); opacity: 0; filter: blur(8px); }
+		50% { transform: scale(1.15) rotate(5deg); opacity: 1; filter: blur(0); }
 		75% { transform: scale(0.95) rotate(-2deg); }
 		100% { transform: scale(1) rotate(0deg); }
 	}
 
 	@keyframes sf-spin {
+		from { transform: rotate(0deg); }
 		to { transform: rotate(360deg); }
 	}
 
 	@keyframes sf-pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.5; }
+		0%, 100% { opacity: 1; transform: scale(1); }
+		50% { opacity: 0.6; transform: scale(0.98); }
 	}
 
 	@keyframes sf-shimmer {
@@ -58,8 +59,10 @@
 	}
 
 	@keyframes sf-tutor-bounce {
-		0%, 80%, 100% { transform: scale(0); }
-		40% { transform: scale(1); }
+		0% { transform: scale(0) translateY(10px); opacity: 0; }
+		40% { transform: scale(1.1) translateY(-2px); opacity: 1; }
+		70% { transform: scale(0.95) translateY(1px); }
+		100% { transform: scale(1) translateY(0); }
 	}
 
 	@keyframes sf-check-draw {
@@ -68,8 +71,16 @@
 	}
 
 	@keyframes sf-backdrop-in {
-		from { opacity: 0; backdrop-filter: blur(0); }
-		to { opacity: 1; backdrop-filter: blur(4px); }
+		from { opacity: 0; backdrop-filter: blur(0); background: rgb(0 0 0 / 0); }
+		to { opacity: 1; backdrop-filter: blur(8px); background: rgb(0 0 0 / 0.4); }
+	}
+
+	/* Dialog animations */
+	dialog[open] {
+		animation: sf-scale-in 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	}
+	dialog[open]::backdrop {
+		animation: sf-backdrop-in 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 	}
 
 	/* Reduced motion — respect user preference */

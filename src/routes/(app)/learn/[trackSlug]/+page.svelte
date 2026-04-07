@@ -5,6 +5,9 @@
 	import { buildCourseSchema, buildBreadcrumbSchema } from '$utils/seo';
 	import { initLessons } from '$lessons/init';
 	import { getTrack } from '$lessons/registry';
+	import { fly, fade, blur } from 'svelte/transition';
+	import { expoOut, cubicOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	initLessons();
 
@@ -23,6 +26,10 @@
 			goto('/learn');
 		}
 	});
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 800);
+	const inY = $derived(prefersReducedMotion.current ? 0 : 30);
+	const blurAmount = $derived(prefersReducedMotion.current ? 0 : 8);
 </script>
 
 {#if track}
@@ -40,14 +47,14 @@
 	}} />
 
 	<div class="track-page">
-		<header class="track-header">
+		<header class="track-header" in:fly={{ y: inY, duration: inDuration, easing: cubicOut, opacity: 0 }}>
 			<a href="/learn" class="back-link">
 				<Icon icon="ph:arrow-left" size={16} />
 				All Tracks
 			</a>
-			<h1 class="track-title">{track.title}</h1>
-			<p class="track-description">{track.description}</p>
-			<div class="track-stats">
+			<h1 class="track-title" in:blur={{ amount: blurAmount, duration: inDuration, delay: 100, easing: expoOut }}>{track.title}</h1>
+			<p class="track-description" in:fade={{ duration: inDuration, delay: 200, easing: cubicOut }}>{track.description}</p>
+			<div class="track-stats" in:fade={{ duration: inDuration, delay: 300, easing: cubicOut }}>
 				<span class="track-stat">
 					<Icon icon="ph:folder" size={14} />
 					{track.modules.length} modules
@@ -61,7 +68,11 @@
 
 		<div class="modules-list">
 			{#each track.modules as mod, index}
-				<a href="/learn/{trackSlug}/{mod.slug}" class="module-card">
+				<a 
+					href="/learn/{trackSlug}/{mod.slug}" 
+					class="module-card"
+					in:fly={{ y: inY, duration: inDuration, delay: 400 + (index * 100), easing: expoOut, opacity: 0 }}
+				>
 					<div class="module-number">{index + 1}</div>
 					<div class="module-info">
 						<h2 class="module-title">{mod.title}</h2>

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { fade, scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { cubicOut, expoOut } from 'svelte/easing';
 	import { workspace } from '$stores/workspace.svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import Icon from '$components/ui/Icon.svelte';
 
 	interface CommandItem {
@@ -13,10 +14,12 @@
 		action: () => void;
 	}
 
-	let open = $state(false);
+	let isOpen = $state(false);
 	let query = $state('');
 	let selectedIndex = $state(0);
-	let inputEl = $state<HTMLInputElement | null>(null);
+	let inputEl: HTMLInputElement | null = $state(null);
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 300);
 
 	const commands: CommandItem[] = [
 		{ id: 'nav-dashboard', label: 'Go to Dashboard', category: 'Navigation', icon: 'ph:house', action: () => goto('/dashboard') },
@@ -46,7 +49,7 @@
 	});
 
 	$effect(() => {
-		if (open && inputEl) {
+		if (isOpen && inputEl) {
 			inputEl.focus();
 		}
 	});
@@ -59,15 +62,15 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 			e.preventDefault();
-			open = !open;
+			isOpen = !isOpen;
 			query = '';
 			selectedIndex = 0;
 		}
 
-		if (!open) return;
+		if (!isOpen) return;
 
 		if (e.key === 'Escape') {
-			open = false;
+			isOpen = false;
 		} else if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			selectedIndex = Math.min(selectedIndex + 1, filtered.length - 1);
@@ -81,19 +84,25 @@
 	}
 
 	function executeCommand(cmd: CommandItem) {
-		open = false;
+		isOpen = false;
 		query = '';
 		cmd.action();
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window on:keydown={handleKeydown} />
 
-{#if open}
+{#if isOpen}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="palette-backdrop" transition:fade={{ duration: 200 }} onclick={() => open = false} role="presentation">
-		<!-- svelte-ignore a11y_interactive_supports_focus -->
-		<div class="palette" transition:scale={{ duration: 250, start: 0.95, easing: cubicOut }} onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Command palette">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="backdrop" onclick={() => isOpen = false} transition:fade={{ duration: inDuration, easing: cubicOut }}>
+		<div 
+			class="palette" 
+			onclick={(e) => e.stopPropagation()}
+			in:scale={{ start: 0.95, duration: inDuration, easing: expoOut, opacity: 0 }}
+			out:scale={{ start: 0.98, duration: 200, easing: cubicOut, opacity: 0 }}
+			role="dialog" aria-label="Command palette"
+		>
 			<div class="palette-input-wrap">
 				<Icon icon="ph:magnifying-glass" size={16} />
 				<input

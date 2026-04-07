@@ -2,6 +2,9 @@
 	import Button from '$components/ui/Button.svelte';
 	import Icon from '$components/ui/Icon.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
+	import { fly, fade, scale } from 'svelte/transition';
+	import { cubicOut, expoOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	const seo = {
 		title: 'Master Svelte 5 & SvelteKit',
@@ -33,71 +36,84 @@
 			}
 		]
 	};
+
+	const features = [
+		{
+			title: 'Interactive Lessons',
+			description: 'Structured tracks from fundamentals to advanced patterns, with hands-on checkpoints.',
+			icon: 'ph:book-open'
+		},
+		{
+			title: 'Live Code Editor',
+			description: 'Write, run, and preview Svelte components in a full-featured browser-based editor.',
+			icon: 'ph:code'
+		},
+		{
+			title: 'AI Tutor',
+			description: 'Get contextual hints and explanations from an AI tutor that understands your code.',
+			icon: 'ph:robot'
+		},
+		{
+			title: 'Concept Graph',
+			description: 'Visualize how concepts connect and track your mastery across the knowledge map.',
+			icon: 'ph:graph'
+		}
+	];
+
+	let heroVisible = $state(false);
+	
+	$effect(() => {
+		heroVisible = true;
+	});
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 1000);
+	const inY = $derived(prefersReducedMotion.current ? 0 : 40);
 </script>
 
 <SEOHead {seo} />
 
-<main class="landing">
+<div class="landing">
 	<section class="hero">
 		<div class="hero-content">
-			<h1 class="hero-title">
-				<span class="hero-brand">SvelteForge</span>
-			</h1>
-			<p class="hero-tagline">Master Svelte 5, SvelteKit & Modern Web Development</p>
-			<p class="hero-description">
-				An interactive learning platform with hands-on coding, AI-powered guidance,
-				and a concept graph that adapts to your progress.
-			</p>
-			<div class="hero-cta">
-				<a href="/learn" class="cta-link">
-					<Button variant="primary" size="lg">Start Learning</Button>
-				</a>
-			</div>
+			{#if heroVisible}
+				<h1 class="hero-title" in:fly={{ y: inY, duration: inDuration, delay: 200, easing: expoOut, opacity: 0 }}>
+					<span class="hero-brand">SvelteForge</span>
+				</h1>
+				<p class="hero-tagline" in:fly={{ y: inY, duration: inDuration, delay: 300, easing: cubicOut, opacity: 0 }}>
+					Master Svelte 5, SvelteKit & Modern Web Development
+				</p>
+				<p class="hero-description" in:fly={{ y: inY, duration: inDuration, delay: 400, easing: cubicOut, opacity: 0 }}>
+					An interactive learning platform with hands-on coding, AI-powered guidance,
+					and a concept graph that adapts to your progress.
+				</p>
+				<div class="hero-cta" in:fly={{ y: inY, duration: inDuration, delay: 500, easing: cubicOut, opacity: 0 }}>
+					<a href="/learn" class="cta-link">
+						<Button variant="primary" size="lg">Start Learning</Button>
+					</a>
+				</div>
+			{/if}
 		</div>
 	</section>
 
 	<section class="features">
-		<h2 class="features-heading">Everything you need to master Svelte</h2>
+		<h2 class="features-heading" in:fly={{ y: inY, duration: inDuration, delay: 600, easing: expoOut, opacity: 0 }}>
+			Everything you need to master Svelte
+		</h2>
 		<div class="features-grid">
-			<div class="feature-card">
-				<div class="feature-icon">
-					<Icon icon="ph:book-open" size={32} />
-				</div>
-				<h3 class="feature-title">Interactive Lessons</h3>
-				<p class="feature-desc">
-					Structured tracks from fundamentals to advanced patterns, with hands-on checkpoints.
-				</p>
-			</div>
-			<div class="feature-card">
-				<div class="feature-icon">
-					<Icon icon="ph:code" size={32} />
-				</div>
-				<h3 class="feature-title">Live Code Editor</h3>
-				<p class="feature-desc">
-					Write, run, and preview Svelte components in a full-featured browser-based editor.
-				</p>
-			</div>
-			<div class="feature-card">
-				<div class="feature-icon">
-					<Icon icon="ph:robot" size={32} />
-				</div>
-				<h3 class="feature-title">AI Tutor</h3>
-				<p class="feature-desc">
-					Get contextual hints and explanations from an AI tutor that understands your code.
-				</p>
-			</div>
-			<div class="feature-card">
-				<div class="feature-icon">
-					<Icon icon="ph:graph" size={32} />
-				</div>
-				<h3 class="feature-title">Concept Graph</h3>
-				<p class="feature-desc">
-					Visualize how concepts connect and track your mastery across the knowledge map.
-				</p>
-			</div>
+			{#each features as feature, i}
+				{#if heroVisible}
+					<div class="feature-card" in:fly={{ y: inY, duration: inDuration, delay: 700 + (i * 100), easing: expoOut, opacity: 0 }}>
+						<div class="feature-icon">
+							<Icon icon={feature.icon} size={32} />
+						</div>
+						<h3 class="feature-title">{feature.title}</h3>
+						<p class="feature-desc">{feature.description}</p>
+					</div>
+				{/if}
+			{/each}
 		</div>
 	</section>
-</main>
+</div>
 
 <style>
 	main.landing {

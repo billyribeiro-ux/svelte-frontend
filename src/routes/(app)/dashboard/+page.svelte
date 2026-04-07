@@ -7,6 +7,9 @@
 	import SkillRadar from '$components/dashboard/SkillRadar.svelte';
 	import RecentActivity from '$components/dashboard/RecentActivity.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
+	import { fly, fade, blur, slide } from 'svelte/transition';
+	import { expoOut, cubicOut, backOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	interface Props {
 		data: {
@@ -67,16 +70,20 @@
 		}
 		return null;
 	});
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 800);
+	const inY = $derived(prefersReducedMotion.current ? 0 : 30);
+	const blurAmount = $derived(prefersReducedMotion.current ? 0 : 8);
 </script>
 
 <SEOHead seo={{ title: 'Dashboard', description: 'Track your learning progress across Svelte 5, SvelteKit, and web development fundamentals.' }} />
 
 <div class="dashboard">
-	<h1 class="dashboard-greeting">Welcome back, {user.displayName}</h1>
+	<h1 class="dashboard-greeting" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>Welcome back, {user.displayName}</h1>
 
 	<!-- Continue Learning -->
 	{#if firstLesson}
-		<div class="continue-card">
+		<div class="continue-card" in:fly={{ y: inY, duration: inDuration, delay: 100, easing: expoOut, opacity: 0 }}>
 			<div class="continue-info">
 				<Icon icon="ph:play-circle" size={24} />
 				<div>
@@ -91,7 +98,7 @@
 	{/if}
 
 	<!-- Track Progress -->
-	<section>
+	<section class="tracks-section" in:fly={{ y: inY, duration: inDuration, delay: 200, easing: expoOut, opacity: 0 }}>
 		<h2 class="section-title">Your Tracks</h2>
 		<div class="tracks-grid">
 			{#each tracks as track}
@@ -109,19 +116,19 @@
 
 	<div class="bottom-row">
 		<!-- Skill Radar -->
-		<section class="radar-section">
+		<section class="radar-section" in:fly={{ y: inY, duration: inDuration, delay: 300, easing: expoOut, opacity: 0 }}>
 			<h2 class="section-title">Skill Overview</h2>
 			<SkillRadar {skills} />
 		</section>
 
 		<!-- Recent Activity -->
-		<section class="activity-section">
+		<section class="activity-section" in:fly={{ y: inY, duration: inDuration, delay: 400, easing: expoOut, opacity: 0 }}>
 			<RecentActivity activities={recentActivities} />
 		</section>
 	</div>
 
 	<!-- Stats -->
-	<div class="stats-row">
+	<div class="stats-row" in:fly={{ y: inY, duration: inDuration, delay: 500, easing: expoOut, opacity: 0 }}>
 		<div class="stat-card">
 			<span class="stat-number">{totalLessons}</span>
 			<span class="stat-label">Total Lessons</span>

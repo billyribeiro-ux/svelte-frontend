@@ -4,7 +4,10 @@
 	import SEOHead from '$components/seo/SEOHead.svelte';
 	import { buildBreadcrumbSchema } from '$utils/seo';
 	import { initLessons } from '$lessons/init';
-	import { getTrack, getModule } from '$lessons/registry';
+	import { getModule } from '$lessons/registry';
+	import { fly, fade, blur } from 'svelte/transition';
+	import { expoOut, cubicOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	initLessons();
 
@@ -18,37 +21,59 @@
 	let { data }: Props = $props();
 	const trackSlug = $derived(data.trackSlug);
 	const moduleSlug = $derived(data.moduleSlug);
-
-	const track = $derived(getTrack(trackSlug));
 	const module_ = $derived(getModule(trackSlug, moduleSlug));
 
 	$effect(() => {
-		if (!module_ && moduleSlug) {
+		if (!module_ && trackSlug && moduleSlug) {
 			goto(`/learn/${trackSlug}`);
 		}
 	});
+
+	function formatSlug(slug: string): string {
+		return slug
+			.split('-')
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join(' ');
+	}
+
+	// This would normally come from a user progress store
+	const statusColors = {
+		completed: 'var(--sf-success)',
+		in_progress: 'var(--sf-warning)',
+		not_started: 'var(--sf-text-3)'
+	};
+
+	const statusIcons = {
+		completed: 'ph:check-circle-fill',
+		in_progress: 'ph:circle-half-fill',
+		not_started: 'ph:circle'
+	};
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 800);
+	const inY = $derived(prefersReducedMotion.current ? 0 : 30);
+	const blurAmount = $derived(prefersReducedMotion.current ? 0 : 8);
 </script>
 
-{#if module_ && track}
+{#if module_}
 	<SEOHead seo={{
-		title: `${module_.title} — ${track.title}`,
+		title: module_.title,
 		description: module_.description,
 		jsonLd: buildBreadcrumbSchema([
 			{ name: 'Home', url: '/' },
 			{ name: 'Learn', url: '/learn' },
-			{ name: track.title, url: `/learn/${trackSlug}` },
+			{ name: formatSlug(trackSlug), url: `/learn/${trackSlug}` },
 			{ name: module_.title, url: `/learn/${trackSlug}/${moduleSlug}` }
 		])
 	}} />
 
 	<div class="module-page">
-		<header class="module-header">
+		<header class="module-header" in:fly={{ y: inY, duration: inDuration, easing: cubicOut, opacity: 0 }}>
 			<a href="/learn/{trackSlug}" class="back-link">
 				<Icon icon="ph:arrow-left" size={16} />
-				{track.title}
+				{formatSlug(trackSlug)}
 			</a>
-			<h1 class="module-title">{module_.title}</h1>
-			<p class="module-description">{module_.description}</p>
+			<h1 class="module-title-large" in:blur={{ amount: blurAmount, duration: inDuration, delay: 100, easing: expoOut }}>{module_.title}</h1>
+			<p class="module-description" in:fade={{ duration: inDuration, delay: 200, easing: cubicOut }}>{module_.description}</p>
 			<span class="module-stat">
 				<Icon icon="ph:file-text" size={14} />
 				{module_.lessons.length} lessons
@@ -57,7 +82,11 @@
 
 		<div class="lessons-list">
 			{#each module_.lessons as lesson, index}
-				<a href="/learn/{trackSlug}/{moduleSlug}/{lesson.slug}" class="lesson-item">
+				<a
+					href="/learn/{trackSlug}/{moduleSlug}/{lesson.slug}"
+					class="lesson-item"
+					in:fly={{ y: inY, duration: inDuration, delay: 300 + (index * 80), easing: expoOut, opacity: 0 }}
+				>
 					<span class="lesson-number">{index + 1}.</span>
 					<div class="lesson-info">
 						<span class="lesson-title">{lesson.title}</span>
