@@ -77,6 +77,34 @@
 				</a>
 			{/each}
 		</div>
+
+		<section class="pricing">
+			<h2 class="pricing-heading">Get Full Access</h2>
+			<p class="pricing-sub">Unlock all tracks, lessons, and the AI tutor.</p>
+			<div class="pricing-grid">
+				<div class="pricing-card">
+					<p class="plan-name">MONTHLY</p>
+					<div class="plan-price">
+						<span class="plan-amount">$49</span>
+						<span class="plan-period">/mo</span>
+					</div>
+					<p class="plan-note">Cancel anytime. No commitment.</p>
+					<button class="plan-btn plan-btn--secondary">Start Monthly</button>
+				</div>
+
+				<div class="pricing-card pricing-card--featured">
+					<span class="plan-badge">BEST VALUE</span>
+					<p class="plan-name">ANNUAL</p>
+					<div class="plan-price">
+						<span class="plan-amount">$399</span>
+						<span class="plan-period">/yr</span>
+					</div>
+					<p class="plan-note">Billed once per year.</p>
+					<p class="plan-savings">Save 32%</p>
+					<button class="plan-btn plan-btn--primary">Start Annual</button>
+				</div>
+			</div>
+		</section>
 	</div>
 {/if}
 
@@ -205,5 +233,134 @@
 	.module-arrow {
 		color: var(--sf-text-3);
 		flex-shrink: 0;
+	}
+
+	.pricing {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--sf-space-5);
+		padding-block: var(--sf-space-8);
+		border-block-start: 1px solid var(--sf-bg-3);
+	}
+
+	.pricing-heading {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-2xl);
+		font-weight: 700;
+		color: var(--sf-text-0);
+		margin: 0;
+		text-align: center;
+	}
+
+	.pricing-sub {
+		font-size: var(--sf-font-size-base);
+		color: var(--sf-text-2);
+		margin: 0;
+		text-align: center;
+	}
+
+	.pricing-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: var(--sf-space-4);
+		max-inline-size: 560px;
+		inline-size: 100%;
+	}
+
+	.pricing-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: var(--sf-space-3);
+		background: var(--sf-bg-1);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-lg);
+		padding: var(--sf-space-6);
+
+		&.pricing-card--featured {
+			border-color: var(--sf-accent);
+			background: var(--sf-accent-subtle);
+		}
+	}
+
+	.plan-badge {
+		position: absolute;
+		inset-block-start: calc(-1 * var(--sf-space-3));
+		inset-inline-start: 50%;
+		translate: -50% 0;
+		background: var(--sf-accent);
+		color: var(--sf-accent-text);
+		font-size: var(--sf-font-size-xs);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		padding: var(--sf-space-1) var(--sf-space-3);
+		border-radius: var(--sf-radius-full);
+		white-space: nowrap;
+	}
+
+	.plan-name {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-xs);
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		color: var(--sf-text-2);
+		margin: 0;
+	}
+
+	.plan-price {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sf-space-1);
+	}
+
+	.plan-amount {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-3xl);
+		font-weight: 800;
+		color: var(--sf-text-0);
+	}
+
+	.plan-period {
+		font-size: var(--sf-font-size-base);
+		color: var(--sf-text-2);
+	}
+
+	.plan-note {
+		font-size: var(--sf-font-size-sm);
+		color: var(--sf-text-2);
+		margin: 0;
+	}
+
+	.plan-savings {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-sm);
+		font-weight: 700;
+		color: var(--sf-accent);
+		margin: 0;
+	}
+
+	.plan-btn {
+		margin-block-start: var(--sf-space-2);
+		padding-block: var(--sf-space-3);
+		padding-inline: var(--sf-space-5);
+		border-radius: var(--sf-radius-md);
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-sm);
+		font-weight: 600;
+		cursor: pointer;
+		border: none;
+		transition: opacity var(--sf-transition-fast);
+		&:hover { opacity: 0.85; }
+
+		&.plan-btn--primary {
+			background: var(--sf-accent);
+			color: var(--sf-accent-text);
+		}
+
+		&.plan-btn--secondary {
+			background: var(--sf-bg-3);
+			color: var(--sf-text-0);
+		}
 	}
 </style>
