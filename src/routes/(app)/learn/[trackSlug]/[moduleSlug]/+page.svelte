@@ -127,7 +127,7 @@
 		&:hover { color: var(--sf-accent); }
 	}
 
-	.module-title {
+	.module-title-large {
 		font-family: var(--sf-font-sans);
 		font-size: var(--sf-font-size-2xl);
 		font-weight: 700;

@@ -101,7 +101,7 @@
 			onclick={(e) => e.stopPropagation()}
 			in:scale={{ start: 0.95, duration: inDuration, easing: expoOut, opacity: 0 }}
 			out:scale={{ start: 0.98, duration: 200, easing: cubicOut, opacity: 0 }}
-			role="dialog" aria-label="Command palette"
+			role="dialog" aria-label="Command palette" tabindex="-1"
 		>
 			<div class="palette-input-wrap">
 				<Icon icon="ph:magnifying-glass" size={16} />
@@ -142,7 +142,7 @@
 {/if}
 
 <style>
-	.palette-backdrop {
+	.backdrop {
 		position: fixed;
 		inset: 0;
 		background: oklch(0 0 0 / 0.5);
