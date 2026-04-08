@@ -7,9 +7,10 @@
 	import SkillRadar from '$components/dashboard/SkillRadar.svelte';
 	import RecentActivity from '$components/dashboard/RecentActivity.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
-	import { fly, fade, blur, slide } from 'svelte/transition';
+	import { fly, fade, blur } from 'svelte/transition';
 	import { expoOut, cubicOut, backOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
+	import { progressStore } from '$stores/progress.svelte';
 
 	interface Props {
 		data: {
