@@ -22,7 +22,7 @@
 	}
 </script>
 
-<SEOHead seo={{ title: 'Reset Password — SvelteForge', noindex: true }} />
+<SEOHead seo={{ title: 'Reset Password — SvelteForge', description: 'Reset your SvelteForge password.', noindex: true }} />
 
 <div class="auth-page">
 	<div class="auth-orb" aria-hidden="true"></div>
