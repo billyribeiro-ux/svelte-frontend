@@ -2,7 +2,7 @@
 	import Button from '$components/ui/Button.svelte';
 	import Icon from '$components/ui/Icon.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
-	import { fly, fade, scale, blur } from 'svelte/transition';
+	import { fly, fade, scale, blur, draw } from 'svelte/transition';
 	import { cubicOut, expoOut, quintOut } from 'svelte/easing';
 	import { prefersReducedMotion, Tween, Spring } from 'svelte/motion';
 	import { onMount } from 'svelte';
@@ -207,6 +207,34 @@
 
 	let pathVisible = $state(false);
 	let indexedVisible = $state(false);
+	let svgVisible = $state(false);
+
+	// SVG ring chart data
+	const RING_R = 40;
+	const RING_C = 2 * Math.PI * RING_R; // ≈ 251.33
+	const ringData = [
+		{ title: 'Svelte 5 Core',  subtitle: '42 lessons', pct: 92, color: 'oklch(0.78 0.22 330)' },
+		{ title: 'SvelteKit',       subtitle: '38 lessons', pct: 85, color: 'oklch(0.72 0.19 155)' },
+		{ title: 'Foundations',     subtitle: '35 lessons', pct: 78, color: 'oklch(0.78 0.18 75)'  },
+		{ title: 'Projects',        subtitle: '24 lessons', pct: 96, color: 'oklch(0.65 0.25 275)' }
+	];
+	function ringOffset(pct: number) { return RING_C * (1 - pct / 100); }
+
+	// SVG draw diagram — Svelte 5 rune data flow
+	const runeNodes = [
+		{ id: 'state',   label: '$state',   x: 110, y: 110, color: 'oklch(0.78 0.22 330)', r: 28 },
+		{ id: 'derived', label: '$derived', x: 310, y: 60,  color: 'oklch(0.76 0.16 230)', r: 30 },
+		{ id: 'effect',  label: '$effect',  x: 310, y: 165, color: 'oklch(0.72 0.19 155)', r: 28 },
+		{ id: 'props',   label: '$props',   x: 110, y: 200, color: 'oklch(0.78 0.18 75)',  r: 24 },
+		{ id: 'ui',      label: 'Template', x: 480, y: 112, color: 'oklch(0.65 0.25 275)', r: 32 }
+	];
+	const runePaths = [
+		{ d: 'M 138 100 Q 215 40 280 62',  color: 'oklch(0.78 0.22 330)' },
+		{ d: 'M 138 120 Q 215 155 280 162', color: 'oklch(0.72 0.19 155)' },
+		{ d: 'M 340 62 Q 405 58 448 100',   color: 'oklch(0.76 0.16 230)' },
+		{ d: 'M 340 165 Q 405 162 448 122', color: 'oklch(0.72 0.19 155)' },
+		{ d: 'M 110 176 C 80 145 80 128 82 118', color: 'oklch(0.78 0.18 75)' }
+	];
 
 	// Full course syllabus data (for TOC section)
 	const syllabusData = [
@@ -264,6 +292,7 @@
 		{ id: 'how',          label: 'How It Works' },
 		{ id: 'features',     label: 'Features' },
 		{ id: 'curriculum',   label: 'Curriculum' },
+		{ id: 'svg-demo',     label: 'SVG Animations' },
 		{ id: 'path',         label: 'Learning Path' },
 		{ id: 'index',        label: 'Doc Index' },
 		{ id: 'syllabus',     label: 'Full Syllabus' },
@@ -544,6 +573,145 @@
 							<div class="curriculum-arrow"><Icon icon="ph:arrow-right" size={18} /></div>
 						</a>
 					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ░░ SVG ANIMATIONS ░░ -->
+	<section id="svg-demo" class="svg-section" use:observe={() => { svgVisible = true; }}>
+		<div class="section-inner">
+			{#if svgVisible}
+				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
+					SVG + Svelte = Pure Power
+				</h2>
+				<p class="section-sub" in:fade={{ duration: inDuration, delay: 100, easing: cubicOut }}>
+					Svelte's reactive model makes animated SVGs trivially simple. Every example below is built-in to the platform.
+				</p>
+
+				<!-- ── Ring Charts ── -->
+				<div class="rings-wrap" in:fly={{ y: inY, duration: inDuration, delay: 150, easing: expoOut, opacity: 0 }}>
+					<p class="rings-label">Curriculum Coverage</p>
+					<div class="rings-grid">
+						{#each ringData as ring, i}
+							<div class="ring-item">
+								<div class="ring-svg-wrap">
+									<svg viewBox="0 0 100 100" class="ring-svg" aria-hidden="true">
+										<!-- Background track -->
+										<circle
+											cx="50" cy="50" r={RING_R}
+											fill="none"
+											stroke-width="8"
+											class="ring-track"
+										/>
+										<!-- Animated arc — CSS stroke-dashoffset, scroll-driven -->
+										<circle
+											cx="50" cy="50" r={RING_R}
+											fill="none"
+											stroke-width="8"
+											stroke-linecap="round"
+											stroke={ring.color}
+											class="ring-fill"
+											style="
+												--ring-dash: {RING_C};
+												--ring-offset: {ringOffset(ring.pct)};
+												--ring-delay: {i * 120}ms;
+											"
+										/>
+										<!-- Percentage text -->
+										<text x="50" y="46" class="ring-pct" style="fill: {ring.color}">{ring.pct}%</text>
+										<text x="50" y="60" class="ring-sub-text">covered</text>
+									</svg>
+								</div>
+								<p class="ring-title">{ring.title}</p>
+								<p class="ring-subtitle">{ring.subtitle}</p>
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- ── Svelte draw transition — Rune Flow Diagram ── -->
+				<div class="draw-wrap" in:fly={{ y: inY, duration: inDuration, delay: 300, easing: expoOut, opacity: 0 }}>
+					<p class="rings-label">Svelte 5 Rune Data Flow — drawn with <code>in:draw</code></p>
+					<div class="draw-svg-wrap">
+						<svg viewBox="0 0 600 250" class="draw-svg" aria-label="Svelte 5 rune data flow diagram">
+							<!-- Draw animated paths first (below nodes) -->
+							{#each runePaths as path, i}
+								<path
+									d={path.d}
+									fill="none"
+									stroke={path.color}
+									stroke-width="2"
+									stroke-linecap="round"
+									opacity="0.7"
+									in:draw={{ duration: prefersReducedMotion.current ? 0 : 800, delay: i * 150, easing: cubicOut }}
+								/>
+								<!-- Arrow marker at end of each path -->
+								<path
+									d={path.d}
+									fill="none"
+									stroke="none"
+									marker-end="url(#arrow)"
+								/>
+							{/each}
+
+							<!-- Arrow marker def -->
+							<defs>
+								<marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+									<path d="M0,0 L6,3 L0,6 Z" fill="var(--sf-text-3)" />
+								</marker>
+							</defs>
+
+							<!-- Rune nodes -->
+							{#each runeNodes as node, i}
+								<g
+									class="rune-node"
+									style="--node-color: {node.color}"
+									in:fly={{ y: 10, duration: prefersReducedMotion.current ? 0 : 600, delay: i * 100, easing: expoOut, opacity: 0 }}
+								>
+									<circle
+										cx={node.x} cy={node.y} r={node.r}
+										fill="color-mix(in oklch, {node.color} 12%, oklch(0.16 0.012 260))"
+										stroke={node.color}
+										stroke-width="1.5"
+										class="rune-circle"
+									/>
+									<text
+										x={node.x} y={node.y + 1}
+										class="rune-label"
+										fill={node.color}
+									>{node.label}</text>
+								</g>
+							{/each}
+						</svg>
+					</div>
+				</div>
+
+				<!-- ── CSS SVG animation — Reactive Pulse ── -->
+				<div class="pulse-wrap" in:fly={{ y: inY, duration: inDuration, delay: 500, easing: expoOut, opacity: 0 }}>
+					<p class="rings-label">Reactive Pulse — pure CSS SVG animation</p>
+					<div class="pulse-svg-wrap">
+						<svg viewBox="0 0 600 120" class="pulse-svg" aria-hidden="true">
+							<!-- Baseline -->
+							<line x1="0" y1="60" x2="600" y2="60" stroke="var(--sf-bg-3)" stroke-width="1" />
+							<!-- Heartbeat waveform path -->
+							<path
+								class="pulse-path"
+								d="M0,60 L80,60 L100,60 L110,20 L125,100 L140,60 L160,60
+								   L240,60 L260,60 L270,20 L285,100 L300,60 L320,60
+								   L400,60 L420,60 L430,20 L445,100 L460,60 L480,60 L600,60"
+								fill="none"
+							/>
+							<!-- Scanning glow dot -->
+							<circle r="4" fill="var(--sf-accent)" class="pulse-dot" opacity="0.9">
+								<animateMotion
+									dur="3s"
+									repeatCount="indefinite"
+									path="M0,60 L80,60 L100,60 L110,20 L125,100 L140,60 L160,60 L240,60 L260,60 L270,20 L285,100 L300,60 L320,60 L400,60 L420,60 L430,20 L445,100 L460,60 L480,60 L600,60"
+								/>
+							</circle>
+						</svg>
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -1886,6 +2054,187 @@
 		.section-heading { color: black; }
 
 		a { color: black; text-decoration: underline; }
+	}
+
+	/* ═══════════════════════════════════════
+	   SVG ANIMATIONS SECTION
+	   ═══════════════════════════════════════ */
+	.svg-section {
+		padding-block: var(--sf-space-8);
+		background: var(--sf-bg-1);
+	}
+
+	.rings-label {
+		font-size: var(--sf-font-size-xs);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sf-text-3);
+		margin: 0 0 var(--sf-space-4);
+	}
+
+	/* ── RING CHARTS ── */
+	.rings-wrap {
+		margin-block-end: var(--sf-space-8);
+	}
+
+	.rings-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--sf-space-5);
+
+		@media (max-width: 640px) {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	.ring-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--sf-space-2);
+	}
+
+	.ring-svg-wrap {
+		position: relative;
+		inline-size: 120px;
+		block-size: 120px;
+	}
+
+	.ring-svg {
+		inline-size: 100%;
+		block-size: 100%;
+		overflow: visible;
+	}
+
+	.ring-track {
+		stroke: var(--sf-bg-3);
+	}
+
+	/* Scroll-driven ring fill — animation-timeline: view() — Baseline 2023 */
+	.ring-fill {
+		stroke-dasharray: var(--ring-dash);
+		stroke-dashoffset: var(--ring-dash); /* starts hidden */
+		transform-origin: 50% 50%;
+		transform: rotate(-90deg);
+		animation: ring-arc 1.4s var(--ring-delay, 0ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+		animation-timeline: view();
+		animation-range: entry 20% entry 75%;
+	}
+
+	@keyframes ring-arc {
+		from { stroke-dashoffset: var(--ring-dash); }
+		to   { stroke-dashoffset: var(--ring-offset); }
+	}
+
+	.ring-pct {
+		font-family: var(--sf-font-sans);
+		font-size: 18px;
+		font-weight: 800;
+		text-anchor: middle;
+		dominant-baseline: middle;
+	}
+
+	.ring-sub-text {
+		font-family: var(--sf-font-sans);
+		font-size: 8px;
+		fill: var(--sf-text-3);
+		text-anchor: middle;
+		dominant-baseline: middle;
+	}
+
+	.ring-title {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-sm);
+		font-weight: 600;
+		color: var(--sf-text-0);
+		margin: 0;
+		text-align: center;
+	}
+
+	.ring-subtitle {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		margin: 0;
+		text-align: center;
+	}
+
+	/* ── DRAW TRANSITION DIAGRAM ── */
+	.draw-wrap {
+		margin-block-end: var(--sf-space-8);
+	}
+
+	.draw-svg-wrap {
+		background: var(--sf-bg-2);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-xl);
+		padding: var(--sf-space-4);
+		overflow: hidden;
+	}
+
+	.draw-svg {
+		inline-size: 100%;
+		max-block-size: 260px;
+		overflow: visible;
+	}
+
+	.rune-circle {
+		transition: filter var(--sf-transition-base);
+	}
+
+	.rune-node {
+		cursor: default;
+
+		&:hover .rune-circle {
+			filter: drop-shadow(0 0 8px var(--node-color));
+		}
+	}
+
+	.rune-label {
+		font-family: var(--sf-font-mono);
+		font-size: 10px;
+		font-weight: 700;
+		text-anchor: middle;
+		dominant-baseline: middle;
+	}
+
+	/* ── PULSE WAVEFORM ── */
+	.pulse-wrap { margin-block-start: 0; }
+
+	.pulse-svg-wrap {
+		background: var(--sf-bg-2);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-xl);
+		padding: var(--sf-space-4);
+		overflow: hidden;
+	}
+
+	.pulse-svg {
+		inline-size: 100%;
+		block-size: 100px;
+	}
+
+	/* Animated drawing stroke on the waveform path */
+	.pulse-path {
+		stroke: var(--sf-accent);
+		stroke-width: 2.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		fill: none;
+		/* Draw animation using stroke-dasharray trick */
+		stroke-dasharray: 2000;
+		stroke-dashoffset: 2000;
+		animation: pulse-draw 2.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+		animation-timeline: view();
+		animation-range: entry 10% entry 60%;
+
+		/* Glow filter */
+		filter: drop-shadow(0 0 4px oklch(0.65 0.25 275 / 0.6));
+	}
+
+	@keyframes pulse-draw {
+		from { stroke-dashoffset: 2000; }
+		to   { stroke-dashoffset: 0; }
 	}
 
 	/* ═══════════════════════════════════════
