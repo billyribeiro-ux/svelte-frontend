@@ -4,7 +4,7 @@
 	import SEOHead from '$components/seo/SEOHead.svelte';
 	import { fly, fade, scale, blur } from 'svelte/transition';
 	import { cubicOut, expoOut, quintOut } from 'svelte/easing';
-	import { prefersReducedMotion, Tween } from 'svelte/motion';
+	import { prefersReducedMotion, Tween, Spring } from 'svelte/motion';
 	import { onMount } from 'svelte';
 
 	const seo = {
@@ -61,6 +61,46 @@
 
 	// Animated stat counters
 	const statTweens = statsData.map(() => new Tween(0, { duration: 1800, easing: quintOut }));
+
+	// Tech badge marquee
+	const techBadges = ['Svelte 5', '$state', '$derived', '$effect', 'SvelteKit', 'TypeScript', 'Runes', 'Monaco Editor', 'AI Tutor', 'Concept Graph', 'ICT Level 7', 'HTML5', 'CSS3', 'JavaScript'];
+
+	// Interactive live demo counter
+	let demoCount = $state(0);
+	const demoDerived = $derived(demoCount * 2);
+
+	// Mouse-parallax orbs via Spring physics
+	const orbA = new Spring({ x: 0, y: 0 }, { stiffness: 0.04, damping: 0.5 });
+	const orbB = new Spring({ x: 0, y: 0 }, { stiffness: 0.025, damping: 0.6 });
+
+	function handleHeroMouseMove(e: MouseEvent) {
+		if (prefersReducedMotion.current) return;
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const cx = (e.clientX - rect.left) / rect.width - 0.5;
+		const cy = (e.clientY - rect.top) / rect.height - 0.5;
+		orbA.set({ x: cx * 70, y: cy * 50 });
+		orbB.set({ x: cx * -50, y: cy * -35 });
+	}
+
+	// 3D tilt action for feature cards
+	function tilt(node: HTMLElement) {
+		function onMove(e: MouseEvent) {
+			if (prefersReducedMotion.current) return;
+			const r = node.getBoundingClientRect();
+			const x = (e.clientX - r.left) / r.width - 0.5;
+			const y = (e.clientY - r.top) / r.height - 0.5;
+			node.style.setProperty('--tilt-x', `${y * -10}deg`);
+			node.style.setProperty('--tilt-y', `${x * 10}deg`);
+			node.style.setProperty('--tilt-shine', `${(x + 0.5) * 100}%`);
+		}
+		function onLeave() {
+			node.style.setProperty('--tilt-x', '0deg');
+			node.style.setProperty('--tilt-y', '0deg');
+		}
+		node.addEventListener('mousemove', onMove);
+		node.addEventListener('mouseleave', onLeave);
+		return { destroy() { node.removeEventListener('mousemove', onMove); node.removeEventListener('mouseleave', onLeave); } };
+	}
 
 	// Live typing code demo
 	const codeLines = [
@@ -122,12 +162,16 @@
 
 <SEOHead {seo} />
 
+<div class="scroll-progress" aria-hidden="true"></div>
+
 <div class="landing">
 
 	<!-- ░░ HERO ░░ -->
-	<section class="hero">
-		<div class="hero-orb hero-orb--a" aria-hidden="true"></div>
-		<div class="hero-orb hero-orb--b" aria-hidden="true"></div>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<section class="hero" onmousemove={handleHeroMouseMove}>
+		<div class="hero-dots" aria-hidden="true"></div>
+		<div class="hero-orb hero-orb--a" aria-hidden="true" style="transform: translate(calc(-50% + {orbA.current.x}px), calc(-50% + {orbA.current.y}px))"></div>
+		<div class="hero-orb hero-orb--b" aria-hidden="true" style="transform: translate(calc(50% + {orbB.current.x}px), calc(50% + {orbB.current.y}px))"></div>
 		<div class="hero-noise" aria-hidden="true"></div>
 
 		<div class="hero-inner">
@@ -169,16 +213,37 @@
 						<span class="demo-dot demo-dot--green"></span>
 						<span class="demo-filename">Counter.svelte</span>
 					</div>
-					<pre class="demo-code" aria-label="Live Svelte 5 code preview">{#each typedLines as line, i}<span class="demo-line" class:demo-line--cursor={i === cursorLine && typedLines.length < 8}>{#if line.includes('$state')}<span class="c-rune">{line}</span>{:else if line.includes('$derived')}<span class="c-rune">{line}</span>{:else if line.startsWith('<script') || line.startsWith('</script') || line.startsWith('<button') || line.startsWith('</button')}<span class="c-tag">{line}</span>{:else if line.includes('{count}') || line.includes('{doubled}')}{@html line.replace(/\{(count|doubled)\}/g, '<span class="c-expr">{$1}</span>')}{:else}{line}{/if}
+					<div class="demo-code-wrap">
+						<div class="demo-linenos" aria-hidden="true">
+							{#each typedLines as _, i}<span>{i + 1}</span>
+{/each}
+						</div>
+						<pre class="demo-code" aria-label="Live Svelte 5 code preview">{#each typedLines as line, i}<span class="demo-line" class:demo-line--cursor={i === cursorLine && typedLines.length < 8}>{#if line.includes('$state')}<span class="c-rune">{line}</span>{:else if line.includes('$derived')}<span class="c-rune">{line}</span>{:else if line.startsWith('<script') || line.startsWith('</script') || line.startsWith('<button') || line.startsWith('</button')}<span class="c-tag">{line}</span>{:else if line.includes('{count}') || line.includes('{doubled}')}{@html line.replace(/\{(count|doubled)\}/g, '<span class="c-expr">{$1}</span>')}{:else}{line}{/if}
 </span>{/each}</pre>
+					</div>
 					<div class="demo-preview">
-						<span class="demo-preview-label">Preview</span>
-						<button class="demo-counter-btn" tabindex="-1">Clicks: 3 → 6</button>
+						<span class="demo-preview-label">▶ Preview — click it!</span>
+						<button class="demo-counter-btn" onclick={() => demoCount++}>
+							Clicks: {demoCount} → {demoDerived}
+						</button>
 					</div>
 				</div>
 			</div>
 		</div>
+
+		<div class="hero-scroll-hint" aria-hidden="true">
+			<span class="scroll-dot"></span>
+		</div>
 	</section>
+
+	<!-- ░░ MARQUEE ░░ -->
+	<div class="marquee-wrap" aria-hidden="true">
+		<div class="marquee">
+			{#each [...techBadges, ...techBadges] as badge}
+				<span class="marquee-badge">{badge}</span>
+			{/each}
+		</div>
+	</div>
 
 	<!-- ░░ STATS BAR ░░ -->
 	<div class="stats-bar" use:observe={() => { statsVisible = true; }}>
@@ -232,7 +297,8 @@
 					{#each features as feature, i}
 						<div
 							class="feature-card"
-							style="--card-accent: {feature.accent}"
+							style="--card-accent: {feature.accent}; --tilt-x: 0deg; --tilt-y: 0deg; --tilt-shine: 50%"
+							use:tilt
 							in:fly={{ y: inY, duration: inDuration, delay: i * 80, easing: expoOut, opacity: 0 }}
 						>
 							<div class="feature-icon-wrap">
@@ -785,5 +851,183 @@
 		flex-wrap: wrap;
 		justify-content: center;
 		margin-block-start: var(--sf-space-3);
+	}
+
+	/* ── SCROLL PROGRESS BAR (CSS-native, zero JS) ── */
+	.scroll-progress {
+		position: fixed;
+		z-index: 9999;
+		inset-block-start: 0;
+		inset-inline-start: 0;
+		inset-inline-end: 0;
+		block-size: 2px;
+		background: linear-gradient(90deg, var(--sf-accent), oklch(0.78 0.22 310), var(--sf-accent-hover));
+		transform-origin: 0 50%;
+		animation: scroll-fill linear both;
+		animation-timeline: scroll(root);
+	}
+	@keyframes scroll-fill {
+		from { transform: scaleX(0); }
+		to { transform: scaleX(1); }
+	}
+
+	/* ── DOT GRID BACKGROUND ── */
+	.hero-dots {
+		position: absolute;
+		inset: 0;
+		background-image: radial-gradient(circle, oklch(0.65 0.25 275 / 0.12) 1px, transparent 1px);
+		background-size: 28px 28px;
+		mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 80%);
+		pointer-events: none;
+	}
+
+	/* ── REPOSITIONED ORBS (controlled via inline style) ── */
+	.hero-orb--a {
+		inset-block-start: 20%;
+		inset-inline-start: 15%;
+		/* inline transform overridden by Spring style binding */
+	}
+	.hero-orb--b {
+		inset-block-end: 20%;
+		inset-inline-end: 15%;
+	}
+
+	/* ── SCROLL HINT ── */
+	.hero-scroll-hint {
+		position: absolute;
+		inset-block-end: var(--sf-space-6);
+		inset-inline-start: 50%;
+		translate: -50% 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.scroll-dot {
+		display: block;
+		inline-size: 20px;
+		block-size: 32px;
+		border: 2px solid oklch(0.65 0.25 275 / 0.4);
+		border-radius: var(--sf-radius-full);
+		position: relative;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset-block-start: 5px;
+			inset-inline-start: 50%;
+			translate: -50% 0;
+			inline-size: 4px;
+			block-size: 8px;
+			background: var(--sf-accent);
+			border-radius: var(--sf-radius-full);
+			animation: scroll-wheel 2s ease-in-out infinite;
+		}
+	}
+	@keyframes scroll-wheel {
+		0% { transform: translateY(0); opacity: 1; }
+		80% { transform: translateY(10px); opacity: 0; }
+		100% { transform: translateY(0); opacity: 0; }
+	}
+
+	/* ── MARQUEE ── */
+	.marquee-wrap {
+		overflow: hidden;
+		border-block: 1px solid var(--sf-bg-3);
+		background: var(--sf-bg-1);
+		padding-block: var(--sf-space-3);
+		mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+	}
+
+	.marquee {
+		display: flex;
+		gap: var(--sf-space-3);
+		animation: marquee-scroll 30s linear infinite;
+		width: max-content;
+	}
+
+	@keyframes marquee-scroll {
+		from { transform: translateX(0); }
+		to { transform: translateX(-50%); }
+	}
+
+	.marquee-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: var(--sf-space-1) var(--sf-space-3);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-full);
+		background: var(--sf-bg-2);
+		font-size: var(--sf-font-size-xs);
+		font-weight: 600;
+		color: var(--sf-text-2);
+		white-space: nowrap;
+		letter-spacing: 0.03em;
+	}
+
+	/* ── 3D TILT ON FEATURE CARDS ── */
+	.feature-card {
+		transform-style: preserve-3d;
+		transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+		transition: transform 120ms ease-out, border-color var(--sf-transition-base), box-shadow var(--sf-transition-base);
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+			background: linear-gradient(
+				105deg,
+				oklch(1 0 0 / 0.04) 0%,
+				transparent 40%,
+				transparent 60%,
+				oklch(1 0 0 / 0.02) 100%
+			);
+			background-position: var(--tilt-shine, 50%) 50%;
+			pointer-events: none;
+			opacity: 0;
+			transition: opacity var(--sf-transition-base);
+		}
+
+		&:hover::after { opacity: 1; }
+	}
+
+	/* ── DEMO CODE LINE NUMBERS ── */
+	.demo-code-wrap {
+		display: flex;
+		min-block-size: 180px;
+	}
+
+	.demo-linenos {
+		display: flex;
+		flex-direction: column;
+		padding: var(--sf-space-4) var(--sf-space-3);
+		background: oklch(0 0 0 / 0.15);
+		border-inline-end: 1px solid var(--sf-bg-3);
+		min-inline-size: 36px;
+		text-align: right;
+		color: var(--sf-text-3);
+		font-family: var(--sf-font-mono);
+		font-size: 0.75rem;
+		line-height: 1.7;
+		user-select: none;
+	}
+
+	.demo-code {
+		flex: 1;
+	}
+
+	/* ── COUNTER BUTTON CLICK EFFECT ── */
+	.demo-counter-btn {
+		cursor: pointer;
+		transition: transform var(--sf-transition-fast), box-shadow var(--sf-transition-fast);
+
+		&:active {
+			transform: scale(0.95);
+		}
+
+		&:hover {
+			box-shadow: 0 0 0 3px oklch(0.65 0.25 275 / 0.3);
+		}
 	}
 </style>
