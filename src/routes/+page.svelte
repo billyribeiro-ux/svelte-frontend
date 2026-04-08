@@ -159,6 +159,55 @@
 
 	let openFaq = $state<number | null>(null);
 
+	// Learning Path Timeline data
+	const pathData = [
+		{
+			n: '01', slug: 'foundations', title: 'Web Foundations', accent: 'oklch(0.78 0.18 75)', icon: 'ph:layout',
+			hours: 20, modules: 6, lessons: 35,
+			topics: ['HTML5', 'CSS', 'Flexbox', 'Grid', 'Tailwind', 'TypeScript'],
+			outcome: 'Build and style any static web page with confidence'
+		},
+		{
+			n: '02', slug: 'svelte-core', title: 'Svelte 5 Core', accent: 'oklch(0.78 0.22 330)', icon: 'ph:lightning',
+			hours: 25, modules: 8, lessons: 42,
+			topics: ['$state', '$derived', '$effect', 'Components', 'Snippets', 'Runes'],
+			outcome: 'Write reactive Svelte 5 components from scratch'
+		},
+		{
+			n: '03', slug: 'sveltekit', title: 'SvelteKit Mastery', accent: 'oklch(0.72 0.19 155)', icon: 'ph:rocket-launch',
+			hours: 22, modules: 8, lessons: 38,
+			topics: ['Routing', 'Load Functions', 'Form Actions', 'SSR', 'Hooks'],
+			outcome: 'Ship production-ready full-stack applications'
+		},
+		{
+			n: '04', slug: 'projects', title: 'Build Projects', accent: 'oklch(0.65 0.25 275)', icon: 'ph:trophy',
+			hours: 30, modules: 4, lessons: 24,
+			topics: ['Blog', 'Dashboard', 'Task Manager', 'SaaS App'],
+			outcome: 'Own 4 portfolio-grade Svelte applications'
+		}
+	];
+
+	// Document-style indexed TOC
+	const indexedToc = [
+		{ n: 'I',    title: 'How SvelteForge Works',  sub: 'The three-step learning method',         time: '3 min',  href: '#how' },
+		{ n: 'II',   title: 'Platform Features',       sub: 'Six core tools powering your learning',  time: '4 min',  href: '#features' },
+		{ n: 'III',  title: 'Complete Curriculum',     sub: 'Four tracks — 139+ lessons',             time: '2 min',  href: '#curriculum',
+			children: [
+				{ n: 'A', title: 'Web Foundations',     href: '/learn/foundations' },
+				{ n: 'B', title: 'Svelte 5 Core',       href: '/learn/svelte-core' },
+				{ n: 'C', title: 'SvelteKit Mastery',   href: '/learn/sveltekit' },
+				{ n: 'D', title: 'Build Projects',      href: '/learn/projects' }
+			]
+		},
+		{ n: 'IV',   title: 'Full Course Syllabus',   sub: 'Every module expanded',                  time: '10 min', href: '#syllabus' },
+		{ n: 'V',    title: 'Student Reviews',         sub: 'What developers are saying',             time: '2 min',  href: '#testimonials' },
+		{ n: 'VI',   title: 'FAQ',                     sub: 'Six common questions answered',          time: '3 min',  href: '#faq' },
+		{ n: 'VII',  title: 'Pricing',                 sub: 'Monthly and Annual plans',               time: '1 min',  href: '/pricing' }
+	];
+
+	let pathVisible = $state(false);
+	let indexedVisible = $state(false);
+
 	// Full course syllabus data (for TOC section)
 	const syllabusData = [
 		{
@@ -211,14 +260,16 @@
 
 	// Floating page TOC
 	const tocSections = [
-		{ id: 'hero',        label: 'Top' },
-		{ id: 'how',         label: 'How It Works' },
-		{ id: 'features',    label: 'Features' },
-		{ id: 'curriculum',  label: 'Curriculum' },
-		{ id: 'syllabus',    label: 'Full Syllabus' },
-		{ id: 'testimonials',label: 'Reviews' },
-		{ id: 'faq',         label: 'FAQ' },
-		{ id: 'cta',         label: 'Get Started' }
+		{ id: 'hero',         label: 'Top' },
+		{ id: 'how',          label: 'How It Works' },
+		{ id: 'features',     label: 'Features' },
+		{ id: 'curriculum',   label: 'Curriculum' },
+		{ id: 'path',         label: 'Learning Path' },
+		{ id: 'index',        label: 'Doc Index' },
+		{ id: 'syllabus',     label: 'Full Syllabus' },
+		{ id: 'testimonials', label: 'Reviews' },
+		{ id: 'faq',          label: 'FAQ' },
+		{ id: 'cta',          label: 'Get Started' }
 	];
 	let activeSection = $state('hero');
 	let tocVisible = $state(false);
@@ -493,6 +544,108 @@
 							<div class="curriculum-arrow"><Icon icon="ph:arrow-right" size={18} /></div>
 						</a>
 					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ░░ LEARNING PATH TIMELINE TOC ░░ -->
+	<section id="path" class="path-section" use:observe={() => { pathVisible = true; }}>
+		<div class="section-inner">
+			{#if pathVisible}
+				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
+					Your Learning Journey
+				</h2>
+				<p class="section-sub" in:fade={{ duration: inDuration, delay: 100, easing: cubicOut }}>
+					Four tracks. One clear path from complete beginner to full-stack Svelte developer.
+				</p>
+				<div class="path-timeline">
+					{#each pathData as track, i}
+						<div
+							class="path-node"
+							style="--card-accent: {track.accent}"
+							in:fly={{ y: inY, duration: inDuration, delay: i * 140, easing: expoOut, opacity: 0 }}
+						>
+							<!-- Connecting line above (except first) -->
+							{#if i > 0}
+								<div class="path-line" in:fade={{ duration: inDuration, delay: i * 140 + 200 }}></div>
+							{/if}
+
+							<div class="path-step-num">{track.n}</div>
+
+							<a href="/learn/{track.slug}" class="path-card">
+								<div class="path-card-top">
+									<div class="path-card-icon">
+										<Icon icon={track.icon} size={24} />
+									</div>
+									<div class="path-card-meta">
+										<h3 class="path-card-title">{track.title}</h3>
+										<div class="path-card-stats">
+											<span><Icon icon="ph:folder" size={12} />{track.modules} modules</span>
+											<span><Icon icon="ph:file-text" size={12} />{track.lessons} lessons</span>
+											<span><Icon icon="ph:clock" size={12} />~{track.hours}h</span>
+										</div>
+									</div>
+								</div>
+								<div class="path-topics">
+									{#each track.topics as topic}
+										<span class="path-topic">{topic}</span>
+									{/each}
+								</div>
+								<p class="path-outcome">
+									<Icon icon="ph:check-circle" size={14} />
+									{track.outcome}
+								</p>
+							</a>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ░░ DOCUMENT INDEX TOC ░░ -->
+	<section id="index" class="doc-toc-section" use:observe={() => { indexedVisible = true; }}>
+		<div class="section-inner doc-toc-inner">
+			{#if indexedVisible}
+				<div class="doc-toc-wrap" in:fly={{ y: inY, duration: inDuration, easing: expoOut, opacity: 0 }}>
+					<div class="doc-toc-header" in:blur={{ amount: blurAmount, duration: inDuration, delay: 80, easing: expoOut }}>
+						<h2 class="doc-toc-title">Table of Contents</h2>
+						<p class="doc-toc-sub">Everything in this page — click to jump to any section.</p>
+					</div>
+					<ol class="doc-toc-list">
+						{#each indexedToc as item, i}
+							<li class="doc-toc-item" in:fly={{ y: inY, duration: inDuration, delay: 150 + i * 60, easing: expoOut, opacity: 0 }}>
+								<a href={item.href} class="doc-toc-link">
+									<span class="doc-toc-num">{item.n}.</span>
+									<span class="doc-toc-name">
+										{item.title}
+										{#if item.sub}
+											<span class="doc-toc-sub-label">{item.sub}</span>
+										{/if}
+									</span>
+									<span class="doc-toc-dots" aria-hidden="true"></span>
+									<span class="doc-toc-time">{item.time}</span>
+								</a>
+								{#if item.children}
+									<ol class="doc-toc-children">
+										{#each item.children as child}
+											<li class="doc-toc-child">
+												<a href={child.href} class="doc-toc-child-link">
+													<span class="doc-toc-num">{child.n}.</span>
+													<span>{child.title}</span>
+												</a>
+											</li>
+										{/each}
+									</ol>
+								{/if}
+							</li>
+						{/each}
+					</ol>
+					<div class="doc-toc-footer">
+						<Icon icon="ph:book-open" size={14} />
+						Total estimated study time: <strong>~97 hours</strong>
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -1456,6 +1609,587 @@
 	/* ── MARQUEE PAUSE ON HOVER ── */
 	.marquee-wrap:hover .marquee {
 		animation-play-state: paused;
+	}
+
+	/* ═══════════════════════════════════════
+	   ADDITIONAL STYLES
+	   ═══════════════════════════════════════ */
+
+	/* ── CUSTOM SCROLLBAR ── */
+	::-webkit-scrollbar { inline-size: 6px; block-size: 6px; }
+	::-webkit-scrollbar-track { background: var(--sf-bg-1); }
+	::-webkit-scrollbar-thumb {
+		background: var(--sf-bg-4);
+		border-radius: var(--sf-radius-full);
+		&:hover { background: var(--sf-accent); }
+	}
+
+	/* ── TEXT SELECTION COLOR ── */
+	::selection {
+		background: oklch(0.65 0.25 275 / 0.25);
+		color: var(--sf-text-0);
+	}
+
+	/* ── FOCUS RINGS (keyboard navigation) ── */
+	:focus-visible {
+		outline: 2px solid var(--sf-accent);
+		outline-offset: 3px;
+		border-radius: var(--sf-radius-sm);
+	}
+	button:focus-visible, a:focus-visible {
+		outline: 2px solid var(--sf-accent);
+		outline-offset: 3px;
+	}
+
+	/* ── FONT SMOOTHING & RENDERING ── */
+	.landing {
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	/* ── HERO BADGE SHIMMER SWEEP ── */
+	.hero-badge {
+		position: relative;
+		overflow: hidden;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset-block-start: 0;
+			inset-inline-start: -100%;
+			inline-size: 60%;
+			block-size: 100%;
+			background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.15), transparent);
+			animation: badge-shimmer 4s ease-in-out 2s infinite;
+		}
+	}
+	@keyframes badge-shimmer {
+		0% { inset-inline-start: -100%; }
+		40%, 100% { inset-inline-start: 180%; }
+	}
+
+	/* ── DEMO WINDOW PULSING BORDER GLOW ── */
+	.demo-window {
+		animation: demo-glow 4s ease-in-out 2s infinite alternate;
+	}
+	@keyframes demo-glow {
+		from { box-shadow: 0 30px 80px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0.65 0.25 275 / 0.12), 0 6px 20px oklch(0.65 0.25 275 / 0.08), inset 0 1px 0 oklch(1 0 0 / 0.05); }
+		to   { box-shadow: 0 30px 80px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0.65 0.25 275 / 0.35), 0 6px 20px oklch(0.65 0.25 275 / 0.18), inset 0 1px 0 oklch(1 0 0 / 0.08); }
+	}
+
+	/* ── ANIMATED SECTION HEADING UNDERLINE (grows from center) ── */
+	.section-heading::after {
+		transform-origin: center;
+		animation: underline-grow 600ms var(--sf-ease-out) both;
+		animation-timeline: view();
+		animation-range: entry 10% entry 50%;
+	}
+	@keyframes underline-grow {
+		from { scale: 0 1; }
+		to   { scale: 1 1; }
+	}
+
+	/* ── TESTIMONIAL PULL QUOTE MARKS ── */
+	.testimonial-card {
+		position: relative;
+
+		&::before {
+			content: '\201C';
+			position: absolute;
+			inset-block-start: var(--sf-space-4);
+			inset-inline-end: var(--sf-space-4);
+			font-size: 5rem;
+			line-height: 1;
+			color: oklch(0.65 0.25 275 / 0.08);
+			font-family: Georgia, serif;
+			pointer-events: none;
+			user-select: none;
+		}
+	}
+
+	/* ── STEP CARD HOVER LIFT + ACCENT BORDER ── */
+	.step-card {
+		border-radius: var(--sf-radius-lg);
+		transition: transform var(--sf-transition-base), background var(--sf-transition-base);
+		cursor: default;
+
+		&:hover {
+			transform: translateY(-4px);
+			background: var(--sf-bg-1);
+		}
+	}
+
+	.step-number {
+		font-size: var(--sf-font-size-xs);
+		font-family: var(--sf-font-mono);
+	}
+
+	/* ── STEP CONNECTOR ARROW ANIMATION ── */
+	.step-connector {
+		animation: connector-pulse 3s ease-in-out infinite alternate;
+	}
+	@keyframes connector-pulse {
+		from { opacity: 0.4; translate: 0 0; }
+		to   { opacity: 0.9; translate: 4px 0; }
+	}
+
+	/* ── STATS NUMBER GRADIENT TEXT ── */
+	.stat-number {
+		background: linear-gradient(135deg, var(--sf-text-0) 30%, var(--sf-accent));
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	/* ── STATS DIVIDER GRADIENT ── */
+	.stat-divider {
+		background: linear-gradient(to bottom, transparent, var(--sf-bg-3), transparent);
+	}
+
+	/* ── SECTION GRADIENT SEPARATOR (between alternating bg sections) ── */
+	.features,
+	.testimonials,
+	.syllabus {
+		position: relative;
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset-block-start: 0;
+			inset-inline: 0;
+			block-size: 1px;
+			background: linear-gradient(90deg, transparent, var(--sf-bg-3) 20%, var(--sf-bg-3) 80%, transparent);
+		}
+	}
+
+	/* ── CURRICULUM CARD LEFT ACCENT ON HOVER ── */
+	.curriculum-card {
+		position: relative;
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset-block: 0;
+			inset-inline-start: 0;
+			inline-size: 3px;
+			background: var(--card-accent, var(--sf-accent));
+			border-radius: var(--sf-radius-full);
+			scale: 1 0;
+			transform-origin: center;
+			transition: scale var(--sf-transition-base);
+		}
+
+		&:hover::before { scale: 1 1; }
+	}
+
+	/* ── FEATURE CARD ICON GLOW ON HOVER ── */
+	.feature-icon-wrap {
+		transition: box-shadow var(--sf-transition-base), scale var(--sf-transition-base);
+
+		.feature-card:hover & {
+			box-shadow: 0 0 0 4px color-mix(in oklch, var(--card-accent, var(--sf-accent)) 20%, transparent);
+			scale: 1.1;
+		}
+	}
+
+	/* ── HERO SECONDARY LINK PLAY ICON ANIMATION ── */
+	.hero-secondary-link :global(svg) {
+		transition: scale var(--sf-transition-fast);
+	}
+	.hero-secondary-link:hover :global(svg) {
+		scale: 1.2;
+	}
+
+	/* ── HERO STATS GRADIENT BORDER ── */
+	.stats-bar {
+		position: relative;
+		overflow: hidden;
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset-block-end: 0;
+			inset-inline: 0;
+			block-size: 1px;
+			background: linear-gradient(90deg, transparent, var(--sf-bg-3) 20%, var(--sf-bg-3) 80%, transparent);
+		}
+	}
+
+	/* ── CTA HEADING GRADIENT TEXT ── */
+	.cta-heading {
+		background: linear-gradient(135deg, var(--sf-text-0) 40%, var(--sf-accent));
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+	}
+
+	/* ── MARQUEE BADGE ALTERNATING ACCENT ── */
+	.marquee-badge:nth-child(5n + 1) {
+		border-color: oklch(0.65 0.25 275 / 0.25);
+		color: var(--sf-accent);
+	}
+	.marquee-badge:nth-child(7n + 3) {
+		border-color: oklch(0.72 0.22 310 / 0.2);
+		color: oklch(0.78 0.22 310);
+	}
+
+	/* ── SYLLABUS HEADER CARET ROTATION ── */
+	.syllabus-header :global(svg:last-child) {
+		transition: rotate var(--sf-transition-base);
+	}
+	.syllabus-header--open :global(svg:last-child) {
+		rotate: 180deg;
+	}
+
+	/* ── FAQs ── */
+	.faq-item {
+		position: relative;
+		
+		/* Inset left accent for open items */
+		&.faq-open {
+			background: color-mix(in oklch, oklch(0.65 0.25 275 / 0.04), var(--sf-bg-1));
+		}
+
+		&.faq-open::before {
+			content: '';
+			position: absolute;
+			inset-block: 0;
+			inset-inline-start: 0;
+			inline-size: 3px;
+			background: var(--sf-accent);
+			border-start-start-radius: var(--sf-radius-lg);
+			border-end-start-radius: var(--sf-radius-lg);
+		}
+	}
+
+	/* ── SCROLL HINT FADE OUT AFTER SCROLL ── */
+	.hero-scroll-hint {
+		animation: fade-hint 1s ease-in 4s forwards;
+	}
+	@keyframes fade-hint {
+		to { opacity: 0; pointer-events: none; }
+	}
+
+	/* ── TOC ACTIVE DOT RING ── */
+	.toc-dot--active .toc-indicator {
+		box-shadow: 0 0 0 3px oklch(0.65 0.25 275 / 0.25);
+	}
+
+	/* ── PRINT STYLES ── */
+	@media print {
+		.scroll-progress, .cursor-spotlight, .page-toc,
+		.hero-particles, .hero-orb, .hero-noise, .hero-dots,
+		.hero-scroll-hint, .marquee-wrap, .cta-orb { display: none !important; }
+
+		.landing { background: white; color: black; }
+
+		.section-heading { color: black; }
+
+		a { color: black; text-decoration: underline; }
+	}
+
+	/* ═══════════════════════════════════════
+	   LEARNING PATH TIMELINE TOC
+	   ═══════════════════════════════════════ */
+	.path-section {
+		padding-block: var(--sf-space-8);
+	}
+
+	.path-timeline {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0;
+		max-inline-size: 680px;
+		margin-inline: auto;
+	}
+
+	.path-node {
+		position: relative;
+		inline-size: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.path-line {
+		inline-size: 2px;
+		block-size: var(--sf-space-5);
+		background: linear-gradient(to bottom, var(--card-accent, var(--sf-accent)), oklch(from var(--card-accent, var(--sf-accent)) l c h / 0.3));
+	}
+
+	.path-step-num {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 36px;
+		block-size: 36px;
+		border-radius: 50%;
+		background: color-mix(in oklch, var(--card-accent, var(--sf-accent)) 15%, var(--sf-bg-0));
+		border: 2px solid var(--card-accent, var(--sf-accent));
+		font-family: var(--sf-font-mono);
+		font-size: var(--sf-font-size-xs);
+		font-weight: 700;
+		color: var(--card-accent, var(--sf-accent));
+		margin-block-end: var(--sf-space-3);
+		flex-shrink: 0;
+	}
+
+	.path-card {
+		inline-size: 100%;
+		background: var(--sf-bg-1);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-xl);
+		padding: var(--sf-space-5);
+		text-decoration: none;
+		display: flex;
+		flex-direction: column;
+		gap: var(--sf-space-3);
+		transition: border-color var(--sf-transition-base), transform var(--sf-transition-base), box-shadow var(--sf-transition-base);
+
+		&:hover {
+			border-color: var(--card-accent, var(--sf-accent));
+			transform: translateY(-2px);
+			box-shadow: 0 8px 24px oklch(0 0 0 / 0.2);
+		}
+	}
+
+	.path-card-top {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-3);
+	}
+
+	.path-card-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 48px;
+		block-size: 48px;
+		border-radius: var(--sf-radius-md);
+		background: color-mix(in oklch, var(--card-accent, var(--sf-accent)) 12%, transparent);
+		color: var(--card-accent, var(--sf-accent));
+		flex-shrink: 0;
+	}
+
+	.path-card-meta { flex: 1; }
+
+	.path-card-title {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-lg);
+		font-weight: 700;
+		color: var(--sf-text-0);
+		margin: 0 0 var(--sf-space-1);
+		letter-spacing: -0.01em;
+	}
+
+	.path-card-stats {
+		display: flex;
+		gap: var(--sf-space-3);
+		flex-wrap: wrap;
+
+		span {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			font-size: var(--sf-font-size-xs);
+			color: var(--sf-text-3);
+			font-weight: 500;
+		}
+	}
+
+	.path-topics {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sf-space-2);
+	}
+
+	.path-topic {
+		display: inline-block;
+		padding: 2px var(--sf-space-2);
+		background: var(--sf-bg-3);
+		border-radius: var(--sf-radius-sm);
+		font-family: var(--sf-font-mono);
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-2);
+	}
+
+	.path-outcome {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-2);
+		font-size: var(--sf-font-size-sm);
+		color: var(--card-accent, var(--sf-accent));
+		font-weight: 500;
+		margin: 0;
+		padding-block-start: var(--sf-space-2);
+		border-block-start: 1px solid var(--sf-bg-3);
+	}
+
+	/* ═══════════════════════════════════════
+	   DOCUMENT INDEX TOC
+	   ═══════════════════════════════════════ */
+	.doc-toc-section {
+		padding-block: var(--sf-space-8);
+		background: var(--sf-bg-1);
+	}
+
+	.doc-toc-inner {
+		max-inline-size: 720px;
+	}
+
+	.doc-toc-wrap {
+		background: var(--sf-bg-2);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-xl);
+		overflow: hidden;
+		box-shadow: var(--sf-shadow-lg);
+	}
+
+	.doc-toc-header {
+		padding: var(--sf-space-6) var(--sf-space-6) var(--sf-space-4);
+		border-block-end: 1px solid var(--sf-bg-3);
+		background: var(--sf-bg-1);
+	}
+
+	.doc-toc-title {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-xl);
+		font-weight: 700;
+		color: var(--sf-text-0);
+		margin: 0 0 var(--sf-space-1);
+		letter-spacing: -0.02em;
+	}
+
+	.doc-toc-sub {
+		font-size: var(--sf-font-size-sm);
+		color: var(--sf-text-2);
+		margin: 0;
+	}
+
+	.doc-toc-list {
+		list-style: none;
+		margin: 0;
+		padding: var(--sf-space-4) var(--sf-space-6);
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.doc-toc-item {
+		border-block-end: 1px solid var(--sf-bg-3);
+
+		&:last-child { border-block-end: none; }
+	}
+
+	.doc-toc-link {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sf-space-2);
+		padding-block: var(--sf-space-3);
+		text-decoration: none;
+		transition: background var(--sf-transition-fast);
+		border-radius: var(--sf-radius-sm);
+		padding-inline: var(--sf-space-2);
+		margin-inline: calc(-1 * var(--sf-space-2));
+
+		&:hover .doc-toc-name { color: var(--sf-accent); }
+		&:hover .doc-toc-time { color: var(--sf-accent); }
+	}
+
+	.doc-toc-num {
+		font-family: var(--sf-font-mono);
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		min-inline-size: 2.5rem;
+		flex-shrink: 0;
+	}
+
+	.doc-toc-name {
+		flex: 1;
+		font-size: var(--sf-font-size-base);
+		font-weight: 600;
+		color: var(--sf-text-0);
+		transition: color var(--sf-transition-fast);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.doc-toc-sub-label {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		font-weight: 400;
+	}
+
+	/* Dotted leader line */
+	.doc-toc-dots {
+		flex: 1;
+		border-block-end: 2px dotted var(--sf-bg-3);
+		margin-block-end: 4px;
+		min-inline-size: var(--sf-space-5);
+	}
+
+	.doc-toc-time {
+		font-family: var(--sf-font-mono);
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		white-space: nowrap;
+		flex-shrink: 0;
+		transition: color var(--sf-transition-fast);
+	}
+
+	/* Child items */
+	.doc-toc-children {
+		list-style: none;
+		margin: 0 0 var(--sf-space-2);
+		padding: 0 0 0 calc(2.5rem + var(--sf-space-2));
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.doc-toc-child {
+		border-block-start: 1px dashed var(--sf-bg-3);
+
+		&:first-child { border-block-start: none; }
+	}
+
+	.doc-toc-child-link {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-2);
+		padding-block: var(--sf-space-2);
+		text-decoration: none;
+
+		.doc-toc-num {
+			color: var(--sf-text-3);
+			font-size: var(--sf-font-size-xs);
+			min-inline-size: 1.5rem;
+		}
+
+		span:last-of-type {
+			font-size: var(--sf-font-size-sm);
+			color: var(--sf-text-2);
+			transition: color var(--sf-transition-fast);
+		}
+
+		&:hover span:last-of-type { color: var(--sf-accent); }
+	}
+
+	.doc-toc-footer {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-2);
+		padding: var(--sf-space-4) var(--sf-space-6);
+		background: var(--sf-bg-1);
+		border-block-start: 1px solid var(--sf-bg-3);
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+
+		strong { color: var(--sf-text-0); }
 	}
 
 	/* ── SECTION SUBHEADING ── */
