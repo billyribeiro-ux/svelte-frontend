@@ -2,7 +2,7 @@
 	import Button from '$components/ui/Button.svelte';
 	import Icon from '$components/ui/Icon.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
-	import { fly, fade, scale, blur } from 'svelte/transition';
+	import { fly, fade, scale, blur, slide } from 'svelte/transition';
 	import { cubicOut, expoOut, quintOut } from 'svelte/easing';
 	import { prefersReducedMotion, Tween, Spring } from 'svelte/motion';
 	import { onMount } from 'svelte';
@@ -132,12 +132,42 @@
 	let typedLines = $state<string[]>([]);
 	let cursorLine = $state(0);
 
+	// Curriculum track data
+	const curriculumTracks = [
+		{ slug: 'foundations', title: 'Web Foundations', description: 'HTML, CSS, Tailwind, TypeScript — everything before Svelte.', icon: 'ph:layout', accent: 'oklch(0.78 0.18 75)', modules: 6, lessons: 35 },
+		{ slug: 'svelte-core', title: 'Svelte 5 Core', description: 'Components, runes, reactivity, composition and advanced patterns.', icon: 'ph:lightning', accent: 'oklch(0.78 0.22 330)', modules: 8, lessons: 42 },
+		{ slug: 'sveltekit', title: 'SvelteKit Mastery', description: 'Routing, data loading, form actions, API routes, SSR and deployment.', icon: 'ph:rocket-launch', accent: 'oklch(0.72 0.19 155)', modules: 8, lessons: 38 },
+		{ slug: 'projects', title: 'Build Projects', description: 'A blog, dashboard, task manager and full SaaS app — all in Svelte.', icon: 'ph:trophy', accent: 'oklch(0.65 0.25 275)', modules: 4, lessons: 24 }
+	];
+
+	// Testimonials
+	const testimonials = [
+		{ name: 'Liam Thornton', role: 'Frontend Engineer · Dublin', avatar: 'LT', quote: 'SvelteForge is the only platform where I actually retained what I learned. The AI tutor explained every concept at exactly my level — not one step too fast.' },
+		{ name: 'Priya Menon', role: 'Full-Stack Developer · London', avatar: 'PM', quote: 'I went from knowing nothing about Svelte to building a full SvelteKit app in 3 weeks. The concept graph changed how I think about learning entirely.' },
+		{ name: 'Jake Owens', role: 'Bootcamp Graduate · NYC', avatar: 'JO', quote: 'Other platforms give you videos to watch. SvelteForge makes you write code from lesson one. That\'s the only reason it actually works.' }
+	];
+
+	// FAQ
+	const faqs = [
+		{ q: 'Do I need to know React or Vue first?', a: 'No prior framework knowledge required. SvelteForge is designed for anyone with basic HTML, CSS and JavaScript. The Foundations track covers exactly what you need before diving into Svelte.' },
+		{ q: 'What version of Svelte does this cover?', a: 'Everything is built for Svelte 5 and SvelteKit 2 — including full coverage of runes ($state, $derived, $effect, $props, $bindable, $inspect), snippets, and the new event system.' },
+		{ q: 'How is this different from the official Svelte tutorial?', a: 'The official tutorial introduces Svelte basics. SvelteForge takes you from zero to production-ready with AI guidance, a concept graph, four real project builds, and ICT Level 7-aligned content.' },
+		{ q: 'Can I cancel my subscription any time?', a: 'Yes. Monthly subscribers can cancel at any time with no penalty. Annual subscribers can cancel before renewal. You keep full access until the end of your billing period.' },
+		{ q: 'Is there a free tier?', a: 'The first module of every track is free — no credit card required. You can explore Svelte basics, HTML essentials, and the full concept graph before deciding to subscribe.' },
+		{ q: 'Is the content aligned to any qualifications?', a: 'Yes. The curriculum is aligned to ICT Level 7 standards, making SvelteForge suitable for professional development portfolios and employer-recognised skill certification.' }
+	];
+
+	let openFaq = $state<number | null>(null);
+
 	// Scroll-triggered visibility
 	let heroVisible = $state(false);
 	let featuresVisible = $state(false);
 	let stepsVisible = $state(false);
 	let statsVisible = $state(false);
 	let ctaVisible = $state(false);
+	let curriculumVisible = $state(false);
+	let testimonialsVisible = $state(false);
+	let faqVisible = $state(false);
 
 	$effect(() => { heroVisible = true; });
 
@@ -334,6 +364,99 @@
 							</div>
 							<h3 class="feature-title">{feature.title}</h3>
 							<p class="feature-desc">{feature.description}</p>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ░░ CURRICULUM ░░ -->
+	<section class="curriculum" use:observe={() => { curriculumVisible = true; }}>
+		<div class="section-inner">
+			{#if curriculumVisible}
+				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
+					The Complete Curriculum
+				</h2>
+				<p class="section-sub" in:fade={{ duration: inDuration, delay: 100, easing: cubicOut }}>
+					Four progressive tracks. 139+ lessons. Every concept from fundamentals to SaaS in Svelte.
+				</p>
+				<div class="curriculum-grid">
+					{#each curriculumTracks as track, i}
+						<a
+							href="/learn/{track.slug}"
+							class="curriculum-card"
+							style="--card-accent: {track.accent}"
+							in:fly={{ y: inY, duration: inDuration, delay: i * 100, easing: expoOut, opacity: 0 }}
+						>
+							<div class="curriculum-icon-wrap">
+								<Icon icon={track.icon} size={28} />
+							</div>
+							<div class="curriculum-body">
+								<h3 class="curriculum-title">{track.title}</h3>
+								<p class="curriculum-desc">{track.description}</p>
+							</div>
+							<div class="curriculum-meta">
+								<span class="curriculum-stat"><Icon icon="ph:folder" size={12} />{track.modules} modules</span>
+								<span class="curriculum-stat"><Icon icon="ph:file-text" size={12} />{track.lessons} lessons</span>
+							</div>
+							<div class="curriculum-arrow"><Icon icon="ph:arrow-right" size={18} /></div>
+						</a>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ░░ TESTIMONIALS ░░ -->
+	<section class="testimonials" use:observe={() => { testimonialsVisible = true; }}>
+		<div class="section-inner">
+			{#if testimonialsVisible}
+				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
+					Developers Who Levelled Up
+				</h2>
+				<div class="testimonials-grid">
+					{#each testimonials as t, i}
+						<div class="testimonial-card" in:fly={{ y: inY, duration: inDuration, delay: i * 120, easing: expoOut, opacity: 0 }}>
+							<div class="testimonial-stars" aria-label="5 stars">★★★★★</div>
+							<p class="testimonial-quote">"{t.quote}"</p>
+							<div class="testimonial-author">
+								<div class="testimonial-avatar">{t.avatar}</div>
+								<div class="testimonial-info">
+									<span class="testimonial-name">{t.name}</span>
+									<span class="testimonial-role">{t.role}</span>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<!-- ░░ FAQ ░░ -->
+	<section class="faq" use:observe={() => { faqVisible = true; }}>
+		<div class="section-inner faq-inner">
+			{#if faqVisible}
+				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
+					Frequently Asked Questions
+				</h2>
+				<div class="faq-list">
+					{#each faqs as faq, i}
+						<div
+							class="faq-item"
+							class:faq-open={openFaq === i}
+							in:fly={{ y: inY, duration: inDuration, delay: i * 70, easing: expoOut, opacity: 0 }}
+						>
+							<button class="faq-question" onclick={() => { openFaq = openFaq === i ? null : i; }}>
+								<span>{faq.q}</span>
+								<Icon icon={openFaq === i ? 'ph:minus' : 'ph:plus'} size={18} />
+							</button>
+							{#if openFaq === i}
+								<div class="faq-answer" transition:slide={{ duration: 280, easing: cubicOut }}>
+									<p>{faq.a}</p>
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>
@@ -1181,5 +1304,251 @@
 	/* ── MARQUEE PAUSE ON HOVER ── */
 	.marquee-wrap:hover .marquee {
 		animation-play-state: paused;
+	}
+
+	/* ── SECTION SUBHEADING ── */
+	.section-sub {
+		font-size: var(--sf-font-size-base);
+		color: var(--sf-text-2);
+		text-align: center;
+		margin: calc(-1 * var(--sf-space-5)) 0 var(--sf-space-7);
+		max-inline-size: 560px;
+		margin-inline: auto;
+		margin-block-end: var(--sf-space-7);
+	}
+
+	/* ── CURRICULUM ── */
+	.curriculum {
+		padding-block: var(--sf-space-8);
+	}
+
+	.curriculum-grid {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sf-space-3);
+	}
+
+	.curriculum-card {
+		display: grid;
+		grid-template-columns: 56px 1fr auto auto;
+		align-items: center;
+		gap: var(--sf-space-4);
+		background: var(--sf-bg-1);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-lg);
+		padding: var(--sf-space-4) var(--sf-space-5);
+		text-decoration: none;
+		transition: border-color var(--sf-transition-base), background var(--sf-transition-base), transform var(--sf-transition-base);
+
+		&:hover {
+			border-color: var(--card-accent, var(--sf-accent));
+			background: var(--sf-bg-2);
+			transform: translateX(4px);
+		}
+
+		@media (max-width: 640px) {
+			grid-template-columns: 44px 1fr;
+			grid-template-rows: auto auto;
+		}
+	}
+
+	.curriculum-icon-wrap {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 48px;
+		block-size: 48px;
+		border-radius: var(--sf-radius-md);
+		background: color-mix(in oklch, var(--card-accent, var(--sf-accent)) 12%, transparent);
+		color: var(--card-accent, var(--sf-accent));
+		flex-shrink: 0;
+	}
+
+	.curriculum-body { flex: 1; min-inline-size: 0; }
+
+	.curriculum-title {
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-md);
+		font-weight: 700;
+		color: var(--sf-text-0);
+		margin: 0 0 var(--sf-space-1);
+		letter-spacing: -0.01em;
+	}
+
+	.curriculum-desc {
+		font-size: var(--sf-font-size-sm);
+		color: var(--sf-text-2);
+		margin: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.curriculum-meta {
+		display: flex;
+		gap: var(--sf-space-3);
+		flex-shrink: 0;
+		@media (max-width: 640px) { display: none; }
+	}
+
+	.curriculum-stat {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		font-weight: 500;
+	}
+
+	.curriculum-arrow {
+		color: var(--sf-text-3);
+		flex-shrink: 0;
+		transition: transform var(--sf-transition-fast), color var(--sf-transition-fast);
+
+		.curriculum-card:hover & {
+			transform: translateX(4px);
+			color: var(--card-accent, var(--sf-accent));
+		}
+	}
+
+	/* ── TESTIMONIALS ── */
+	.testimonials {
+		padding-block: var(--sf-space-8);
+		background: var(--sf-bg-1);
+	}
+
+	.testimonials-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: var(--sf-space-5);
+	}
+
+	.testimonial-card {
+		background: var(--sf-bg-2);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-lg);
+		padding: var(--sf-space-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sf-space-4);
+		transition: border-color var(--sf-transition-base), transform var(--sf-transition-base);
+
+		&:hover {
+			border-color: oklch(0.65 0.25 275 / 0.3);
+			transform: translateY(-2px);
+		}
+	}
+
+	.testimonial-stars {
+		color: oklch(0.78 0.18 75);
+		font-size: var(--sf-font-size-sm);
+		letter-spacing: 2px;
+	}
+
+	.testimonial-quote {
+		font-size: var(--sf-font-size-base);
+		color: var(--sf-text-1);
+		margin: 0;
+		line-height: 1.7;
+		font-style: italic;
+		flex: 1;
+	}
+
+	.testimonial-author {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-3);
+		border-block-start: 1px solid var(--sf-bg-3);
+		padding-block-start: var(--sf-space-4);
+	}
+
+	.testimonial-avatar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 40px;
+		block-size: 40px;
+		border-radius: var(--sf-radius-full);
+		background: var(--sf-accent-subtle);
+		color: var(--sf-accent);
+		font-size: var(--sf-font-size-xs);
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		flex-shrink: 0;
+	}
+
+	.testimonial-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.testimonial-name {
+		font-size: var(--sf-font-size-sm);
+		font-weight: 600;
+		color: var(--sf-text-0);
+	}
+
+	.testimonial-role {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+	}
+
+	/* ── FAQ ── */
+	.faq {
+		padding-block: var(--sf-space-8);
+	}
+
+	.faq-inner {
+		max-inline-size: 720px;
+	}
+
+	.faq-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sf-space-2);
+	}
+
+	.faq-item {
+		background: var(--sf-bg-1);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-lg);
+		overflow: hidden;
+		transition: border-color var(--sf-transition-base);
+
+		&.faq-open {
+			border-color: oklch(0.65 0.25 275 / 0.35);
+		}
+	}
+
+	.faq-question {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sf-space-4);
+		inline-size: 100%;
+		padding: var(--sf-space-4) var(--sf-space-5);
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-base);
+		font-weight: 600;
+		color: var(--sf-text-0);
+		background: none;
+		border: none;
+		cursor: pointer;
+		text-align: start;
+		transition: color var(--sf-transition-fast);
+
+		&:hover { color: var(--sf-accent); }
+	}
+
+	.faq-answer {
+		padding: 0 var(--sf-space-5) var(--sf-space-4);
+
+		p {
+			font-size: var(--sf-font-size-sm);
+			color: var(--sf-text-2);
+			margin: 0;
+			line-height: 1.75;
+		}
 	}
 </style>
