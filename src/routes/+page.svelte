@@ -73,6 +73,21 @@
 	const orbA = new Spring({ x: 0, y: 0 }, { stiffness: 0.04, damping: 0.5 });
 	const orbB = new Spring({ x: 0, y: 0 }, { stiffness: 0.025, damping: 0.6 });
 
+	// Demo window 3D tilt
+	const demoTilt = new Spring({ x: 0, y: 0 }, { stiffness: 0.06, damping: 0.82 });
+
+	// Global cursor spotlight (Spring-driven)
+	const cursor = new Spring({ x: -600, y: -600 }, { stiffness: 0.12, damping: 0.75 });
+
+	// Hero floating particles
+	const particles = Array.from({ length: 16 }, (_, i) => ({
+		x: 5 + i * 6,
+		size: 1.5 + (i % 3) * 0.8,
+		delay: i * 0.55,
+		dur: 7 + (i % 5) * 1.6,
+		dx: (i % 2 === 0 ? 1 : -1) * (8 + (i % 4) * 6)
+	}));
+
 	function handleHeroMouseMove(e: MouseEvent) {
 		if (prefersReducedMotion.current) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -80,6 +95,7 @@
 		const cy = (e.clientY - rect.top) / rect.height - 0.5;
 		orbA.set({ x: cx * 70, y: cy * 50 });
 		orbB.set({ x: cx * -50, y: cy * -35 });
+		demoTilt.set({ x: cx * 9, y: cy * 6 });
 	}
 
 	// 3D tilt action for feature cards
@@ -140,6 +156,9 @@
 	}
 
 	onMount(() => {
+		const onMove = (e: MouseEvent) => cursor.set({ x: e.clientX, y: e.clientY });
+		document.addEventListener('mousemove', onMove);
+
 		const delay = prefersReducedMotion.current ? 0 : 1800;
 		const timeout = setTimeout(() => {
 			let lineIndex = 0;
@@ -152,7 +171,7 @@
 			};
 			addLine();
 		}, delay);
-		return () => clearTimeout(timeout);
+		return () => { clearTimeout(timeout); document.removeEventListener('mousemove', onMove); };
 	});
 
 	const inDuration = $derived(prefersReducedMotion.current ? 0 : 900);
@@ -163,6 +182,7 @@
 <SEOHead {seo} />
 
 <div class="scroll-progress" aria-hidden="true"></div>
+<div class="cursor-spotlight" aria-hidden="true" style="transform: translate({cursor.current.x}px, {cursor.current.y}px)"></div>
 
 <div class="landing">
 
@@ -170,6 +190,11 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<section class="hero" onmousemove={handleHeroMouseMove}>
 		<div class="hero-dots" aria-hidden="true"></div>
+		<div class="hero-particles" aria-hidden="true">
+			{#each particles as p}
+				<div class="particle" style="--px: {p.x}%; --ps: {p.size}px; --pd: {p.delay}s; --pdur: {p.dur}s; --pdx: {p.dx}px"></div>
+			{/each}
+		</div>
 		<div class="hero-orb hero-orb--a" aria-hidden="true" style="transform: translate(calc(-50% + {orbA.current.x}px), calc(-50% + {orbA.current.y}px))"></div>
 		<div class="hero-orb hero-orb--b" aria-hidden="true" style="transform: translate(calc(50% + {orbB.current.x}px), calc(50% + {orbB.current.y}px))"></div>
 		<div class="hero-noise" aria-hidden="true"></div>
@@ -182,9 +207,12 @@
 						Svelte 5 · SvelteKit · ICT Level 7
 					</div>
 
-					<h1 class="hero-title" in:fly={{ y: inY, duration: inDuration, delay: 220, easing: expoOut, opacity: 0 }}>
-						The Interactive Way to<br />
-						<span class="hero-gradient">Master Svelte 5</span>
+					<h1 class="hero-title">
+						{#each ['The', 'Interactive', 'Way', 'to'] as word, wi}
+							<span class="hero-word" in:fly={{ y: inY, duration: inDuration, delay: 220 + wi * 80, easing: expoOut, opacity: 0 }}>{word}</span>
+						{/each}
+						<br />
+						<span class="hero-gradient" in:blur={{ amount: blurAmount, duration: Math.round(inDuration * 1.4), delay: 540, easing: expoOut }}>Master Svelte 5</span>
 					</h1>
 
 					<p class="hero-desc" in:fly={{ y: inY, duration: inDuration, delay: 350, easing: cubicOut, opacity: 0 }}>
@@ -206,7 +234,7 @@
 
 			<!-- Live code demo panel -->
 			<div class="hero-demo" in:fly={{ y: inY, duration: inDuration, delay: 600, easing: expoOut, opacity: 0 }}>
-				<div class="demo-window">
+				<div class="demo-window" style="transform: perspective(1200px) rotateY({demoTilt.current.x}deg) rotateX({-demoTilt.current.y}deg)">
 					<div class="demo-titlebar">
 						<span class="demo-dot demo-dot--red"></span>
 						<span class="demo-dot demo-dot--yellow"></span>
@@ -1022,12 +1050,136 @@
 		cursor: pointer;
 		transition: transform var(--sf-transition-fast), box-shadow var(--sf-transition-fast);
 
-		&:active {
-			transform: scale(0.95);
-		}
+		&:active { transform: scale(0.95); }
+		&:hover { box-shadow: 0 0 0 3px oklch(0.65 0.25 275 / 0.3); }
+	}
 
-		&:hover {
-			box-shadow: 0 0 0 3px oklch(0.65 0.25 275 / 0.3);
+	/* ── GLOBAL CURSOR SPOTLIGHT ── */
+	.cursor-spotlight {
+		position: fixed;
+		z-index: 1;
+		pointer-events: none;
+		inset-block-start: 0;
+		inset-inline-start: 0;
+		inline-size: 700px;
+		block-size: 700px;
+		border-radius: 50%;
+		background: radial-gradient(circle, oklch(0.65 0.25 275 / 0.055), transparent 55%);
+		margin-inline-start: -350px;
+		margin-block-start: -350px;
+		will-change: transform;
+	}
+
+	/* ── HERO FLOATING PARTICLES ── */
+	.hero-particles {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.particle {
+		position: absolute;
+		inset-block-end: -8px;
+		inset-inline-start: var(--px);
+		inline-size: var(--ps);
+		block-size: var(--ps);
+		border-radius: 50%;
+		background: oklch(0.65 0.25 275 / 0.45);
+		animation: float-particle var(--pdur) var(--pd) ease-in infinite;
+	}
+	@keyframes float-particle {
+		0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+		6%   { opacity: 0.9; }
+		50%  { transform: translateY(-40vh) translateX(calc(var(--pdx) * 0.5)); opacity: 0.5; }
+		94%  { opacity: 0; }
+		100% { transform: translateY(-75vh) translateX(var(--pdx)); opacity: 0; }
+	}
+
+	/* ── SPLIT-WORD HERO ── */
+	.hero-word {
+		display: inline-block;
+		margin-inline-end: 0.26em;
+	}
+
+	/* ── HERO GRADIENT SHIMMER SWEEP ── */
+	.hero-gradient {
+		background-size: 300% 100%;
+		animation: gradient-shift 5s ease-in-out infinite alternate, shimmer-sweep 4s ease-in-out 3s infinite;
+	}
+	@keyframes shimmer-sweep {
+		0%   { filter: brightness(1); }
+		40%  { filter: brightness(1.35) drop-shadow(0 0 12px oklch(0.65 0.25 275 / 0.4)); }
+		100% { filter: brightness(1); }
+	}
+
+	/* ── DEMO WINDOW DEPTH SHADOW ── */
+	.demo-window {
+		transition: transform 80ms linear;
+		box-shadow:
+			0 30px 80px oklch(0 0 0 / 0.6),
+			0 0 0 1px oklch(0.65 0.25 275 / 0.12),
+			0 6px 20px oklch(0.65 0.25 275 / 0.08),
+			inset 0 1px 0 oklch(1 0 0 / 0.05);
+	}
+
+	/* ── ANIMATED CONIC GRADIENT CTA BORDER ── */
+	@property --cta-angle {
+		syntax: '<angle>';
+		inherits: false;
+		initial-value: 0deg;
+	}
+
+	.cta-section {
+		border-block-start: none;
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			background: conic-gradient(
+				from var(--cta-angle),
+				transparent 0%,
+				oklch(0.65 0.25 275 / 0.3) 8%,
+				oklch(0.78 0.22 310 / 0.2) 16%,
+				transparent 24%
+			);
+			pointer-events: none;
+			animation: cta-rotate 8s linear infinite;
+			mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 40%, transparent 80%);
 		}
+	}
+	@keyframes cta-rotate {
+		to { --cta-angle: 360deg; }
+	}
+
+	/* ── STEP NUMBERS GLOW ── */
+	.step-number {
+		text-shadow: 0 0 16px oklch(0.65 0.25 275 / 0.6);
+		letter-spacing: 0.15em;
+	}
+
+	/* ── SECTION HEADING ACCENT LINE ── */
+	.section-heading {
+		position: relative;
+		display: inline-block;
+		padding-block-end: var(--sf-space-3);
+
+		&::after {
+			content: '';
+			position: absolute;
+			inset-block-end: 0;
+			inset-inline-start: 50%;
+			translate: -50% 0;
+			inline-size: 48px;
+			block-size: 2px;
+			background: linear-gradient(90deg, transparent, var(--sf-accent), oklch(0.78 0.22 310), transparent);
+			border-radius: var(--sf-radius-full);
+		}
+	}
+
+	/* ── MARQUEE PAUSE ON HOVER ── */
+	.marquee-wrap:hover .marquee {
+		animation-play-state: paused;
 	}
 </style>
