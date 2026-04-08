@@ -2,7 +2,7 @@
 	import Button from '$components/ui/Button.svelte';
 	import Icon from '$components/ui/Icon.svelte';
 	import SEOHead from '$components/seo/SEOHead.svelte';
-	import { fly, fade, scale, blur, slide } from 'svelte/transition';
+	import { fly, fade, scale, blur } from 'svelte/transition';
 	import { cubicOut, expoOut, quintOut } from 'svelte/easing';
 	import { prefersReducedMotion, Tween, Spring } from 'svelte/motion';
 	import { onMount } from 'svelte';
@@ -159,6 +159,71 @@
 
 	let openFaq = $state<number | null>(null);
 
+	// Full course syllabus data (for TOC section)
+	const syllabusData = [
+		{
+			slug: 'foundations', title: 'Web Foundations', accent: 'oklch(0.78 0.18 75)', icon: 'ph:layout',
+			modules: [
+				{ title: 'HTML Essentials', lessons: 4 },
+				{ title: 'Tailwind CSS', lessons: 6 },
+				{ title: 'CSS Fundamentals', lessons: 7 },
+				{ title: 'CSS Layout', lessons: 6 },
+				{ title: 'Modern CSS', lessons: 5 },
+				{ title: 'TypeScript Essentials', lessons: 7 }
+			]
+		},
+		{
+			slug: 'svelte-core', title: 'Svelte 5 Core', accent: 'oklch(0.78 0.22 330)', icon: 'ph:lightning',
+			modules: [
+				{ title: 'Svelte Basics', lessons: 7 },
+				{ title: 'Runes & Reactivity', lessons: 6 },
+				{ title: 'Control Flow', lessons: 4 },
+				{ title: 'Components & Props', lessons: 5 },
+				{ title: 'Snippets & Composition', lessons: 5 },
+				{ title: 'Events & Bindings', lessons: 5 },
+				{ title: 'Transitions & Animations', lessons: 5 },
+				{ title: 'Advanced Patterns', lessons: 5 }
+			]
+		},
+		{
+			slug: 'sveltekit', title: 'SvelteKit Mastery', accent: 'oklch(0.72 0.19 155)', icon: 'ph:rocket-launch',
+			modules: [
+				{ title: 'Routing', lessons: 5 },
+				{ title: 'Data Loading', lessons: 5 },
+				{ title: 'Form Actions', lessons: 5 },
+				{ title: 'API Routes', lessons: 5 },
+				{ title: 'Hooks & Middleware', lessons: 4 },
+				{ title: 'SSR & Rendering', lessons: 5 },
+				{ title: 'Environment & Config', lessons: 5 },
+				{ title: 'Advanced SvelteKit', lessons: 4 }
+			]
+		},
+		{
+			slug: 'projects', title: 'Build Projects', accent: 'oklch(0.65 0.25 275)', icon: 'ph:trophy',
+			modules: [
+				{ title: 'Build a Blog', lessons: 6 },
+				{ title: 'Build a Dashboard', lessons: 6 },
+				{ title: 'Build a Task Manager', lessons: 5 },
+				{ title: 'Build a SaaS App', lessons: 7 }
+			]
+		}
+	];
+
+	// Floating page TOC
+	const tocSections = [
+		{ id: 'hero',        label: 'Top' },
+		{ id: 'how',         label: 'How It Works' },
+		{ id: 'features',    label: 'Features' },
+		{ id: 'curriculum',  label: 'Curriculum' },
+		{ id: 'syllabus',    label: 'Full Syllabus' },
+		{ id: 'testimonials',label: 'Reviews' },
+		{ id: 'faq',         label: 'FAQ' },
+		{ id: 'cta',         label: 'Get Started' }
+	];
+	let activeSection = $state('hero');
+	let tocVisible = $state(false);
+	let openTracks = $state<Record<string, boolean>>({});
+
 	// Scroll-triggered visibility
 	let heroVisible = $state(false);
 	let featuresVisible = $state(false);
@@ -168,6 +233,7 @@
 	let curriculumVisible = $state(false);
 	let testimonialsVisible = $state(false);
 	let faqVisible = $state(false);
+	let syllabusVisible = $state(false);
 
 	$effect(() => { heroVisible = true; });
 
@@ -189,6 +255,20 @@
 		const onMove = (e: MouseEvent) => cursor.set({ x: e.clientX, y: e.clientY });
 		document.addEventListener('mousemove', onMove);
 
+		// Section tracking for floating TOC
+		const sectionIO = new IntersectionObserver((entries) => {
+			entries.forEach((e) => {
+				if (e.isIntersecting && e.target.id) {
+					activeSection = e.target.id;
+					tocVisible = true;
+				}
+			});
+		}, { threshold: 0.3 });
+		tocSections.forEach(({ id }) => {
+			const el = document.getElementById(id);
+			if (el) sectionIO.observe(el);
+		});
+
 		const delay = prefersReducedMotion.current ? 0 : 1800;
 		const timeout = setTimeout(() => {
 			let lineIndex = 0;
@@ -201,7 +281,7 @@
 			};
 			addLine();
 		}, delay);
-		return () => { clearTimeout(timeout); document.removeEventListener('mousemove', onMove); };
+		return () => { clearTimeout(timeout); document.removeEventListener('mousemove', onMove); sectionIO.disconnect(); };
 	});
 
 	const inDuration = $derived(prefersReducedMotion.current ? 0 : 900);
@@ -212,13 +292,23 @@
 <SEOHead {seo} />
 
 <div class="scroll-progress" aria-hidden="true"></div>
+
+<nav class="page-toc" class:toc-hidden={!tocVisible} aria-label="Page sections">
+	{#each tocSections as sec}
+		<a href="#{sec.id}" class="toc-dot" class:toc-dot--active={activeSection === sec.id} aria-label={sec.label}>
+			<span class="toc-indicator"></span>
+			<span class="toc-label">{sec.label}</span>
+		</a>
+	{/each}
+</nav>
+
 <div class="cursor-spotlight" aria-hidden="true" style="transform: translate({cursor.current.x}px, {cursor.current.y}px)"></div>
 
 <div class="landing">
 
 	<!-- ░░ HERO ░░ -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<section class="hero" onmousemove={handleHeroMouseMove}>
+	<section id="hero" class="hero" onmousemove={handleHeroMouseMove}>
 		<div class="hero-dots" aria-hidden="true"></div>
 		<div class="hero-particles" aria-hidden="true">
 			{#each particles as p}
@@ -317,7 +407,7 @@
 	</div>
 
 	<!-- ░░ HOW IT WORKS ░░ -->
-	<section class="how" use:observe={() => { stepsVisible = true; }}>
+	<section id="how" class="how" use:observe={() => { stepsVisible = true; }}>
 		<div class="section-inner">
 			{#if stepsVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -345,7 +435,7 @@
 	</section>
 
 	<!-- ░░ FEATURES ░░ -->
-	<section class="features" use:observe={() => { featuresVisible = true; }}>
+	<section id="features" class="features" use:observe={() => { featuresVisible = true; }}>
 		<div class="section-inner">
 			{#if featuresVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -372,7 +462,7 @@
 	</section>
 
 	<!-- ░░ CURRICULUM ░░ -->
-	<section class="curriculum" use:observe={() => { curriculumVisible = true; }}>
+	<section id="curriculum" class="curriculum" use:observe={() => { curriculumVisible = true; }}>
 		<div class="section-inner">
 			{#if curriculumVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -408,8 +498,53 @@
 		</div>
 	</section>
 
+	<!-- ░░ FULL SYLLABUS TOC ░░ -->
+	<section id="syllabus" class="syllabus" use:observe={() => { syllabusVisible = true; }}>
+		<div class="section-inner">
+			{#if syllabusVisible}
+				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
+					Full Course Syllabus
+				</h2>
+				<p class="section-sub" in:fade={{ duration: inDuration, delay: 100, easing: cubicOut }}>
+					Every module, every lesson — browse the complete syllabus before you commit.
+				</p>
+				<div class="syllabus-grid">
+					{#each syllabusData as track, i}
+						<div
+							class="syllabus-track"
+							style="--card-accent: {track.accent}"
+							in:fly={{ y: inY, duration: inDuration, delay: i * 100, easing: expoOut, opacity: 0 }}
+						>
+							<button
+								class="syllabus-header"
+								class:syllabus-header--open={openTracks[track.slug]}
+								onclick={() => { openTracks[track.slug] = !openTracks[track.slug]; }}
+							>
+								<span class="syllabus-icon"><Icon icon={track.icon} size={20} /></span>
+								<span class="syllabus-track-title">{track.title}</span>
+								<span class="syllabus-track-count">
+									{track.modules.reduce((s, m) => s + m.lessons, 0)} lessons
+								</span>
+								<Icon icon={openTracks[track.slug] ? 'ph:caret-up' : 'ph:caret-down'} size={16} />
+							</button>
+							<div class="syllabus-modules" class:syllabus-modules--open={openTracks[track.slug]}>
+								{#each track.modules as mod, mi}
+									<div class="syllabus-module">
+										<span class="syllabus-mod-num">{String(mi + 1).padStart(2, '0')}</span>
+										<span class="syllabus-mod-title">{mod.title}</span>
+										<span class="syllabus-mod-count">{mod.lessons}</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
 	<!-- ░░ TESTIMONIALS ░░ -->
-	<section class="testimonials" use:observe={() => { testimonialsVisible = true; }}>
+	<section id="testimonials" class="testimonials" use:observe={() => { testimonialsVisible = true; }}>
 		<div class="section-inner">
 			{#if testimonialsVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -435,7 +570,7 @@
 	</section>
 
 	<!-- ░░ FAQ ░░ -->
-	<section class="faq" use:observe={() => { faqVisible = true; }}>
+	<section id="faq" class="faq" use:observe={() => { faqVisible = true; }}>
 		<div class="section-inner faq-inner">
 			{#if faqVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -452,11 +587,9 @@
 								<span>{faq.q}</span>
 								<Icon icon={openFaq === i ? 'ph:minus' : 'ph:plus'} size={18} />
 							</button>
-							{#if openFaq === i}
-								<div class="faq-answer" transition:slide={{ duration: 280, easing: cubicOut }}>
-									<p>{faq.a}</p>
-								</div>
-							{/if}
+							<div class="faq-answer" class:faq-answer--open={openFaq === i}>
+								<p>{faq.a}</p>
+							</div>
 						</div>
 					{/each}
 				</div>
@@ -465,7 +598,7 @@
 	</section>
 
 	<!-- ░░ CLOSING CTA ░░ -->
-	<section class="cta-section" use:observe={() => { ctaVisible = true; }}>
+	<section id="cta" class="cta-section" use:observe={() => { ctaVisible = true; }}>
 		<div class="cta-orb" aria-hidden="true"></div>
 		{#if ctaVisible}
 			<div class="cta-inner" in:fly={{ y: inY, duration: inDuration, easing: expoOut, opacity: 0 }}>
@@ -490,6 +623,25 @@
 </div>
 
 <style>
+	/* ══════════════════════════════════════════
+	   CSS AS OF APRIL 2026 — NEW FEATURES
+	   ══════════════════════════════════════════ */
+
+	/* 1. interpolate-size — animate height: auto (Chrome 129, Firefox 131) */
+	:root {
+		interpolate-size: allow-keywords;
+	}
+
+	/* 2. text-wrap: balance on headings — Baseline 2024 */
+	h1, h2, h3, .section-heading, .hero-title, .cta-heading, .step-title, .feature-title {
+		text-wrap: balance;
+	}
+
+	/* 3. text-wrap: pretty on body copy — prevents orphans — Baseline 2024 */
+	p, .hero-desc, .step-desc, .feature-desc, .testimonial-quote, .faq-answer p {
+		text-wrap: pretty;
+	}
+
 	/* ── BASE ── */
 	.landing {
 		min-block-size: 100dvh;
@@ -1541,8 +1693,249 @@
 		&:hover { color: var(--sf-accent); }
 	}
 
+	/* ── FLOATING PAGE TOC (@starting-style + @scope + transition-behavior) ── */
+	/* 6. @scope — scoped styles without BEM — Baseline 2024 */
+	@scope (.page-toc) {
+		:scope {
+			position: fixed;
+			inset-block-start: 50%;
+			inset-inline-end: var(--sf-space-5);
+			translate: 0 -50%;
+			z-index: var(--sf-z-sticky);
+			display: flex;
+			flex-direction: column;
+			gap: var(--sf-space-2);
+			/* 7. transition-behavior: allow-discrete — for display:none ↔ block — Baseline 2024 */
+			transition: opacity 400ms ease, translate 400ms ease, display 400ms allow-discrete;
+			opacity: 1;
+
+			/* 8. @starting-style — entry animation on first insertion — Baseline 2024 */
+			@starting-style {
+				opacity: 0;
+				translate: 8px -50%;
+			}
+
+			@media (max-width: 1280px) { display: none; }
+		}
+
+		:scope.toc-hidden {
+			opacity: 0;
+			translate: 8px -50%;
+			display: none;
+			/* transition-behavior: allow-discrete enables animating display */
+		}
+
+		a {
+			position: relative;
+			display: flex;
+			align-items: center;
+			gap: var(--sf-space-2);
+			text-decoration: none;
+		}
+
+		.toc-indicator {
+			inline-size: 8px;
+			block-size: 8px;
+			border-radius: 50%;
+			background: var(--sf-bg-3);
+			flex-shrink: 0;
+			transition: background var(--sf-transition-fast), scale var(--sf-transition-fast);
+		}
+
+		.toc-label {
+			font-size: var(--sf-font-size-xs);
+			font-weight: 500;
+			color: var(--sf-text-3);
+			white-space: nowrap;
+			opacity: 0;
+			translate: -4px 0;
+			transition: opacity var(--sf-transition-fast), translate var(--sf-transition-fast);
+			pointer-events: none;
+		}
+
+		a:hover .toc-indicator,
+		.toc-dot--active .toc-indicator {
+			background: var(--sf-accent);
+			scale: 1.25;
+		}
+
+		/* 9. :has() — parent selector — Baseline 2023 */
+		:scope:has(a:hover) .toc-label { opacity: 0; }
+		a:hover .toc-label {
+			opacity: 1;
+			translate: 0 0;
+		}
+
+		.toc-dot--active .toc-indicator {
+			inline-size: 10px;
+			block-size: 10px;
+		}
+
+		.toc-dot--active .toc-label {
+			color: var(--sf-accent);
+		}
+	}
+
+	/* ── SYLLABUS / TOC SECTION ── */
+	.syllabus {
+		padding-block: var(--sf-space-8);
+		background: var(--sf-bg-1);
+	}
+
+	.syllabus-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: var(--sf-space-4);
+	}
+
+	.syllabus-track {
+		background: var(--sf-bg-2);
+		border: 1px solid var(--sf-bg-3);
+		border-radius: var(--sf-radius-lg);
+		overflow: hidden;
+		transition: border-color var(--sf-transition-base);
+
+		/* :has() — highlight track border if modules are expanded */
+		&:has(.syllabus-modules--open) {
+			border-color: var(--card-accent, var(--sf-accent));
+		}
+	}
+
+	.syllabus-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sf-space-3);
+		inline-size: 100%;
+		padding: var(--sf-space-4) var(--sf-space-4);
+		background: none;
+		border: none;
+		cursor: pointer;
+		text-align: start;
+		transition: background var(--sf-transition-fast);
+
+		&:hover { background: oklch(from var(--card-accent, var(--sf-accent)) l c h / 0.05); }
+	}
+
+	.syllabus-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 36px;
+		block-size: 36px;
+		border-radius: var(--sf-radius-md);
+		background: color-mix(in oklch, var(--card-accent, var(--sf-accent)) 12%, transparent);
+		color: var(--card-accent, var(--sf-accent));
+		flex-shrink: 0;
+	}
+
+	.syllabus-track-title {
+		flex: 1;
+		font-family: var(--sf-font-sans);
+		font-size: var(--sf-font-size-sm);
+		font-weight: 700;
+		color: var(--sf-text-0);
+	}
+
+	.syllabus-track-count {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		white-space: nowrap;
+		font-weight: 500;
+	}
+
+	.syllabus-header:last-child { color: var(--sf-text-3); }
+
+	/* 10. CSS interpolate-size — height: auto animation on syllabus modules */
+	.syllabus-modules {
+		block-size: 0;
+		overflow: hidden;
+		transition: block-size 350ms ease;
+		border-block-start: 0px solid var(--sf-bg-3);
+		transition: block-size 350ms ease, border-width 350ms ease;
+
+		&.syllabus-modules--open {
+			block-size: auto;
+			border-block-start-width: 1px;
+
+			@starting-style {
+				block-size: 0;
+			}
+		}
+	}
+
+	.syllabus-module {
+		display: grid;
+		grid-template-columns: 28px 1fr auto;
+		align-items: center;
+		gap: var(--sf-space-3);
+		padding: var(--sf-space-2) var(--sf-space-4);
+		border-block-end: 1px solid var(--sf-bg-3);
+
+		/* :has() — dim last module if it's the final item */
+		&:last-child { border-block-end: none; }
+
+		/* animation-timeline: view() — elements animate as they scroll in — Baseline 2023 */
+		animation: module-slide-in linear both;
+		animation-timeline: view();
+		animation-range: entry 0% entry 40%;
+	}
+	@keyframes module-slide-in {
+		from { opacity: 0; translate: -8px 0; }
+		to { opacity: 1; translate: 0 0; }
+	}
+
+	.syllabus-mod-num {
+		font-family: var(--sf-font-mono);
+		font-size: var(--sf-font-size-xs);
+		color: var(--card-accent, var(--sf-accent));
+		font-weight: 700;
+		letter-spacing: 0.05em;
+	}
+
+	.syllabus-mod-title {
+		font-size: var(--sf-font-size-sm);
+		color: var(--sf-text-1);
+		font-weight: 500;
+	}
+
+	.syllabus-mod-count {
+		font-size: var(--sf-font-size-xs);
+		color: var(--sf-text-3);
+		background: var(--sf-bg-3);
+		padding: 1px 6px;
+		border-radius: var(--sf-radius-full);
+		font-weight: 600;
+	}
+
+	/* 11. animation-timeline: view() on stat items — scroll-driven CSS, no IO — Baseline 2023 */
+	.stat-item {
+		animation: stat-reveal linear both;
+		animation-timeline: view();
+		animation-range: entry 0% entry 60%;
+	}
+	@keyframes stat-reveal {
+		from { opacity: 0; scale: 0.9; }
+		to { opacity: 1; scale: 1; }
+	}
+
+	/* 4. interpolate-size: allow-keywords → native height:auto animation (no JS slide) */
 	.faq-answer {
-		padding: 0 var(--sf-space-5) var(--sf-space-4);
+		block-size: 0;
+		overflow: hidden;
+		transition: block-size 300ms ease, padding 300ms ease;
+		padding-inline: var(--sf-space-5);
+		padding-block: 0;
+
+		/* 5. @starting-style — fires on first display — Baseline 2024 */
+		&.faq-answer--open {
+			block-size: auto;
+			padding-block-end: var(--sf-space-4);
+
+			@starting-style {
+				block-size: 0;
+				padding-block-end: 0;
+			}
+		}
 
 		p {
 			font-size: var(--sf-font-size-sm);
