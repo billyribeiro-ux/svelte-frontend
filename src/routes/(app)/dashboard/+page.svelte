@@ -35,37 +35,52 @@
 		tracks.reduce((sum, t) => sum + t.modules.reduce((ms, m) => ms + m.lessons.length, 0), 0)
 	);
 
-	// Mock progress for now — will be replaced by real progress store
-	let skills = $derived([
-		{ label: 'HTML', value: 10, color: '#ef4444' },
-		{ label: 'CSS', value: 5, color: '#3b82f6' },
-		{ label: 'TypeScript', value: 8, color: '#eab308' },
-		{ label: 'Svelte', value: 15, color: '#f97316' },
-		{ label: 'SvelteKit', value: 0, color: '#22c55e' }
-	]);
+	// Real skills from progress store
+	let skills = $derived.by(() => {
+		const trackMap: Record<string, { label: string; color: string; max: number }> = {
+			'foundations': { label: 'Web Foundations', color: '#eab308', max: 35 },
+			'svelte-core':  { label: 'Svelte 5',        color: '#f97316', max: 42 },
+			'sveltekit':    { label: 'SvelteKit',       color: '#22c55e', max: 38 },
+			'projects':     { label: 'Projects',        color: '#a855f7', max: 24 }
+		};
+		return Object.entries(trackMap).map(([slug, meta]) => ({
+			label: meta.label,
+			color: meta.color,
+			value: progressStore.getTrackCompleted(slug),
+			max: meta.max
+		}));
+	});
 
-	let recentActivities = $derived([
-		{
-			id: '1',
-			lessonTitle: 'Understanding $state',
-			trackTitle: 'Svelte 5 Core',
-			href: '/learn/svelte-core/runes-reactivity/state-basics',
-			status: 'in-progress' as const,
-			timestamp: Date.now() - 3600000
-		}
-	]);
+	// Real recent activities from progress store
+	let recentActivities = $derived(
+		progressStore.recentActivity.map((a) => ({
+			id: a.lessonId,
+			lessonTitle: a.lessonTitle,
+			trackTitle: a.trackTitle,
+			href: a.href,
+			status: a.status,
+			timestamp: a.timestamp
+		}))
+	);
 
-	// Find first available lesson
+	// Find first uncompleted lesson (skip already completed ones)
 	let firstLesson = $derived.by(() => {
 		for (const track of tracks) {
 			for (const mod of track.modules) {
-				if (mod.lessons.length > 0) {
-					const lesson = mod.lessons[0]!;
-					return {
-						title: lesson.title,
-						track: track.title,
-						href: `/learn/${track.slug}/${mod.slug}/${lesson.slug}`
-					};
+				for (const lesson of mod.lessons) {
+					const status = progressStore.getLessonStatus(lesson.id);
+					if (status === 'in-progress') {
+						return { title: lesson.title, track: track.title, href: `/learn/${track.slug}/${mod.slug}/${lesson.slug}`, status: 'in-progress' as const };
+					}
+				}
+			}
+		}
+		for (const track of tracks) {
+			for (const mod of track.modules) {
+				for (const lesson of mod.lessons) {
+					if (progressStore.getLessonStatus(lesson.id) === 'not-started') {
+						return { title: lesson.title, track: track.title, href: `/learn/${track.slug}/${mod.slug}/${lesson.slug}`, status: 'not-started' as const };
+					}
 				}
 			}
 		}
@@ -108,7 +123,7 @@
 					title={track.title}
 					icon="ph:book-open"
 					totalLessons={lessonCount}
-					completedLessons={0}
+					completedLessons={progressStore.getTrackCompleted(track.slug)}
 					href="/learn/{track.slug}"
 				/>
 			{/each}
@@ -135,16 +150,16 @@
 			<span class="stat-label">Total Lessons</span>
 		</div>
 		<div class="stat-card">
-			<span class="stat-number">{tracks.length}</span>
-			<span class="stat-label">Tracks</span>
-		</div>
-		<div class="stat-card">
-			<span class="stat-number">0</span>
+			<span class="stat-number">{progressStore.completedCount}</span>
 			<span class="stat-label">Completed</span>
 		</div>
 		<div class="stat-card">
-			<span class="stat-number">0</span>
+			<span class="stat-number">{progressStore.streak}</span>
 			<span class="stat-label">Day Streak</span>
+		</div>
+		<div class="stat-card">
+			<span class="stat-number">{progressStore.hoursLearned}</span>
+			<span class="stat-label">Hours Learned</span>
 		</div>
 	</div>
 </div>
