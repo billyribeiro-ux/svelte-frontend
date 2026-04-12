@@ -210,6 +210,80 @@ This enables layered error handling:
 		{
 			type: 'checkpoint',
 			content: 'cp-2'
+		},
+		{
+			type: 'text',
+			content: `## The \`pending\` Snippet — Async Loading States
+
+Boundaries can also handle async loading. When a boundary contains \`await\` expressions, the \`pending\` snippet is shown until all promises resolve:
+
+\`\`\`svelte
+<svelte:boundary>
+  <p>{await delayed('hello!')}</p>
+
+  {#snippet pending()}
+    <p>loading...</p>
+  {/snippet}
+</svelte:boundary>
+\`\`\`
+
+The \`pending\` snippet renders when the boundary is **first created**. For subsequent async updates (e.g., refetching data), use \`$effect.pending()\` instead — the \`pending\` snippet will not re-appear.
+
+## The \`onerror\` Handler — Side Effects on Error
+
+In addition to (or instead of) the \`failed\` snippet, you can attach an \`onerror\` callback. This is useful for error tracking services:
+
+\`\`\`svelte
+<svelte:boundary onerror={(e) => reportToSentry(e)}>
+  <RiskyComponent />
+</svelte:boundary>
+\`\`\`
+
+You can also capture \`error\` and \`reset\` outside the boundary for custom UX:
+
+\`\`\`svelte
+<script>
+  let error = $state(null);
+  let reset = $state(() => {});
+
+  function onerror(e, r) {
+    error = e;
+    reset = r;
+  }
+</script>
+
+<svelte:boundary {onerror}>
+  <FlakyComponent />
+</svelte:boundary>
+
+{#if error}
+  <button onclick={() => { error = null; reset(); }}>
+    oops! try again
+  </button>
+{/if}
+\`\`\`
+
+If an error occurs inside \`onerror\` itself (or you rethrow), it propagates to a parent boundary.
+
+## \`transformError\` — SSR Error Sanitization (Svelte 5.51+)
+
+By default, boundaries have no effect during SSR — an error crashes the entire render. Since 5.51, you can control this with \`transformError\` passed to \`render()\`:
+
+\`\`\`ts
+import { render } from 'svelte/server';
+import App from './App.svelte';
+
+const { head, body } = await render(App, {
+  transformError: (error) => {
+    console.error(error); // log the real error with stack
+    return { message: 'An error occurred!' }; // sanitized for client
+  }
+});
+\`\`\`
+
+The returned object is serialized and used to hydrate the \`failed\` snippet in the browser. **Always redact** \`message\` and \`stack\` — server errors can contain sensitive information.
+
+\`mount\` and \`hydrate\` also accept \`transformError\`, defaulting to the identity function. SvelteKit will integrate this via the \`handleError\` hook.`
 		}
 	],
 

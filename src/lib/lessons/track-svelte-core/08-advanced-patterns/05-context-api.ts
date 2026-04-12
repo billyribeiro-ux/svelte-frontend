@@ -5,12 +5,12 @@ export const contextApi: Lesson = {
 	slug: 'context-api',
 	title: 'The Context API — Sharing State Without Prop Drilling',
 	description:
-		'Master setContext and getContext to share reactive state across deeply nested components, and learn when to use context versus module-level stores.',
+		'Master createContext (5.40+), setContext, and getContext to share reactive state across deeply nested components — including type-safe helpers, component testing wrappers (5.49+), and when to use context versus module stores.',
 	trackId: 'svelte-core',
 	moduleId: 'advanced-patterns',
 	order: 5,
 	estimatedMinutes: 25,
-	concepts: ['svelte5.context.set', 'svelte5.context.get', 'svelte5.context.has'],
+	concepts: ['svelte5.context.createContext', 'svelte5.context.set', 'svelte5.context.get', 'svelte5.context.has'],
 	prerequisites: ['svelte5.runes.state', 'svelte5.components.props'],
 
 	content: [
@@ -171,7 +171,131 @@ export function useCart(): CartContext {
 }
 \`\`\`
 
-Consumers call \`const cart = useCart()\` and get a fully typed context object with IDE autocomplete and compile-time error checking.`
+Consumers call \`const cart = useCart()\` and get a fully typed context object with IDE autocomplete and compile-time error checking.
+
+## \`createContext\` — The Preferred API (Svelte 5.40+)
+
+Since Svelte 5.40, the **recommended** way to create typed context is \`createContext\`. It returns a \`[get, set]\` tuple — no manual key management, no \`getContext<T>\` casts, no collision risk:
+
+\`\`\`ts
+// context.ts
+import { createContext } from 'svelte';
+
+interface User { name: string; }
+
+export const [getUserContext, setUserContext] = createContext<User>();
+\`\`\`
+
+\`\`\`svelte
+<!-- Parent.svelte -->
+<script>
+  import { setUserContext } from './context';
+  let { children } = $props();
+
+  setUserContext({ name: 'world' });
+</script>
+
+{@render children()}
+\`\`\`
+
+\`\`\`svelte
+<!-- Child.svelte -->
+<script>
+  import { getUserContext } from './context';
+  const user = getUserContext();
+</script>
+
+<h1>hello {user.name}, inside Child.svelte</h1>
+\`\`\`
+
+**Why \`createContext\` is preferred:**
+- Type safety is automatic — no generic annotation needed at the call site.
+- No keys to manage or risk colliding.
+- The returned getter throws a helpful error if the context was never set above in the tree.
+
+> \`createContext\` was added in 5.40. If your project runs an earlier version, continue using \`setContext\`/\`getContext\` with manual keys.
+
+## Using Context with Reactive State
+
+You can store reactive state in context. Pass a \`$state\` proxy and all consumers see updates:
+
+\`\`\`ts
+// context.ts
+import { createContext } from 'svelte';
+
+interface Counter { count: number; }
+
+export const [getCounter, setCounter] = createContext<Counter>();
+\`\`\`
+
+\`\`\`svelte
+<!-- App.svelte -->
+<script>
+  import { setCounter } from './context';
+  import Child from './Child.svelte';
+
+  let counter = $state({ count: 0 });
+  setCounter(counter);
+</script>
+
+<button onclick={() => counter.count += 1}>increment</button>
+<Child />
+<Child />
+<button onclick={() => counter.count = 0}>reset</button>
+\`\`\`
+
+**Important:** you must **mutate** the object, not **reassign** it. \`counter.count = 0\` works; \`counter = { count: 0 }\` breaks the link and consumers stop updating. Svelte will warn you if you get this wrong.
+
+## Component Testing with Context (Svelte 5.49+)
+
+When writing Vitest component tests, you can create a wrapper function that sets context before mounting:
+
+\`\`\`ts
+import { mount, unmount } from 'svelte';
+import { expect, test } from 'vitest';
+import { setUserContext } from './context';
+import MyComponent from './MyComponent.svelte';
+
+test('MyComponent', () => {
+  function Wrapper(...args) {
+    setUserContext({ name: 'Bob' });
+    return MyComponent(...args);
+  }
+
+  const component = mount(Wrapper, {
+    target: document.body
+  });
+
+  expect(document.body.innerHTML).toBe('<h1>Hello Bob!</h1>');
+  unmount(component);
+});
+\`\`\`
+
+This approach also works with \`hydrate\` and \`render\`.
+
+## Replacing Global State — SSR Safety
+
+Module-level \`$state\` is a singleton. During SSR, a mutation in one request leaks to the next. Context is request-scoped and avoids this:
+
+\`\`\`svelte
+<!-- BAD: global module state leaks between SSR requests -->
+<script>
+  import { myGlobalState } from './state.svelte.js';
+  let { data } = $props();
+  if (data.user) myGlobalState.user = data.user; // ❌ next request sees this
+</script>
+\`\`\`
+
+\`\`\`svelte
+<!-- GOOD: context is scoped to the component tree / request -->
+<script>
+  import { setUserContext } from './context';
+  let { data } = $props();
+  if (data.user) setUserContext(data.user); // ✅ isolated per request
+</script>
+\`\`\`
+
+Use context over global module state whenever SSR is involved.`
 		},
 		{
 			type: 'checkpoint',

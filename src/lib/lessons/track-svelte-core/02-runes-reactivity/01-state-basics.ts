@@ -119,6 +119,66 @@ function saveToAPI() {
 		{
 			type: 'checkpoint',
 			content: 'cp-2'
+		},
+		{
+			type: 'text',
+			content: `## \`$state\` in Classes
+
+Class instances are **not** proxied. Instead, use \`$state\` directly on class fields or as the first assignment in the \`constructor\`:
+
+\`\`\`ts
+class Todo {
+  done = $state(false);        // public reactive field
+  text: string;
+
+  constructor(text: string) {
+    this.text = $state(text);  // reactive via first assignment
+  }
+
+  reset = () => {              // arrow fn keeps 'this' correct
+    this.text = '';
+    this.done = false;
+  };
+}
+\`\`\`
+
+The compiler rewrites these fields into \`get\`/\`set\` pairs backed by private signals — the properties are not enumerable.
+
+> **Tip:** Use arrow functions for methods you pass as event handlers (\`onclick={todo.reset}\`) to avoid \`this\` confusion. Alternatively, use inline functions: \`onclick={() => todo.reset()}\`.
+
+You can also use \`$state.raw\` on class fields when you want reassign-only reactivity.
+
+## \`$state.eager\` — Immediate UI Feedback
+
+When state changes inside an \`await\` expression, updates are synchronized and the UI may not reflect the change immediately. \`$state.eager(value)\` opts out of that batching:
+
+\`\`\`svelte
+<nav>
+  <a href="/" aria-current={$state.eager(pathname) === '/' ? 'page' : null}>home</a>
+  <a href="/about" aria-current={$state.eager(pathname) === '/about' ? 'page' : null}>about</a>
+</nav>
+\`\`\`
+
+Use this sparingly and only for user-feedback situations — letting Svelte coordinate updates normally gives a better experience.
+
+## Reactive Built-In Classes
+
+Svelte provides reactive implementations of built-in classes in \`svelte/reactivity\`: \`SvelteSet\`, \`SvelteMap\`, \`SvelteDate\`, \`SvelteURL\`, and \`SvelteURLSearchParams\`:
+
+\`\`\`svelte
+<script>
+  import { SvelteSet, SvelteURL } from 'svelte/reactivity';
+
+  const tags = new SvelteSet(['svelte', 'kit']);
+  const url = new SvelteURL('https://example.com/path');
+</script>
+
+<p>{tags.size} tags</p>
+<input bind:value={url.pathname} />
+<p>{url.href}</p>
+\`\`\`
+
+These behave identically to their native counterparts but trigger reactive updates when read in effects or templates.`
 		}
 	],
 
