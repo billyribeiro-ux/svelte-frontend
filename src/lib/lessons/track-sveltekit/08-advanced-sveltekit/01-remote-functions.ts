@@ -78,7 +78,7 @@ When you import these functions in a \`.svelte\` file, SvelteKit replaces the im
 
 \`\`\`svelte
 <script lang="ts">
-  import { query, command } from '$app/state';
+  import { query, command } from '$app/server';
   import { getTodos, addTodo, toggleTodo } from './todos.remote.ts';
 
   // query() creates a reactive query
@@ -152,7 +152,7 @@ Queries created with \`query()\` are reactive. If the arguments to the query fun
 
 \`\`\`svelte
 <script lang="ts">
-  import { query } from '$app/state';
+  import { query } from '$app/server';
   import { searchProducts } from './products.remote.ts';
 
   let searchTerm = $state('');
@@ -176,7 +176,7 @@ After a command executes, SvelteKit automatically invalidates related queries. T
 
 \`\`\`svelte
 <script lang="ts">
-  import { query, command } from '$app/state';
+  import { query, command } from '$app/server';
   import { getTodos, addTodo } from './todos.remote.ts';
 
   const todos = query(() => getTodos());
@@ -291,7 +291,7 @@ export function addTodo(title: string) {
 			path: '/+page.svelte',
 			language: 'svelte',
 			content: `<script lang="ts">
-  import { query, command } from '$app/state';
+  import { query, command } from '$app/server';
   import { getTodos, addTodo } from './todos.remote.ts';
 
   const todos = query(getTodos);

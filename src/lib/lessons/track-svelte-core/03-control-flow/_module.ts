@@ -9,7 +9,7 @@ export const controlFlowModule: Module = {
 	slug: 'control-flow',
 	title: 'Control Flow & Rendering',
 	description:
-		'Master conditional rendering, list rendering, and async data handling in Svelte templates.',
+		'Master conditional rendering, list rendering, async data, key blocks, and template constants in Svelte.',
 	trackId: 'svelte-core',
 	order: 3,
 	lessons: [ifBlocks, eachBlocks, awaitBlocks, keyBlocks]

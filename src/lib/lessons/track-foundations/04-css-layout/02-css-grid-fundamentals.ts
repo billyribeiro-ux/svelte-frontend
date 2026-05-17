@@ -17,33 +17,41 @@ export const cssGridFundamentals: Lesson = {
 			type: 'text',
 			content: `# CSS Grid Fundamentals
 
-CSS Grid is a two-dimensional layout system — it handles both rows and columns simultaneously. While flexbox excels at one-dimensional layouts (a row of items or a column of items), grid excels at page-level layouts and any design where you need to control both dimensions.
+CSS Grid is a two-dimensional layout system — it handles both rows and columns simultaneously. While flexbox excels at one-dimensional layouts (a row of navigation items, a column of cards), Grid is purpose-built for two-dimensional layouts where you need to control placement in both directions at once.
+
+## Explicit vs Implicit Grid
+
+This distinction is fundamental and often overlooked:
+
+- **Explicit grid** — The rows and columns you define with \`grid-template-columns\` and \`grid-template-rows\`. You have full control over their size and behavior.
+- **Implicit grid** — Rows or columns that the browser creates automatically when there are more items than your explicit grid can hold.
+
+\`\`\`css
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* Explicit: 3 columns */
+  /* No grid-template-rows — rows are implicit */
+}
+\`\`\`
+
+If you place 9 items in this grid, you get 3 explicit columns and 3 implicit rows. The implicit rows default to \`auto\` height (sized to fit their content). You can control implicit row sizing with \`grid-auto-rows\`:
+
+\`\`\`css
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(100px, auto); /* Implicit rows: at least 100px */
+}
+\`\`\`
+
+This ensures every row is at least 100px tall, even if the content is shorter. The \`auto\` maximum lets rows grow if content is taller.
 
 Key properties:
 - **\`display: grid\`** — Activates grid layout
 - **\`grid-template-columns\`** — Define column tracks
 - **\`grid-template-rows\`** — Define row tracks
 - **\`gap\`** — Space between grid cells
-- **\`grid-template-areas\`** — Named layout regions
-
-## WHY: Implicit vs Explicit Grid
-
-Understanding the difference between implicit and explicit grid tracks prevents many confusing layout bugs.
-
-**Explicit grid:** Tracks you define with \`grid-template-columns\` and \`grid-template-rows\`. You control their sizes precisely.
-
-**Implicit grid:** Tracks the browser creates automatically when items overflow your explicit grid. If you define 3 columns but have 7 items, the browser creates a second row automatically. Implicit rows default to \`auto\` height (content-sized).
-
-You control implicit track sizing with:
-\`\`\`css
-.grid {
-  grid-template-columns: repeat(3, 1fr); /* explicit: 3 columns */
-  grid-auto-rows: 200px;                 /* implicit: all auto-created rows are 200px */
-  grid-auto-flow: dense;                 /* fill gaps when items are placed out of order */
-}
-\`\`\`
-
-**Decision framework:** If you know how many rows and columns you need (like a page layout), define them explicitly. If items flow dynamically (like a card grid), define columns explicitly and let rows be implicit.`
+- **\`grid-template-areas\`** — Named layout regions`
 		},
 		{
 			type: 'concept-callout',
@@ -63,7 +71,26 @@ Define a grid with \`grid-template-columns\`:
 }
 \`\`\`
 
-The \`fr\` unit distributes available space proportionally. \`1fr 2fr 1fr\` creates three columns where the middle one is twice as wide as the others. The \`fr\` unit only distributes space left over after fixed-size tracks are sized — so \`200px 1fr 1fr\` gives the first column exactly 200px and splits the remaining space equally.
+The \`fr\` unit distributes available space proportionally. \`1fr 2fr 1fr\` gives the middle column twice the width of the outer columns. The \`fr\` unit only distributes *remaining* space — space left after fixed-size columns (\`px\`, \`rem\`) and content-sized columns (\`auto\`, \`min-content\`, \`max-content\`) have been allocated.
+
+\`\`\`css
+/* Sidebar layout: fixed sidebar, fluid main */
+.layout {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 2rem;
+}
+\`\`\`
+
+Here the sidebar gets exactly 250px, and \`1fr\` gives the main content all remaining space.
+
+### The repeat() Function
+
+\`repeat()\` is syntactic sugar for repeating track definitions:
+
+- \`repeat(3, 1fr)\` = \`1fr 1fr 1fr\`
+- \`repeat(2, 100px 1fr)\` = \`100px 1fr 100px 1fr\`
+- \`repeat(auto-fit, minmax(250px, 1fr))\` = responsive columns (covered next)
 
 Look at the starter code. The cards are in a single column.
 
@@ -75,25 +102,43 @@ Look at the starter code. The cards are in a single column.
 		},
 		{
 			type: 'text',
-			content: `## Auto-fit vs Auto-fill: The Critical Distinction
+			content: `## Auto-fit, Auto-fill, and Responsive Grids
 
-Both \`auto-fit\` and \`auto-fill\` with \`minmax()\` create responsive grids without media queries, but they behave differently when there are fewer items than columns:
+\`auto-fit\` with \`minmax()\` creates responsive grids without media queries:
 
 \`\`\`css
-/* auto-fit: collapses empty tracks, items stretch to fill */
 grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-
-/* auto-fill: keeps empty tracks, items stay at minmax size */
-grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 \`\`\`
 
-**auto-fit** — Creates as many columns as fit, but collapses empty tracks to 0. If you have 2 items in a container wide enough for 4 columns, the 2 items stretch to fill the full width.
+This creates as many columns as fit, each at least 250px wide. When the container shrinks, columns drop to the next row. When it grows, more columns appear.
 
-**auto-fill** — Creates as many columns as fit and keeps empty tracks at their minimum size. If you have 2 items in a container wide enough for 4 columns, the 2 items stay at their minimum width and there are 2 empty columns.
+### auto-fit vs auto-fill
 
-**Decision framework:**
-- Use \`auto-fit\` when you want items to always fill the available width (most common for card grids)
-- Use \`auto-fill\` when you want items to maintain a consistent size regardless of how many there are (useful for thumbnail grids)
+These two keywords are often confused:
+
+- **\`auto-fill\`** creates as many tracks as fit, even if some are empty. Empty tracks still take up space.
+- **\`auto-fit\`** creates tracks the same way, but then *collapses* any empty tracks to zero width. The remaining items expand to fill the space.
+
+The difference is only visible when you have fewer items than the grid can hold:
+
+\`\`\`css
+/* auto-fill: 3 items in a wide container might show 5 columns (2 empty) */
+grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+
+/* auto-fit: 3 items in a wide container show 3 columns that expand */
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+\`\`\`
+
+**Rule of thumb:** Use \`auto-fit\` when you want items to stretch to fill the container. Use \`auto-fill\` when you want items to maintain their minimum size and leave empty space.
+
+### The minmax() Function
+
+\`minmax(min, max)\` defines a size range for a track:
+
+- \`minmax(200px, 1fr)\` — At least 200px, grows to fill available space
+- \`minmax(100px, 300px)\` — Between 100px and 300px
+- \`minmax(auto, 1fr)\` — At least as wide as content, can grow
+- \`minmax(0, 1fr)\` — Can shrink to zero (useful when you want \`1fr\` to really mean equal widths)
 
 **Task:** Replace the fixed 3-column grid with \`repeat(auto-fit, minmax(200px, 1fr))\` for responsive behavior.`
 		},
@@ -103,13 +148,13 @@ grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and resize the viewport. Watch how `auto-fit` dynamically adjusts the number of columns as space changes. No media queries are involved — the grid algorithm calculates how many 200px-minimum columns can fit at each width.'
+			content: 'Toggle X-Ray mode and resize the viewport. Watch how `auto-fit` dynamically adjusts the number of columns as space changes.'
 		},
 		{
 			type: 'text',
 			content: `## Named Grid Areas
 
-Grid areas let you define layout regions by name, creating a visual map of your layout in CSS:
+Grid areas let you define layout regions by name, creating a visual map of your layout directly in CSS:
 
 \`\`\`css
 .layout {
@@ -121,58 +166,77 @@ Grid areas let you define layout regions by name, creating a visual map of your 
     "footer footer";
   gap: 1rem;
 }
+
 .header  { grid-area: header; }
 .sidebar { grid-area: sidebar; }
 .main    { grid-area: main; }
 .footer  { grid-area: footer; }
 \`\`\`
 
-**WHY grid areas are powerful:** The template areas string is literally a visual representation of your layout. Each quoted string is a row, each word is a cell. This makes it trivial to rearrange layouts — you just move the words around. Changing from a sidebar layout to a stacked mobile layout is a single media query:
+### Template Areas Syntax Rules
+
+Each quoted string represents one row. Column names within a row are separated by spaces. The rules:
+
+1. Every row must have the same number of columns
+2. Use \`.\` for empty cells: \`"header header" ". main" "footer footer"\`
+3. Named areas must form rectangles — you cannot have an L-shaped area
+4. Each area name in the template corresponds to a \`grid-area\` property on a child element
+
+### Why Template Areas Are Powerful
+
+Template areas create a visual representation of your layout in code. Compare:
 
 \`\`\`css
-@media (max-width: 768px) {
+/* Without named areas — position with line numbers */
+.header  { grid-column: 1 / -1; grid-row: 1; }
+.sidebar { grid-column: 1; grid-row: 2; }
+.main    { grid-column: 2; grid-row: 2; }
+.footer  { grid-column: 1 / -1; grid-row: 3; }
+
+/* With named areas — visual layout map */
+grid-template-areas:
+  "header header"
+  "sidebar main"
+  "footer footer";
+\`\`\`
+
+The second version is immediately readable. You can see the layout at a glance, and reorganizing it is as simple as rearranging strings. Want to move the sidebar to the right? Just swap the names:
+
+\`\`\`css
+grid-template-areas:
+  "header header"
+  "main sidebar"
+  "footer footer";
+\`\`\`
+
+### Responsive Layouts with Template Areas
+
+Combine template areas with media queries for layouts that restructure at breakpoints:
+
+\`\`\`css
+.layout {
+  display: grid;
+  grid-template-areas:
+    "header"
+    "main"
+    "sidebar"
+    "footer";
+}
+
+@media (min-width: 768px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 200px 1fr;
     grid-template-areas:
-      "header"
-      "main"
-      "sidebar"
-      "footer";
+      "header header"
+      "sidebar main"
+      "footer footer";
   }
 }
 \`\`\`
 
-Notice that the sidebar moves below main on mobile — you could not do this with flexbox without changing the DOM order.
+On mobile, everything stacks in a single column. On tablet and up, you get a sidebar layout. The template area strings make both layouts immediately clear.
 
-**Subgrid (for advanced use):** \`subgrid\` lets a child grid item inherit track definitions from its parent grid. This solves the "card grid alignment" problem where cards of different heights need their internal elements (title, body, footer) to align across cards:
-
-\`\`\`css
-.card {
-  display: grid;
-  grid-template-rows: subgrid;
-  grid-row: span 3;  /* card spans 3 rows of parent grid */
-}
-\`\`\`
-
-Subgrid has excellent browser support as of 2024 and is a game-changer for component-level grid alignment.
-
-**Task:** Add \`grid-template-areas\` to the \`.page\` layout with "header header" / "sidebar main" / "footer footer" and assign areas to children.
-
-## Realistic Exercise: Dashboard Layout
-
-After completing the checkpoints, consider a real dashboard layout:
-- Top bar spanning full width
-- Left sidebar (fixed 250px)
-- Main content area (flexible)
-- Right panel (300px, hidden on mobile)
-
-Your grid approach:
-1. \`grid-template-columns: 250px 1fr 300px\` on desktop
-2. \`grid-template-areas\` for named placement
-3. Media query at 768px to collapse to single column
-4. Media query at 1024px to show 2 columns (hide right panel)
-
-This is a layout that would be extremely complex with flexbox but is straightforward with grid.`
+**Task:** Add \`grid-template-areas\` to the \`.page\` layout with "header header" / "sidebar main" / "footer footer" and assign areas to children.`
 		},
 		{
 			type: 'checkpoint',

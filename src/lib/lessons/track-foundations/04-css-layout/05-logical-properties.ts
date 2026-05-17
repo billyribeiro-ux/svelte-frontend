@@ -23,38 +23,46 @@ Logical properties replace physical directions (top, right, bottom, left) with f
 - **Inline** — The direction text flows (left-to-right in English)
 - **Start/End** — Replace left/right and top/bottom
 
-## WHY: Logical Properties Matter for Internationalization
+## Why Logical Properties Matter
 
-If your website is only ever used in English, physical properties work fine. But the moment your product supports Arabic, Hebrew, Urdu, or any right-to-left (RTL) language, physical properties break.
+Physical CSS properties like \`margin-left\`, \`padding-right\`, \`border-top\`, and \`text-align: left\` assume a left-to-right, top-to-bottom writing direction. This assumption breaks the moment your application needs to support any of the following:
 
-Consider a card with a close button:
+- **Right-to-left (RTL) languages** — Arabic, Hebrew, Farsi, Urdu. In these languages, text flows right-to-left. A navigation menu with \`padding-left: 2rem\` for the logo indent needs to become \`padding-right: 2rem\` in RTL mode.
+
+- **Vertical writing modes** — Traditional Chinese, Japanese, and Korean can be written vertically. In vertical writing, "top" and "left" no longer map to the expected directions.
+
+- **Bidirectional (bidi) content** — A page that mixes English and Arabic text, where different sections flow in different directions.
+
+Without logical properties, supporting RTL requires either:
+1. A separate RTL stylesheet that overrides every directional property (maintenance nightmare)
+2. A build tool that generates RTL-flipped CSS automatically (build complexity)
+3. Manually adding \`[dir="rtl"]\` selectors for every directional rule (tedious and error-prone)
+
+With logical properties, you write your CSS once and it works in every direction. \`padding-inline-start: 2rem\` means "padding at the start of the text flow direction" — left in LTR, right in RTL. No overrides needed.
+
+### The Internationalization Example
+
+Consider a chat message layout. In English (LTR), your messages appear on the right, the other person's on the left. In Arabic (RTL), it should be mirrored.
+
 \`\`\`css
-/* Physical — breaks in RTL */
-.close-btn { position: absolute; top: 8px; right: 8px; }
+/* Physical properties — breaks in RTL */
+.my-message { margin-left: auto; margin-right: 0; }
+.their-message { margin-left: 0; margin-right: auto; }
 
-/* Logical — works in all directions */
-.close-btn { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; }
+/* Logical properties — works in both directions */
+.my-message { margin-inline-start: auto; margin-inline-end: 0; }
+.their-message { margin-inline-start: 0; margin-inline-end: auto; }
 \`\`\`
 
-In English (LTR), \`inset-inline-end\` resolves to \`right\`. In Arabic (RTL), it resolves to \`left\`. The close button automatically moves to the correct corner without any additional CSS or JavaScript.
+The logical version automatically mirrors when the \`dir\` attribute changes from \`ltr\` to \`rtl\`. No additional CSS, no JavaScript, no build tools.
 
-**This is not a niche concern.** Arabic is spoken by 420+ million people. Hebrew, Urdu, Persian, and other RTL languages add hundreds of millions more. Even if your current product is English-only, using logical properties costs nothing and makes future internationalization trivial instead of a massive refactor.
+### Even If You Do Not Need RTL Today
 
-## WHY: Writing Mode Interaction
+You might think "my app is English-only, I do not need this." There are still reasons to adopt logical properties:
 
-Logical properties adapt not just to text direction (LTR/RTL) but also to **writing modes**:
-
-- **horizontal-tb** (default) — Text flows left-to-right, lines stack top-to-bottom (English, most European languages)
-- **vertical-rl** — Text flows top-to-bottom, lines stack right-to-left (traditional Chinese, Japanese)
-- **vertical-lr** — Text flows top-to-bottom, lines stack left-to-right (Mongolian)
-
-In \`vertical-rl\` writing mode:
-- \`block\` direction is horizontal (lines stack right-to-left)
-- \`inline\` direction is vertical (text flows top-to-bottom)
-- \`margin-block-start\` resolves to \`margin-right\` (start of the block axis)
-- \`margin-inline-start\` resolves to \`margin-top\` (start of the inline axis)
-
-Logical properties handle all of this automatically. Physical properties would require completely different CSS for each writing mode.`
+1. **Future-proofing.** Adding RTL support later is dramatically easier if your CSS already uses logical properties.
+2. **Consistency.** Logical properties are the modern standard. New CSS features assume logical directions. Learning them now means your mental model matches where CSS is going.
+3. **Semantic clarity.** \`margin-block-start\` communicates intent ("space before this element in the reading flow") better than \`margin-top\` (which is a physical measurement that happens to match intent in one writing mode).`
 		},
 		{
 			type: 'concept-callout',
@@ -64,24 +72,44 @@ Logical properties handle all of this automatically. Physical properties would r
 			type: 'text',
 			content: `## Block and Inline Directions
 
+The two axes in logical properties:
+
+**Block axis** — The direction in which block-level elements stack. In English, this is vertical (top to bottom). In vertical Chinese, this is horizontal (right to left).
+
+**Inline axis** — The direction in which text flows within a line. In English, this is horizontal (left to right). In Arabic, this is horizontal (right to left). In vertical Chinese, this is vertical (top to bottom).
+
 Physical properties and their logical equivalents:
 
 | Physical | Logical |
 |----------|---------|
 | \`margin-top\` | \`margin-block-start\` |
 | \`margin-bottom\` | \`margin-block-end\` |
+| \`margin-left\` | \`margin-inline-start\` |
+| \`margin-right\` | \`margin-inline-end\` |
+| \`padding-top\` | \`padding-block-start\` |
+| \`padding-bottom\` | \`padding-block-end\` |
 | \`padding-left\` | \`padding-inline-start\` |
 | \`padding-right\` | \`padding-inline-end\` |
 | \`border-top\` | \`border-block-start\` |
 | \`border-bottom\` | \`border-block-end\` |
 | \`top\` | \`inset-block-start\` |
-| \`right\` | \`inset-inline-end\` |
 | \`bottom\` | \`inset-block-end\` |
 | \`left\` | \`inset-inline-start\` |
-| \`width\` | \`inline-size\` |
-| \`height\` | \`block-size\` |
+| \`right\` | \`inset-inline-end\` |
+| \`text-align: left\` | \`text-align: start\` |
+| \`text-align: right\` | \`text-align: end\` |
 
-**The naming pattern is consistent:** \`{property}-{axis}-{position}\`. Once you internalize that \`block\` = stacking direction and \`inline\` = text flow direction, you can construct any logical property name from memory.
+### Writing Modes
+
+The \`writing-mode\` property changes which direction is "block" and which is "inline":
+
+\`\`\`css
+.vertical-text {
+  writing-mode: vertical-rl; /* Block: right-to-left, Inline: top-to-bottom */
+}
+\`\`\`
+
+When you change writing modes, logical properties automatically adapt. \`margin-block-start\` points to the "top" in horizontal writing and to the "right" in \`vertical-rl\`. Physical properties do not adapt — \`margin-top\` is always the top, regardless of writing mode.
 
 Look at the starter code. It uses physical properties.
 
@@ -98,14 +126,45 @@ Look at the starter code. It uses physical properties.
 Logical shorthands let you set both start and end at once:
 
 \`\`\`css
-margin-block: 1rem 2rem;   /* block-start: 1rem, block-end: 2rem */
-margin-inline: auto;        /* center horizontally (in LTR and RTL) */
-padding-inline: 1rem;       /* left and right padding (or right and left in RTL) */
-padding-block: 2rem;        /* top and bottom padding */
-border-inline-start: 3px solid blue;  /* left border in LTR, right border in RTL */
+margin-block: 1rem 2rem;   /* block-start, block-end */
+margin-block: 1rem;         /* same value for both */
+margin-inline: auto;        /* center horizontally */
+padding-inline: 1rem;       /* left and right */
+padding-block: 2rem;        /* top and bottom */
+border-inline-start: 3px solid blue;
 \`\`\`
 
-**The \`margin-inline: auto\` pattern** is particularly useful. It centers a block element horizontally regardless of text direction — the logical equivalent of the classic \`margin: 0 auto\` centering technique. In RTL contexts, this still works correctly because "inline" adapts to the writing direction.
+### The inset Shorthand
+
+For positioned elements, \`inset\` replaces \`top\`, \`right\`, \`bottom\`, \`left\`:
+
+\`\`\`css
+/* Physical */
+.overlay { top: 0; right: 0; bottom: 0; left: 0; }
+
+/* Logical shorthand */
+.overlay { inset: 0; }
+
+/* Individual logical inset properties */
+.tooltip {
+  inset-block-start: 100%;
+  inset-inline-start: 50%;
+}
+\`\`\`
+
+### border-radius Logical Properties
+
+Even border-radius has logical equivalents:
+
+\`\`\`css
+/* Physical */
+border-top-left-radius: 8px;
+
+/* Logical */
+border-start-start-radius: 8px;
+\`\`\`
+
+The naming is \`border-{block}-{inline}-radius\`. So \`border-start-start\` is block-start + inline-start, which is top-left in English LTR. In RTL, it becomes top-right.
 
 **Task:** Use \`margin-inline: auto\` to center the container and \`padding-block: 2rem\` for vertical padding.`
 		},
@@ -115,7 +174,7 @@ border-inline-start: 3px solid blue;  /* left border in LTR, right border in RTL
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and change the `dir` attribute to `rtl` on the container element. Observe how logical properties automatically flip inline directions for right-to-left languages. The padding that was on the left moves to the right. The margin that was on the left side moves to the right. All without changing a single line of CSS — this is the power of logical properties.'
+			content: 'Toggle X-Ray mode and change the `dir` attribute to `rtl`. Observe how logical properties automatically flip inline directions for right-to-left languages.'
 		},
 		{
 			type: 'text',
@@ -130,43 +189,30 @@ max-inline-size: 65ch; /* replaces max-width */
 min-block-size: 100vh; /* replaces min-height */
 \`\`\`
 
-**Why \`max-inline-size: 65ch\` is better than \`max-width: 65ch\`:** In horizontal writing modes, they are identical. But if your content ever appears in a vertical writing mode (Japanese layout, for example), \`max-inline-size\` constrains the correct dimension — the inline axis, which is now the height. \`max-width\` would constrain the wrong axis.
+### Why 65ch for max-inline-size?
 
-## Real-World Internationalization Example
+The \`ch\` unit is the width of the "0" character in the current font. \`65ch\` gives you approximately 65 characters per line, which is within the optimal readability range (45-75 characters). Using \`ch\` instead of \`px\` or \`rem\` means the line length adapts to the font — a wider font gets a wider container to maintain the same character count.
 
-Consider building a messaging app that needs to support English, Arabic, and Japanese:
-
-**English (LTR, horizontal-tb):**
-- Sent messages appear on the right, received on the left
-- Timestamps appear at the bottom of each message
-
-**Arabic (RTL, horizontal-tb):**
-- Sent messages should appear on the LEFT (because the reading start is now on the right)
-- Without logical properties, you need to write completely separate CSS for RTL
-
-**With logical properties:**
 \`\`\`css
-.message-sent {
-  margin-inline-start: auto;  /* pushes to the end of inline axis */
+.prose {
+  max-inline-size: 65ch;
+  margin-inline: auto;
   padding-inline: 1rem;
-  border-inline-start: 3px solid blue;  /* accent on the start side */
 }
 \`\`\`
 
-This single CSS rule works correctly in both LTR and RTL. The \`margin-inline-start: auto\` pushes the message to the inline end (right in LTR, left in RTL). The border appears on the correct side automatically.
+### Adopting Logical Properties in Practice
 
-**Task:** Replace \`max-width\` with \`max-inline-size\` on the container.
+You do not need to convert your entire codebase at once. A practical migration strategy:
 
-## Realistic Exercise: RTL-Ready Component
+1. **New code** — Write all new CSS with logical properties.
+2. **Shared components** — Convert design system components first, since they are reused everywhere.
+3. **Layout code** — Convert page layouts next, since these are most affected by RTL.
+4. **Existing components** — Convert gradually as you touch files for other reasons.
 
-After completing the checkpoints, try this exercise:
+Many linting tools (like \`stylelint-use-logical\`) can warn when physical properties are used, helping enforce the migration.
 
-1. Build a simple card component with: an icon on the left, text content, and an action button on the right
-2. Use ONLY logical properties for all spacing and positioning
-3. Add \`dir="rtl"\` to the container and verify the layout mirrors correctly
-4. Check: Does the icon move to the right? Does the button move to the left? Does padding flip?
-
-If you used logical properties consistently, the layout should mirror perfectly with zero additional CSS. If anything is out of place, you missed a physical property.`
+**Task:** Replace \`max-width\` with \`max-inline-size\` on the container.`
 		},
 		{
 			type: 'checkpoint',

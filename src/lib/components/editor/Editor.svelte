@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 	import { EditorState } from '@codemirror/state';
 	import { javascript } from '@codemirror/lang-javascript';
@@ -19,7 +20,6 @@
 
 	let { value, language, readonly = false, onchange }: Props = $props();
 
-	let container: HTMLDivElement | undefined = $state();
 	let view: EditorView | undefined = $state();
 	let updatingFromProp = false;
 
@@ -38,9 +38,7 @@
 		}
 	}
 
-	$effect(() => {
-		if (!container) return;
-
+	function createEditor(container: HTMLDivElement) {
 		const languageExtension = getLanguageExtension(language);
 
 		const updateListener = EditorView.updateListener.of((update) => {
@@ -49,8 +47,10 @@
 			}
 		});
 
+		const initialDoc = untrack(() => value);
+
 		const state = EditorState.create({
-			doc: value,
+			doc: initialDoc,
 			extensions: [
 				lineNumbers(),
 				bracketMatching(),
@@ -75,7 +75,7 @@
 			view?.destroy();
 			view = undefined;
 		};
-	});
+	}
 
 	$effect(() => {
 		if (view && value !== view.state.doc.toString()) {
@@ -92,7 +92,7 @@
 	});
 </script>
 
-<div class="editor-container" bind:this={container}></div>
+<div class="editor-container" {@attach createEditor}></div>
 
 <style>
 	.editor-container {

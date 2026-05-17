@@ -10,7 +10,7 @@ export const eventsAndBindingsModule: Module = {
 	slug: 'events-and-bindings',
 	title: 'Events & Bindings',
 	description:
-		'Handle DOM events the Svelte 5 way and master two-way bindings for forms, media, and dimensions.',
+		'Handle DOM events, master bindings, dynamic styles, custom properties, and programmatic event listeners.',
 	trackId: 'svelte-core',
 	order: 6,
 	lessons: [elementEvents, elementBindings, mediaBindings, dimensionBindings, customActions]

@@ -17,7 +17,7 @@ export const cssLayers: Lesson = {
 			type: 'text',
 			content: `# CSS Layers
 
-\`@layer\` gives you explicit control over the cascade order. Styles in later layers override earlier ones, **regardless of specificity**. This solves the single biggest pain point in CSS architecture: specificity wars.
+\`@layer\` gives you explicit control over the cascade order. Styles in later layers override earlier ones, **regardless of specificity**.
 
 \`\`\`css
 /* Declare layer order */
@@ -32,49 +32,31 @@ export const cssLayers: Lesson = {
 }
 \`\`\`
 
-## WHY: Layer Priority Ordering
+## Why Layers Exist — The Cascade Problem
 
-The cascade has always determined which styles win when multiple rules target the same element. Before layers, the priority was:
+Before layers, CSS had a fixed cascade order:
 
-1. **Origin** (author > user > browser)
-2. **Specificity** (ID > class > type)
-3. **Source order** (later rules win)
+1. User agent styles (browser defaults)
+2. Author styles (your CSS)
+3. Author styles with \`!important\`
+4. User styles with \`!important\`
+5. User agent styles with \`!important\`
 
-Layers insert a new priority level between origin and specificity:
+Within "author styles," the only tools for controlling priority were:
 
-1. **Origin**
-2. **Layer order** (later layers win, unlayered styles win over all layers)
-3. **Specificity** (only compared within the same layer)
-4. **Source order**
+- **Source order** — Later declarations win over earlier ones
+- **Specificity** — More specific selectors win over less specific ones
+- **\`!important\`** — The nuclear option that overrides everything
 
-This means a **type selector** in a later layer beats a **class selector** in an earlier layer:
+This system works for small projects but breaks down at scale. Consider these real-world scenarios:
 
-\`\`\`css
-@layer base, theme;
+**Third-party CSS conflicts.** You import a UI library that styles \`button { background: blue; }\`. Your own \`button { background: green; }\` needs to win. If the library loads after your styles, it wins by source order. If you increase specificity to win, you create a specificity arms race.
 
-@layer base {
-  .btn { background: gray; }  /* specificity: 0-1-0 */
-}
+**Utility class overrides.** Tailwind's utility classes like \`.text-red-500\` need to override component styles. But component styles might have higher specificity (\`.card .title\` vs \`.text-red-500\`). Tailwind solves this by adding \`!important\` to utilities, but that makes them impossible to override when needed.
 
-@layer theme {
-  button { background: blue; }  /* specificity: 0-0-1, but WINS because theme > base */
-}
-\`\`\`
+**Reset vs base vs component styles.** You want your reset (\`* { margin: 0; }\`) to be easily overridable. But because it uses a universal selector with low specificity, it already is — until someone adds a reset rule with higher specificity and it starts interfering with components.
 
-**This is revolutionary.** Specificity conflicts were the #1 source of CSS bugs in large codebases. With layers, you define a clear hierarchy and specificity only matters within each layer.
-
-## WHY: !important Inversion in Layers
-
-The interaction between \`!important\` and layers is deliberately inverted. In normal (non-important) declarations, later layers win. With \`!important\`, **earlier layers win**:
-
-| Declaration Type | Priority Order |
-|-----------------|---------------|
-| Normal | reset < base < components < utilities < unlayered |
-| !important | unlayered < utilities < components < base < reset |
-
-**Why this inversion makes sense:** \`!important\` in a reset layer (like \`* { box-sizing: border-box !important }\`) should be truly unbreakable. If later layers could override it, the reset would be meaningless. The inversion ensures that foundational !important rules remain authoritative.
-
-**Decision framework for !important:** In a layered architecture, you should rarely need \`!important\`. If you find yourself using it, consider whether you should reorder your layers instead. Reserve \`!important\` for the reset layer and utility overrides (like Tailwind's \`!\` modifier).`
+Layers solve all of these by introducing a new dimension to the cascade: **layer order.** A rule in a later layer beats a rule in an earlier layer, regardless of specificity.`
 		},
 		{
 			type: 'concept-callout',
@@ -90,17 +72,51 @@ The layer declaration order determines priority — later layers win:
 @layer base, components, overrides;
 \`\`\`
 
-**Critical rule:** Any styles NOT in a layer have higher priority than ALL layered styles. This is by design — it means you can always override layered styles without worrying about layer order.
+This single line establishes that \`overrides\` always beats \`components\`, which always beats \`base\`. No matter how specific a selector in \`base\` is, a less specific selector in \`overrides\` will win.
+
+### Unlayered Styles Have the Highest Priority
+
+Any styles **not** in a layer have higher priority than all layered styles. This is intentional — it means you can always override library styles by writing unlayered CSS:
 
 \`\`\`css
-@layer components {
-  .card { background: white; }  /* layered — lower priority */
+@layer library, app;
+
+@layer library {
+  .btn { background: blue; }
 }
 
-.card { background: red; }  /* unlayered — wins! */
+@layer app {
+  .btn { background: green; }  /* Beats library */
+}
+
+/* Unlayered — beats everything */
+.btn.special { background: purple; }
 \`\`\`
 
-This behavior is what makes layers backward-compatible. Existing CSS without layers continues to work as before, and layered CSS can be introduced gradually.
+### Layer Declaration Methods
+
+There are several ways to create and populate layers:
+
+\`\`\`css
+/* 1. Declare order, then fill later */
+@layer base, components, utilities;
+
+@layer base { body { font-family: sans-serif; } }
+@layer components { .card { padding: 1rem; } }
+
+/* 2. Declare and fill simultaneously */
+@layer base {
+  body { font-family: sans-serif; }
+}
+
+/* 3. Import into a layer */
+@import url('normalize.css') layer(reset);
+
+/* 4. Anonymous layers (cannot be referenced later) */
+@layer {
+  .legacy { color: gray; }
+}
+\`\`\`
 
 Look at the starter code. There are conflicting styles with no clear priority.
 
@@ -112,77 +128,47 @@ Look at the starter code. There are conflicting styles with no clear priority.
 		},
 		{
 			type: 'text',
-			content: `## Managing Third-Party CSS with Layers
+			content: `## Layer Priority and the !important Inversion
 
-Layers are ideal for controlling third-party CSS priority. This is arguably their most impactful real-world use case.
-
-**The problem:** You import a CSS framework (Bootstrap, Tailwind, a component library), and its styles conflict with yours. You end up writing increasingly specific selectors or adding \`!important\` to override the framework.
-
-**The solution:** Import third-party CSS into a layer with lower priority than your own:
+Layers override based on declaration order, not specificity:
 
 \`\`\`css
-@layer third-party, app, overrides;
+@layer base, theme;
 
-/* Import framework into a controlled layer */
-@import url('bootstrap.css') layer(third-party);
+@layer base {
+  .btn { background: gray; }  /* specificity: 0-1-0 */
+}
 
-@layer app {
-  /* Your styles always win over third-party — no specificity battles */
-  .card { padding: 1.5rem; }
+@layer theme {
+  button { background: blue; }  /* specificity: 0-0-1, but wins! */
+}
+\`\`\`
+
+The \`button\` selector in the \`theme\` layer has lower specificity (0-0-1) than \`.btn\` in \`base\` (0-1-0). But \`theme\` is declared after \`base\` in the layer order, so it wins. This is the fundamental value of layers — specificity conflicts become irrelevant across layers.
+
+### The !important Inversion
+
+One of the most surprising aspects of layers: **\`!important\` inverts the layer order.** Normal styles in later layers win. But \`!important\` styles in **earlier** layers win:
+
+\`\`\`css
+@layer base, theme, overrides;
+
+@layer base {
+  .btn { background: gray !important; }  /* WINS with !important */
+}
+
+@layer theme {
+  .btn { background: blue !important; }  /* Loses to base !important */
 }
 
 @layer overrides {
-  /* Emergency overrides for edge cases */
-  .special-card { padding: 2rem; }
+  .btn { background: green; }  /* Wins for normal styles */
 }
 \`\`\`
 
-Now your \`.card\` rule in the \`app\` layer always beats Bootstrap's \`.card\` in the \`third-party\` layer, even if Bootstrap's selector is more specific.
+Why? Because \`!important\` was designed to be a defense mechanism — "this style must not be overridden." If later layers could override \`!important\` from earlier layers, the defense would be useless. The inversion ensures that \`!important\` in foundational layers (like a reset or accessibility layer) truly cannot be overridden by later layers.
 
-## Real Architecture Example
-
-Here is a layer architecture for a production SvelteKit application:
-
-\`\`\`css
-/* app.css — global stylesheet */
-@layer reset, tokens, base, vendor, components, utilities, overrides;
-
-@layer reset {
-  *, *::before, *::after { box-sizing: border-box; margin: 0; }
-  body { line-height: 1.5; -webkit-font-smoothing: antialiased; }
-}
-
-@layer tokens {
-  :root {
-    --color-brand: #6366f1;
-    --color-surface: #ffffff;
-    --radius-md: 0.5rem;
-    --space-4: 1rem;
-  }
-}
-
-@layer base {
-  body { font-family: system-ui, sans-serif; color: #334155; }
-  a { color: var(--color-brand); }
-  h1, h2, h3 { line-height: 1.2; }
-}
-
-@layer vendor {
-  /* Third-party imports go here */
-}
-
-@layer components {
-  .card { padding: var(--space-4); border-radius: var(--radius-md); }
-  .btn { padding: 0.5rem 1rem; border-radius: var(--radius-md); }
-}
-
-@layer utilities {
-  .text-center { text-align: center; }
-  .hidden { display: none; }
-}
-\`\`\`
-
-This architecture ensures: reset styles are foundational, tokens define the design system, base styles set defaults, vendor CSS cannot override your components, components are the main styling layer, and utilities can override components for one-off adjustments.
+This matches the intent: your reset's \`* { box-sizing: border-box !important; }\` should not be overridable by a component layer. The inversion makes this work correctly.
 
 **Task:** Add a \`@layer overrides\` after the components layer and add an override style for the card background.`
 		},
@@ -192,47 +178,99 @@ This architecture ensures: reset styles are foundational, tokens define the desi
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and observe how layer order determines which styles win. Notice that specificity is only compared within the same layer. A type selector in the overrides layer beats a class selector in the base layer — this is the fundamental shift that layers bring to CSS architecture.'
+			content: 'Toggle X-Ray mode and observe how layer order determines which styles win. Notice that specificity is only compared within the same layer.'
 		},
 		{
 			type: 'text',
-			content: `## Utilities Layer and One-Off Overrides
+			content: `## Managing Third-Party CSS with Layers
 
-A utilities layer at the end of the layer order gives you a clean way to apply one-off overrides without specificity concerns:
+Layers are ideal for controlling third-party CSS priority:
 
 \`\`\`css
-@layer third-party, app, utilities;
+@layer third-party, app;
 
-@layer utilities {
-  .text-accent {
-    color: var(--sf-accent, #6366f1);
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-  }
+@import url('library.css') layer(third-party);
+
+@layer app {
+  /* Your styles always win over third-party */
 }
 \`\`\`
 
-This is exactly how Tailwind CSS works internally — its utility classes are in a layer that has higher priority than component classes, so utilities always win regardless of specificity.
+### Real-World Third-Party CSS Strategy
 
-**Task:** Add a \`@layer utilities\` at the end of the layer order and add a utility class \`.text-accent\` inside it.
+\`\`\`css
+/* Establish the full layer order upfront */
+@layer reset, third-party, base, components, utilities;
 
-## Realistic Exercise: Migrating to Layered CSS
+/* Import third-party CSS into its layer */
+@import url('normalize.css') layer(reset);
+@import url('some-ui-lib.css') layer(third-party);
 
-After completing the checkpoints, consider this migration scenario for an existing project:
+/* Your reset */
+@layer reset {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+}
 
-1. **Audit current specificity conflicts:** Find places where \`!important\` is used or selectors are unnecessarily specific
-2. **Define your layer order:** reset, base, vendor, components, utilities
-3. **Wrap vendor CSS:** Import third-party stylesheets into the vendor layer
-4. **Wrap your base styles:** Typography, colors, and resets go in the base layer
-5. **Wrap component styles:** Each component's styles go in the components layer
-6. **Test thoroughly:** Layer order changes can flip which styles win — verify every page
+/* Base styles */
+@layer base {
+  body {
+    font-family: system-ui, sans-serif;
+    line-height: 1.6;
+    color: #1a1a1a;
+  }
+}
 
-The key benefit: after migration, you can delete every \`!important\` in your codebase and replace overly-specific selectors with clean, simple ones. Layer order handles the priority.`
+/* Component styles */
+@layer components {
+  .card { padding: 1.5rem; background: white; border-radius: 8px; }
+  .btn { padding: 0.5rem 1rem; border-radius: 4px; }
+}
+
+/* Utility overrides — always win over components */
+@layer utilities {
+  .text-accent { color: var(--accent) !important; }
+  .hidden { display: none !important; }
+}
+\`\`\`
+
+### Nested Layers
+
+Layers can be nested for fine-grained control:
+
+\`\`\`css
+@layer framework {
+  @layer base, components, utilities;
+
+  @layer base {
+    body { font-family: sans-serif; }
+  }
+
+  @layer components {
+    .card { padding: 1rem; }
+  }
+}
+
+@layer app {
+  /* Everything here beats everything in @layer framework */
+  .card { padding: 2rem; }
+}
+\`\`\`
+
+Nested layers are referenced with dot notation: \`framework.base\`, \`framework.components\`. The entire \`framework\` layer is treated as a single unit in the top-level layer order.
+
+### Layers and Tailwind CSS
+
+Tailwind CSS v4 uses \`@layer\` internally:
+
+\`\`\`css
+@layer theme, base, components, utilities;
+\`\`\`
+
+This ensures that utilities always override components, and components always override base styles — matching Tailwind's expected cascade behavior without relying on specificity hacks or \`!important\`.
+
+**Task:** Add a \`@layer utilities\` at the end of the layer order and add a utility class \`.text-accent\` inside it.`
 		},
 		{
 			type: 'checkpoint',

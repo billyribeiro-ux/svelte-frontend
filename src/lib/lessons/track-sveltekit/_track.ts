@@ -14,7 +14,7 @@ export const svelteKitTrack: Track = {
 	slug: 'sveltekit',
 	title: 'SvelteKit Mastery',
 	description:
-		'Master SvelteKit 2 — routing, data loading, form actions, API routes, hooks, SSR, and deployment.',
+		'Master SvelteKit 2 — routing, data loading, form actions, API routes, hooks, SSR, deployment, and testing.',
 	order: 2,
 	modules: [
 		routingModule,

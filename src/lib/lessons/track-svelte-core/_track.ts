@@ -7,13 +7,14 @@ import { snippetsAndCompositionModule } from './05-snippets-and-composition/_mod
 import { eventsAndBindingsModule } from './06-events-and-bindings/_module';
 import { transitionsAndAnimationsModule } from './07-transitions-and-animations/_module';
 import { advancedPatternsModule } from './08-advanced-patterns/_module';
+import { reactiveUtilitiesModule } from './09-reactive-utilities/_module';
 
 export const svelteCoreTrack: Track = {
 	id: 'svelte-core',
 	slug: 'svelte-core',
 	title: 'Svelte 5 Core',
 	description:
-		'Master Svelte 5 from the ground up — components, runes, reactivity, composition, and advanced patterns.',
+		'Master Svelte 5 from the ground up — components, runes, reactivity, composition, animations, and advanced patterns.',
 	order: 1,
 	modules: [
 		svelteBasicsModule,
@@ -23,6 +24,7 @@ export const svelteCoreTrack: Track = {
 		snippetsAndCompositionModule,
 		eventsAndBindingsModule,
 		transitionsAndAnimationsModule,
-		advancedPatternsModule
+		advancedPatternsModule,
+		reactiveUtilitiesModule
 	]
 };

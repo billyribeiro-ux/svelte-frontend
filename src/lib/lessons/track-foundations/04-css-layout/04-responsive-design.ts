@@ -17,31 +17,42 @@ export const responsiveDesignCss: Lesson = {
 			type: 'text',
 			content: `# Responsive Design
 
-Responsive design ensures your layout works on any screen size. CSS provides several tools, each solving a different problem:
+Responsive design ensures your layout works on any screen size. The approach has evolved significantly over the years:
 
-- **Media queries** — Apply styles based on viewport size
-- **Container queries** — Apply styles based on parent container size
-- **Fluid typography** — Text that scales smoothly between sizes
-- **Responsive images** — Images that adapt to context
+- **2010s: Media queries** — Apply styles based on viewport size. Still essential, but no longer the only tool.
+- **2020s: Container queries** — Apply styles based on parent container size. Makes components truly portable.
+- **Modern: Fluid typography** — Text and spacing that scale smoothly without breakpoints.
 
-## WHY: Container Queries as the Evolution of Media Queries
+The modern approach combines all three. Media queries handle page-level layout changes. Container queries handle component-level adaptation. Fluid typography handles the in-between sizes where breakpoints would be too coarse.
 
-Media queries revolutionized web design in 2010, but they have a fundamental limitation: they respond to the **viewport**, not to the component's actual available space. A card component in a sidebar has less room than the same card in the main content area — but a media query cannot distinguish between these contexts.
+## The Evolution from Media Queries to Container Queries
 
-Container queries solve this by letting components respond to their container:
+Media queries were revolutionary when they arrived, but they have a fundamental limitation: they respond to the **viewport**, not to the component's actual available space.
 
-\`\`\`css
-/* Media query: "Is the VIEWPORT wide?" */
-@media (min-width: 768px) { .card { display: flex; } }
+Consider a card component used in two places: a 3-column grid in the main content area and a single-column sidebar. With media queries, a phone-width viewport triggers the mobile layout — but what if the card is already narrow because it is in the sidebar, even on a desktop screen? Media queries cannot detect that the card is in a narrow container. They only know the window width.
 
-/* Container query: "Is MY CONTAINER wide?" */
-@container (min-width: 400px) { .card { display: flex; } }
+Container queries solve this by letting components respond to their own container. The same card component automatically adapts whether it is in a wide grid or a narrow sidebar, without any knowledge of the page layout.
+
+### The srcset Attribute for Responsive Images
+
+Responsive design is not just about layout — images need to adapt too. The \`srcset\` attribute lets the browser choose the right image for the device:
+
+\`\`\`html
+<img
+  src="photo-800.jpg"
+  srcset="
+    photo-400.jpg 400w,
+    photo-800.jpg 800w,
+    photo-1200.jpg 1200w
+  "
+  sizes="(min-width: 768px) 50vw, 100vw"
+  alt="Responsive photo"
+/>
 \`\`\`
 
-**Decision framework:**
-- Use **media queries** for page-level layout changes (number of columns, sidebar visibility, overall structure)
-- Use **container queries** for component-level layout changes (card orientation, thumbnail visibility, text truncation)
-- Use **fluid typography** for text that should scale smoothly without any breakpoints`
+The \`srcset\` attribute lists available image files with their intrinsic widths. The \`sizes\` attribute tells the browser how wide the image will be displayed at different viewport sizes. The browser combines this information with the device pixel ratio to choose the optimal image — no JavaScript required.
+
+Without responsive images, you either serve oversized images to mobile (wasting bandwidth) or undersized images to desktop (blurry on high-DPI screens).`
 		},
 		{
 			type: 'concept-callout',
@@ -51,7 +62,7 @@ Container queries solve this by letting components respond to their container:
 			type: 'text',
 			content: `## Media Queries
 
-Media queries conditionally apply CSS based on viewport characteristics. The mobile-first approach uses \`min-width\`:
+Media queries conditionally apply CSS based on viewport characteristics:
 
 \`\`\`css
 /* Mobile first — default styles for small screens */
@@ -68,21 +79,39 @@ Media queries conditionally apply CSS based on viewport characteristics. The mob
 }
 \`\`\`
 
-**Modern media query features you should know:**
+### Mobile-First vs Desktop-First
 
-Range syntax (supported in all modern browsers):
-\`\`\`css
-/* Old: */ @media (min-width: 768px) and (max-width: 1023px) { }
-/* New: */ @media (768px <= width < 1024px) { }
-\`\`\`
+**Mobile-first** (using \`min-width\`) means your default styles target the smallest screens, and you add complexity as the viewport grows. This is the recommended approach because:
 
-Preference queries:
+1. Mobile styles are usually simpler (single column, stacked layout), so they make a good default.
+2. If a media query fails to load, users get the simpler mobile layout rather than a broken desktop layout on a phone.
+3. It matches the progressive enhancement philosophy — start with the baseline, enhance for capable devices.
+
+**Desktop-first** (using \`max-width\`) starts with full-featured desktop styles and strips them away for smaller screens. This often results in more overrides and more CSS overall.
+
+### Modern Media Query Features
+
+Beyond viewport width, media queries can detect:
+
 \`\`\`css
+/* User preference for reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  * { animation: none !important; transition: none !important; }
 }
+
+/* Dark mode preference */
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #1a1a1a; }
+  :root { --bg: #1a1a1a; --text: #e5e5e5; }
+}
+
+/* Hover capability (touchscreens vs mice) */
+@media (hover: hover) {
+  .card:hover { transform: scale(1.02); }
+}
+
+/* High-DPI screens */
+@media (min-resolution: 2dppx) {
+  .logo { background-image: url('logo@2x.png'); }
 }
 \`\`\`
 
@@ -98,10 +127,7 @@ Look at the starter code. The grid has a fixed layout.
 			type: 'text',
 			content: `## Container Queries
 
-Container queries respond to the parent container's size, not the viewport. Setting them up requires two steps:
-
-1. Declare a container with \`container-type\`
-2. Write \`@container\` rules for its children
+Container queries respond to the parent container's size, not the viewport:
 
 \`\`\`css
 .card-container {
@@ -113,12 +139,34 @@ Container queries respond to the parent container's size, not the viewport. Sett
 }
 \`\`\`
 
-**Container-type options:**
-- \`inline-size\` — Enables queries on the inline dimension (width in horizontal writing modes). Most common choice.
-- \`size\` — Enables queries on both dimensions. Use sparingly — it enables more containment which can have side effects.
-- \`normal\` — Default. Not a query container.
+### Setting Up a Container
 
-**Why \`inline-size\` is usually the right choice:** \`container-type: size\` establishes size containment on both axes, which means the container's height cannot be determined by its content. This breaks most layouts because content-driven height is standard. \`inline-size\` only constrains the width, allowing height to remain content-driven.
+The parent needs \`container-type\` to be queryable:
+
+- \`container-type: inline-size\` — Query the inline (width) dimension. This is the most common value.
+- \`container-type: size\` — Query both inline and block dimensions. Rarely needed and has more performance overhead.
+
+You can also name containers for targeted queries:
+
+\`\`\`css
+.sidebar { container-type: inline-size; container-name: sidebar; }
+
+@container sidebar (min-width: 300px) {
+  .widget { display: grid; grid-template-columns: 1fr 1fr; }
+}
+\`\`\`
+
+### Container Queries vs Media Queries
+
+| Feature | Media Queries | Container Queries |
+|---------|--------------|-------------------|
+| Responds to | Viewport size | Container size |
+| Scope | Global | Component-local |
+| Reusability | Layout-dependent | Layout-independent |
+| Browser support | Universal | Modern browsers (2023+) |
+| Best for | Page-level layout | Component adaptation |
+
+In practice, you use both. Media queries for the overall page structure (sidebar appears/disappears, navigation layout changes). Container queries for components that need to adapt to their context (cards, widgets, data tables).
 
 **Task:** Add \`container-type: inline-size\` to the \`.card-wrapper\` and a \`@container\` query that changes the card layout at \`min-width: 300px\`.`
 		},
@@ -128,57 +176,53 @@ Container queries respond to the parent container's size, not the viewport. Sett
 		},
 		{
 			type: 'xray-prompt',
-			content: 'Toggle X-Ray mode and resize the viewport. Observe when media queries and container queries trigger their breakpoints independently. The media query responds to the viewport width, while the container query responds to the card-wrapper width. If you put the same card in a sidebar, only the container query would behave differently — the media query would trigger at the same viewport width regardless.'
+			content: 'Toggle X-Ray mode and resize the viewport. Observe when media queries and container queries trigger their breakpoints independently.'
 		},
 		{
 			type: 'text',
 			content: `## Fluid Typography with clamp()
 
-\`clamp()\` creates values that scale smoothly between a minimum and maximum:
+The \`clamp()\` function creates values that scale smoothly between a minimum and maximum:
 
 \`\`\`css
 h1 { font-size: clamp(1.5rem, 2vw + 1rem, 3rem); }
 p  { font-size: clamp(0.875rem, 1vw + 0.5rem, 1.125rem); }
 \`\`\`
 
-**How clamp() works:** \`clamp(minimum, preferred, maximum)\`
-- The browser uses the **preferred** value as long as it is between min and max
-- If the preferred value drops below the minimum, the minimum is used
-- If the preferred value exceeds the maximum, the maximum is used
+The syntax is \`clamp(minimum, preferred, maximum)\`:
 
-**The preferred value formula:** The \`vw\` unit makes it viewport-relative. \`2vw + 1rem\` means "2% of viewport width plus 1rem." The \`+ 1rem\` acts as a base floor so the value never gets too small on tiny viewports. Adjust the \`vw\` multiplier to control how aggressively the font scales.
+- **Minimum** — The smallest the value can be. Use \`rem\` for accessibility (respects user font-size preferences).
+- **Preferred** — The value used when it falls between min and max. This is typically a formula combining viewport units (\`vw\`) with a fixed offset (\`rem\`). The viewport unit makes it scale; the fixed offset controls the rate of scaling.
+- **Maximum** — The largest the value can be.
 
-**Practical guidelines:**
-- Headings: \`clamp(1.5rem, 3vw + 0.5rem, 3rem)\` — scales from 24px to 48px
-- Body text: \`clamp(1rem, 0.5vw + 0.875rem, 1.125rem)\` — subtle scaling
-- Do NOT use clamp for body text below 16px minimum — this causes readability issues on mobile
+### Why clamp() Beats Breakpoints for Typography
 
-## Responsive Images with srcset
+With breakpoints, text jumps between sizes at specific viewport widths. This creates jarring transitions and requires you to pick the exact widths where font sizes should change. With \`clamp()\`, the text scales continuously — no jumps, no breakpoints to maintain.
 
-Images are often the largest assets on a page. Responsive images prevent mobile users from downloading desktop-sized images:
+### The Formula for Fluid Typography
 
-\`\`\`html
-<img
-  src="photo-800w.jpg"
-  srcset="photo-400w.jpg 400w, photo-800w.jpg 800w, photo-1200w.jpg 1200w"
-  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-  alt="Description"
-/>
+A good starting formula for the preferred value is \`Xvw + Yrem\`:
+
+- The \`vw\` component controls how much the text scales with the viewport. \`1vw\` means the font-size changes by 1% of the viewport width for every pixel of viewport change. \`2vw\` scales twice as fast.
+- The \`rem\` component sets the baseline size. Without it, the text would be tiny on small screens (\`2vw\` at 320px is only 6.4px).
+
+\`\`\`css
+/* Headings: scale noticeably */
+h1 { font-size: clamp(1.75rem, 3vw + 0.5rem, 3.5rem); }
+h2 { font-size: clamp(1.5rem, 2.5vw + 0.5rem, 2.5rem); }
+
+/* Body text: scale subtly */
+p  { font-size: clamp(1rem, 0.5vw + 0.875rem, 1.25rem); }
+
+/* Fluid spacing too */
+section { padding: clamp(1rem, 3vw, 4rem); }
 \`\`\`
 
-The \`srcset\` attribute tells the browser which image sizes are available. The \`sizes\` attribute tells the browser how wide the image will be displayed at each viewport size. The browser combines this information with the device pixel ratio to choose the optimal image.
+### Accessibility Considerations
 
-**Task:** Apply fluid typography to the heading using \`clamp(1.25rem, 3vw, 2.5rem)\`.
+Always use \`rem\` for the minimum value, never \`px\`. This ensures your minimum font size respects the user's browser font-size setting. A user who sets their default to 20px expects text to be at least that large.
 
-## Realistic Exercise: Responsive Product Page
-
-After completing the checkpoints, consider a real product page with:
-- Hero image (full width on mobile, 50% on desktop)
-- Product title (fluid typography from 1.5rem to 2.5rem)
-- Image gallery (1 column on mobile, 2 on tablet, 3 on desktop using media queries)
-- Related products section (cards that use container queries to adapt their layout)
-
-Each responsive tool has its role: media queries for page structure, container queries for component adaptation, clamp for smooth typography, and srcset for image optimization.`
+**Task:** Apply fluid typography to the heading using \`clamp(1.25rem, 3vw, 2.5rem)\`.`
 		},
 		{
 			type: 'checkpoint',
