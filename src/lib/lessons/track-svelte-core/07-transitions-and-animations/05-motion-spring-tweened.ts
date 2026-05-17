@@ -88,21 +88,35 @@ Duration-based animations (tweened, CSS transitions) feel mechanical by comparis
 
 A spring, by contrast, naturally scales: small movements are fast and snappy; large movements take longer and have more dramatic overshoot. This is because the spring force is proportional to displacement (Hooke's law: F = -kx).
 
-### The Two Parameters That Matter
+### Spring Parameter Tuning Guide
+
+Choosing the right stiffness and damping values is part science, part feel. Here is a comprehensive guide to finding the right parameters for different UI patterns.
 
 **stiffness** (0 to 1, default 0.15): How strongly the spring pulls toward its target. Higher stiffness = faster, snappier motion. Lower stiffness = slower, lazier motion. Think of it as the "tightness" of the spring. A value of 0.5 or higher creates very snappy motion suitable for UI elements that should feel responsive. A value of 0.05 creates slow, floaty motion suitable for decorative background elements.
 
 **damping** (0 to 1, default 0.8): How quickly oscillation dies out. Higher damping = less overshoot, settles faster. Lower damping = more bouncy, oscillates longer. A damping of 1.0 is "critically damped" -- it reaches the target as fast as possible without overshooting. A damping of 0.2 creates a very bouncy effect with several visible oscillations.
 
-### Decision Framework: Choosing stiffness and damping
+### Detailed Decision Framework: Choosing stiffness and damping
 
-| Use Case | Stiffness | Damping | Why |
-|---|---|---|---|
-| Cursor follower / tooltip | 0.2-0.3 | 0.6-0.8 | Responsive but smooth, minimal bounce |
-| Drag-and-release snap back | 0.1-0.2 | 0.3-0.5 | Visible bounce communicates elasticity |
-| Button press feedback | 0.4-0.6 | 0.7-0.9 | Snappy, barely any overshoot |
-| Decorative floating element | 0.03-0.08 | 0.5-0.7 | Slow and dreamy |
-| Notification badge count | 0.3-0.4 | 0.4-0.6 | Noticeable bounce draws attention |
+| Use Case | Stiffness | Damping | Why | Feel |
+|---|---|---|---|---|
+| Cursor follower / tooltip | 0.2-0.3 | 0.6-0.8 | Responsive but smooth, minimal bounce | Fluid, professional |
+| Drag-and-release snap back | 0.1-0.2 | 0.3-0.5 | Visible bounce communicates elasticity | Playful, physical |
+| Button press feedback | 0.4-0.6 | 0.7-0.9 | Snappy, barely any overshoot | Crisp, immediate |
+| Decorative floating element | 0.03-0.08 | 0.5-0.7 | Slow and dreamy | Ambient, organic |
+| Notification badge count | 0.3-0.4 | 0.4-0.6 | Noticeable bounce draws attention | Attention-grabbing |
+| Card expand/collapse | 0.15-0.25 | 0.6-0.8 | Smooth reveal, slight overshoot | Polished, modern |
+| Sidebar slide-in | 0.2-0.3 | 0.7-0.85 | Quick slide, minimal bounce | Professional |
+| Game-like bounce | 0.05-0.15 | 0.15-0.3 | Heavy bounce, many oscillations | Fun, energetic |
+| Data visualization update | 0.1-0.2 | 0.8-0.95 | Smooth glide to new position, no bounce | Clean, readable |
+
+**Tuning tips:**
+
+1. Start with stiffness 0.15 and damping 0.8 (the defaults). These work well for most UI elements.
+2. If the motion feels sluggish, increase stiffness.
+3. If the motion feels too rigid or mechanical, decrease damping to add bounce.
+4. If the bounce is distracting in a professional context, increase damping toward 0.9.
+5. Test with both small and large value changes -- springs that look good for small movements may feel too slow for large jumps.
 
 ### The .set() and .update() Methods
 
@@ -171,7 +185,7 @@ This is one of the most common questions, and the answer comes down to **predict
 
 A practical heuristic: if the animation responds to a user gesture in real time, use spring. If the animation responds to a state change in the application, use tweened.
 
-### Custom Interpolators
+### Custom Interpolators for Colors and Objects
 
 Both spring and tweened can animate more than numbers. By default they handle numbers and objects/arrays of numbers. For anything else, provide a custom \`interpolate\` function:
 
@@ -205,6 +219,38 @@ let color = tweened('#ff0000', {
 
 The \`interpolate\` function receives the start value \`a\` and end value \`b\`, and returns a function that takes \`t\` (0-1) and returns the interpolated value at that point. This pattern lets you animate anything: colors, strings, complex nested objects, even arrays of different lengths.
 
+### Interpolating Complex Objects
+
+You can build interpolators for any data type. Here is an example that interpolates an entire style object:
+
+\`\`\`typescript
+import { tweened } from 'svelte/motion';
+
+interface CardStyle {
+  borderRadius: number;
+  elevation: number;
+  hue: number;
+}
+
+function interpolateCardStyle(a: CardStyle, b: CardStyle) {
+  return (t: number): CardStyle => ({
+    borderRadius: a.borderRadius + (b.borderRadius - a.borderRadius) * t,
+    elevation: a.elevation + (b.elevation - a.elevation) * t,
+    hue: a.hue + (b.hue - a.hue) * t
+  });
+}
+
+let cardStyle = tweened(
+  { borderRadius: 4, elevation: 1, hue: 220 },
+  { duration: 500, interpolate: interpolateCardStyle }
+);
+
+// Animate all three properties in sync
+cardStyle.set({ borderRadius: 16, elevation: 4, hue: 340 });
+\`\`\`
+
+All three properties animate together over the same 500ms duration with the same easing. This keeps the transition visually coherent rather than having properties arrive at different times.
+
 ### Performance Considerations
 
 Motion stores are lightweight but not free. Each active store runs a \`requestAnimationFrame\` loop that executes JavaScript on the main thread every frame. For 1-5 simultaneous animations, this is negligible. For 50+ (e.g., animating every item in a large list), you may notice frame drops on lower-end devices.
@@ -221,6 +267,120 @@ Strategies for high-animation-count scenarios:
 		{
 			type: 'xray-prompt',
 			content: `Think about what happens inside a spring store when the user changes the target three times in rapid succession (before any animation completes). How does the spring handle the accumulated velocity? Why does this produce more natural motion than restarting a duration-based tween each time? Consider what the velocity vector looks like when the target suddenly shifts -- the spring continues from its current position AND current velocity, creating a smooth redirection rather than an abrupt restart. This is why spring is superior for interactive use cases.`
+		},
+		{
+			type: 'text',
+			content: `## Accessibility: Respecting prefers-reduced-motion
+
+Not all users want or can tolerate motion animations. Some users experience vestibular disorders, motion sickness, or simply find animations distracting. The \`prefers-reduced-motion\` CSS media query lets users opt out of non-essential motion, and your spring and tweened animations should respect it.
+
+### Detecting the Preference
+
+\`\`\`svelte
+<script lang="ts">
+  import { spring, tweened } from 'svelte/motion';
+  import { cubicOut } from 'svelte/easing';
+
+  // Check user preference
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Configure motion stores based on preference
+  let position = spring(0, prefersReducedMotion
+    ? { stiffness: 1, damping: 1 }  // Instant, no animation
+    : { stiffness: 0.15, damping: 0.5 }
+  );
+
+  let progress = tweened(0, prefersReducedMotion
+    ? { duration: 0 }  // Instant
+    : { duration: 400, easing: cubicOut }
+  );
+</script>
+\`\`\`
+
+When \`prefers-reduced-motion\` is active, setting spring stiffness and damping both to 1 makes the spring reach its target instantly with no oscillation. Setting tweened duration to 0 makes the value jump immediately.
+
+### Reactive Preference Tracking
+
+The user might change their motion preference while your app is running. Use an effect to track changes:
+
+\`\`\`svelte
+<script lang="ts">
+  import { spring } from 'svelte/motion';
+
+  let reducedMotion = $state(false);
+
+  $effect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reducedMotion = mql.matches;
+
+    const handler = (e: MediaQueryListEvent) => {
+      reducedMotion = e.matches;
+    };
+
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  });
+
+  // Dynamically reconfigure spring when preference changes
+  let coords = spring({ x: 0, y: 0 });
+
+  $effect(() => {
+    if (reducedMotion) {
+      coords.stiffness = 1;
+      coords.damping = 1;
+    } else {
+      coords.stiffness = 0.15;
+      coords.damping = 0.5;
+    }
+  });
+</script>
+\`\`\`
+
+### What to Reduce vs Remove
+
+Not all motion should be eliminated. The W3C's guidance is:
+
+- **Remove:** Parallax scrolling, background animations, decorative floating elements, bouncy attention-grabbing effects
+- **Reduce:** Transitions that provide spatial orientation (page slides, card reveals), progress indicators
+- **Keep:** Loading spinners (provide essential feedback), opacity fades (minimal vestibular impact)
+
+For springs, the simplest approach is to set both stiffness and damping to 1 (instant jump). For tweened, set duration to 0 or use a very short duration (50ms) with no easing. Opacity fades can typically keep a short duration even in reduced-motion mode since they do not create a sense of spatial movement.
+
+## Combining Spring with Transitions
+
+A common question is whether you can use a spring store together with Svelte's \`transition:\` directive. The answer is yes, but they serve different lifecycle phases:
+
+- **transition:** handles the element entering/leaving the DOM (mount/unmount)
+- **spring:** handles value changes while the element is present
+
+\`\`\`svelte
+<script lang="ts">
+  import { spring } from 'svelte/motion';
+  import { fade } from 'svelte/transition';
+
+  let visible = $state(true);
+  let size = spring(100, { stiffness: 0.2, damping: 0.5 });
+</script>
+
+{#if visible}
+  <div
+    transition:fade={{ duration: 200 }}
+    style="width: {$size}px; height: {$size}px"
+    class="box"
+  ></div>
+{/if}
+
+<button onclick={() => size.set(Math.random() * 200 + 50)}>
+  Resize (spring)
+</button>
+<button onclick={() => visible = !visible}>
+  Toggle (transition)
+</button>
+\`\`\`
+
+The \`fade\` transition handles the appear/disappear animation. The spring handles size changes while the element is visible. They do not conflict because they operate on different aspects of the element's lifecycle.`
 		},
 		{
 			type: 'text',
