@@ -167,6 +167,37 @@ When \`isEnabled\` changes from true to false, the effect re-runs. The previous 
 
 This reactive conditional attachment is impossible with template event handlers -- \`onclick\` on an element is always active. With \`on()\` and \`$effect\`, you get fine-grained control over when listeners are active.
 
+### on() with AbortController Pattern
+
+For scenarios where you need to manage multiple event listeners as a group and tear them all down at once, you can combine \`on()\` with the \`AbortController\` pattern via the \`signal\` option:
+
+\`\`\`svelte
+<script lang="ts">
+  import { on } from 'svelte/events';
+
+  let container: HTMLDivElement;
+
+  $effect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    // All listeners share the same abort signal
+    on(container, 'pointerdown', handlePointerDown, { signal });
+    on(container, 'pointermove', handlePointerMove, { signal });
+    on(container, 'pointerup', handlePointerUp, { signal });
+    on(document, 'keydown', handleKeydown, { signal });
+    on(window, 'blur', handleBlur, { signal });
+
+    // Single abort tears down ALL listeners
+    return () => controller.abort();
+  });
+</script>
+\`\`\`
+
+This pattern is especially valuable for complex interaction systems like drag-and-drop, drawing canvases, or multi-touch gesture handlers where you need five or more coordinated listeners. Instead of tracking five separate cleanup functions, one \`controller.abort()\` call removes everything.
+
+Note that when you pass \`signal\` to \`on()\`, the \`signal\` is forwarded to the underlying \`addEventListener\` call. When the signal aborts, the browser automatically removes the listener. The cleanup function returned by \`on()\` still works independently, giving you two ways to remove the same listener.
+
 **Task:** Create a component with a \`bind:this\` reference to a div. Use \`on()\` inside a \`$effect\` to attach a click listener that increments a counter. The listener should be automatically cleaned up.`
 		},
 		{
@@ -175,15 +206,27 @@ This reactive conditional attachment is impossible with template event handlers 
 		},
 		{
 			type: 'text',
-			content: `## Comparison with Template Event Handlers
+			content: `## Delegated vs Direct Event Listeners
 
-Understanding when to use \`on()\` versus template handlers is essential for writing idiomatic Svelte 5 code.
+Svelte 5 uses event delegation for template event handlers. Understanding the difference between delegated and direct listeners helps you make informed decisions about when to use \`on()\` vs template handlers.
 
-### Template Handlers: The Default Choice
+### How Event Delegation Works in Svelte 5
 
-\`\`\`svelte
-<button onclick={handleClick}>Click me</button>
-\`\`\`
+When you write \`<button onclick={handleClick}>\`, Svelte does NOT attach a listener to the button element. Instead, it attaches a single listener to the document root that handles all click events via event bubbling. When any click occurs, the document-level listener checks which element was clicked and calls the appropriate handler.
+
+This is a performance optimization. Instead of 1,000 \`addEventListener\` calls for 1,000 list items, Svelte makes one call on the document. This reduces memory usage and speeds up initial rendering.
+
+### When on() Bypasses Delegation
+
+The \`on()\` function from \`svelte/events\` always creates a direct \`addEventListener\` call on the specified element. It does NOT use delegation. This means:
+
+1. **The listener fires in the correct order.** Delegated listeners fire during the bubbling phase after all direct listeners. If event ordering matters (e.g., you need to call \`stopPropagation()\` before a delegated handler runs), a direct listener via \`on()\` gives you control.
+
+2. **\`stopPropagation()\` works as expected.** A direct listener that calls \`event.stopPropagation()\` prevents the event from reaching the delegated document listener. But a delegated handler calling \`stopPropagation()\` cannot prevent another delegated handler from firing because they both run at the document level.
+
+3. **Non-bubbling events work.** Events like \`focus\`, \`blur\`, \`scroll\`, \`load\`, and \`error\` do not bubble. Svelte handles \`focus\` and \`blur\` template handlers via \`focusin\` and \`focusout\` (which do bubble), but for \`scroll\` on a specific element, you need \`on()\` or the \`{ capture: true }\` option.
+
+### Comparison with Template Event Handlers
 
 Template handlers should be your default. They are:
 - **Declarative**: the event is visible in the template where the element is defined
@@ -207,6 +250,7 @@ Use \`on()\` when:
 - You need conditional listener attachment based on reactive state
 - You are listening on \`window\` or \`document\` from an effect
 - The event is a non-standard or custom event
+- You need precise control over event phase ordering
 
 ### Decision Tree
 
@@ -227,7 +271,7 @@ Template handlers benefit from Svelte's event delegation system. A single docume
 		},
 		{
 			type: 'text',
-			content: `## Real-World Pattern: Intersection Observer Lazy Loading
+			content: `## Real-World Pattern: IntersectionObserver with on()
 
 A practical use of \`on()\` is building a lazy-loading image component that uses the Intersection Observer API. While Intersection Observer is not strictly an event listener, the pattern of setup-and-cleanup is identical, and \`on()\` can be combined with observer patterns in an effect.
 
@@ -312,6 +356,66 @@ $effect(() => {
 \`\`\`
 
 The \`on()\` version is shorter and communicates intent more clearly.
+
+### Extended IntersectionObserver: Infinite Scroll
+
+Here is a more complete real-world example -- an infinite scroll component that loads more items when a sentinel element enters the viewport, combining \`IntersectionObserver\` with \`on()\` for scroll position tracking:
+
+\`\`\`svelte
+<script lang="ts">
+  import { on } from 'svelte/events';
+
+  interface Props {
+    onLoadMore: () => Promise<void>;
+    threshold?: number;
+  }
+
+  let { onLoadMore, threshold = 0.5 }: Props = $props();
+
+  let sentinel: HTMLDivElement;
+  let scrollContainer: HTMLDivElement;
+  let isLoading = $state(false);
+  let scrollPosition = $state(0);
+
+  // Track scroll position with on() for passive listening
+  $effect(() => {
+    return on(scrollContainer, 'scroll', () => {
+      scrollPosition = scrollContainer.scrollTop;
+    }, { passive: true });
+  });
+
+  // Observe sentinel for triggering loads
+  $effect(() => {
+    const observer = new IntersectionObserver(
+      async (entries) => {
+        if (entries[0].isIntersecting && !isLoading) {
+          isLoading = true;
+          try {
+            await onLoadMore();
+          } finally {
+            isLoading = false;
+          }
+        }
+      },
+      { root: scrollContainer, threshold }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
+</script>
+
+<div bind:this={scrollContainer} class="scroll-container">
+  <slot />
+  <div bind:this={sentinel} class="sentinel">
+    {#if isLoading}
+      <p>Loading more...</p>
+    {/if}
+  </div>
+</div>
+\`\`\`
+
+This pattern separates concerns cleanly: \`IntersectionObserver\` handles the "when to load" logic, while \`on()\` handles the scroll position tracking with \`{ passive: true }\` for optimal scroll performance.
 
 **Task:** Build a lazy-loading component using \`IntersectionObserver\` and \`on()\` from \`svelte/events\`. The component should display a placeholder until the element enters the viewport, then load the real content and listen for the load event using \`on()\`.`
 		},
@@ -410,7 +514,49 @@ A common pattern is implementing keyboard shortcuts that only activate when a ce
 </script>
 \`\`\`
 
-The keydown listener is only active when the modal is open. When \`isModalOpen\` becomes false, the effect re-runs and the previous cleanup removes the listener. This prevents keyboard shortcuts from firing when they should not be active.`
+The keydown listener is only active when the modal is open. When \`isModalOpen\` becomes false, the effect re-runs and the previous cleanup removes the listener. This prevents keyboard shortcuts from firing when they should not be active.
+
+### Integration with {@attach} Actions
+
+Svelte 5 introduces the \`{@attach}\` directive (replacing Svelte 4's \`use:\`) for reusable element behaviors. Actions and \`on()\` serve complementary roles:
+
+\`\`\`svelte
+<script lang="ts">
+  import { on } from 'svelte/events';
+  import type { Action } from 'svelte/action';
+
+  // An action that uses on() internally
+  const longpress: Action<HTMLElement, number> = (node, duration = 500) => {
+    let timer: ReturnType<typeof setTimeout>;
+
+    const offPointerDown = on(node, 'pointerdown', () => {
+      timer = setTimeout(() => {
+        node.dispatchEvent(new CustomEvent('longpress'));
+      }, duration);
+    });
+
+    const offPointerUp = on(node, 'pointerup', () => {
+      clearTimeout(timer);
+    });
+
+    return {
+      destroy() {
+        offPointerDown();
+        offPointerUp();
+        clearTimeout(timer);
+      }
+    };
+  };
+</script>
+
+<button use:longpress={800} onlongpress={() => alert('Long pressed!')}>
+  Hold me
+</button>
+\`\`\`
+
+Inside an action, \`on()\` is the natural choice for attaching listeners because you have a reference to the DOM node but no template syntax available. The action's \`destroy\` callback calls the cleanup functions returned by \`on()\`.
+
+This pattern -- using \`on()\` inside actions and \`$effect\` blocks while using template handlers for everything else -- gives you the best of both worlds: declarative template handlers for simple cases and programmatic \`on()\` for complex integration scenarios.`
 		},
 		{
 			type: 'concept-callout',

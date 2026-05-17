@@ -9,7 +9,7 @@ export const reactiveWindow: Lesson = {
 	trackId: 'svelte-core',
 	moduleId: 'reactive-utilities',
 	order: 3,
-	estimatedMinutes: 16,
+	estimatedMinutes: 18,
 	concepts: ['svelte5.reactivity.window.innerWidth', 'svelte5.reactivity.window.scrollY', 'svelte5.reactivity.window.online'],
 	prerequisites: ['svelte5.runes.state', 'svelte5.runes.derived', 'svelte5.reactivity.svelte-map'],
 
@@ -146,6 +146,110 @@ For TypeScript, the type of \`.current\` is \`number | undefined\` (or \`boolean
 
 One important difference: \`<svelte:window bind:scrollY={y}>\` allows two-way binding. Assigning to \`y\` programmatically scrolls the window. The reactive window module values are read-only. If you need to programmatically scroll, use \`window.scrollTo()\` directly.
 
+## Performance Deep Dive: Lazy Listeners vs Always-On Bindings
+
+Understanding the performance characteristics of \`svelte/reactivity/window\` versus \`<svelte:window>\` goes beyond just "singleton vs multiple listeners." The two approaches differ fundamentally in *when* listeners are active and *how* updates propagate.
+
+**\`<svelte:window>\` uses always-on listeners.** The moment a component mounts with \`<svelte:window bind:scrollY>\`, a scroll listener is attached to the window. It fires on every scroll event for the entire lifetime of the component, whether or not any reactive consumer is currently reading the bound variable. If your component only reads \`scrollY\` in a conditional branch that is rarely taken, the listener still fires on every scroll and updates the bound variable.
+
+**\`svelte/reactivity/window\` uses lazy listeners.** The reactive window values internally use Svelte's \`createSubscriber\` pattern. A listener is only attached when at least one reactive consumer is actively tracking the value. If no component template, \`$derived\`, or \`$effect\` is currently reading \`scrollY.current\`, no scroll listener is registered. The moment a consumer reads \`.current\` inside a reactive context, the listener activates. When all consumers stop tracking (their components unmount or their effects are cleaned up), the listener is removed.
+
+This lazy behavior means that importing \`scrollY\` at the top of a module does not cost anything by itself. The cost is only incurred when \`.current\` is read inside a reactive context. This is a significant advantage in large applications where many modules might import reactive window values but only a subset of them are actively rendered at any given time.
+
+**Batching.** Both approaches benefit from Svelte 5's update batching. When scroll events fire rapidly (60+ times per second), the reactive system coalesces multiple value changes into a single DOM update in the next microtask. However, with \`<svelte:window>\`, each component processes its own listener callback independently before batching takes effect. With the singleton approach, only one callback processes the event, and all consumers are notified through the reactivity graph.
+
+## Building Custom Reactive Window Values with createSubscriber
+
+The \`svelte/reactivity/window\` module covers the most common window properties, but you may need to track values it does not export -- \`window.visualViewport\` height (important for mobile keyboards), \`window.orientation\`, or the result of a \`matchMedia\` query. You can build your own reactive window values using the same pattern Svelte uses internally.
+
+The key primitive is \`createSubscriber\` from \`svelte/reactivity\`. It creates a function that, when called inside a reactive context, subscribes to a notification callback. When you call the notification callback, all reactive consumers that called the subscriber function are invalidated and re-read the value.
+
+\`\`\`typescript
+// reactive-viewport-height.svelte.ts
+import { createSubscriber } from 'svelte/reactivity';
+
+function createReactiveViewportHeight() {
+  const subscribe = createSubscriber((notify) => {
+    // Called when first consumer subscribes
+    const onResize = () => notify();
+
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onResize);
+      return () => {
+        // Called when last consumer unsubscribes
+        window.visualViewport!.removeEventListener('resize', onResize);
+      };
+    }
+  });
+
+  return {
+    get current() {
+      subscribe(); // track this read
+      return typeof window !== 'undefined'
+        ? window.visualViewport?.height ?? window.innerHeight
+        : undefined;
+    }
+  };
+}
+
+export const viewportHeight = createReactiveViewportHeight();
+\`\`\`
+
+Usage is identical to the built-in reactive window values:
+
+\`\`\`svelte
+<script lang="ts">
+  import { viewportHeight } from './reactive-viewport-height.svelte';
+
+  const height = $derived(viewportHeight.current ?? 0);
+</script>
+
+<p>Visible viewport height: {height}px</p>
+\`\`\`
+
+Another common custom value is a reactive \`matchMedia\` query result:
+
+\`\`\`typescript
+// reactive-media-query.svelte.ts
+import { createSubscriber } from 'svelte/reactivity';
+
+export function createMediaQuery(query: string) {
+  const subscribe = createSubscriber((notify) => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia(query);
+    const handler = () => notify();
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  });
+
+  return {
+    get current() {
+      subscribe();
+      return typeof window !== 'undefined'
+        ? window.matchMedia(query).matches
+        : undefined;
+    }
+  };
+}
+\`\`\`
+
+\`\`\`svelte
+<script lang="ts">
+  import { createMediaQuery } from './reactive-media-query.svelte';
+
+  const prefersDark = createMediaQuery('(prefers-color-scheme: dark)');
+  const prefersReducedMotion = createMediaQuery('(prefers-reduced-motion: reduce)');
+
+  const theme = $derived(prefersDark.current ? 'dark' : 'light');
+</script>
+
+<div class="app" data-theme={theme}>
+  {#if prefersReducedMotion.current}
+    <p>Animations disabled</p>
+  {/if}
+</div>
+\`\`\`
+
 ## Using Reactive Window Values in Shared Modules
 
 The biggest advantage of the reactive window module is that you can use it outside of component files. This enables powerful patterns for shared utilities:
@@ -167,6 +271,93 @@ export class ResponsiveHelper {
 \`\`\`
 
 Any component can instantiate or import a shared \`ResponsiveHelper\` and read \`helper.isMobile\` without touching the template or adding \`<svelte:window>\` bindings. The reactive window module handles the event listener internally, and the singleton pattern means only one resize listener exists regardless of how many ResponsiveHelper instances you create.
+
+### Combining Multiple Reactive Window Values
+
+Real-world responsive logic often needs to combine several window properties. For example, computing the viewport's aspect ratio from \`innerWidth\` and \`innerHeight\`:
+
+\`\`\`typescript
+// viewport-utils.svelte.ts
+import { innerWidth, innerHeight, scrollY } from 'svelte/reactivity/window';
+
+export class ViewportInfo {
+  width = $derived(innerWidth.current ?? 0);
+  height = $derived(innerHeight.current ?? 0);
+
+  aspectRatio = $derived.by(() => {
+    const w = innerWidth.current ?? 0;
+    const h = innerHeight.current ?? 0;
+    return h > 0 ? w / h : 1;
+  });
+
+  isLandscape = $derived(this.aspectRatio > 1);
+  isPortrait = $derived(this.aspectRatio <= 1);
+
+  // Categorize orientation with thresholds
+  orientation = $derived(
+    this.aspectRatio > 1.5 ? 'wide-landscape' as const :
+    this.aspectRatio > 1 ? 'landscape' as const :
+    this.aspectRatio > 0.67 ? 'portrait' as const :
+    'tall-portrait' as const
+  );
+
+  // Scroll-derived values
+  scrollY = $derived(scrollY.current ?? 0);
+
+  scrollProgress = $derived.by(() => {
+    if (typeof document === 'undefined') return 0;
+    const docHeight = document.documentElement.scrollHeight - (innerHeight.current ?? 0);
+    return docHeight > 0 ? Math.min(100, ((scrollY.current ?? 0) / docHeight) * 100) : 0;
+  });
+}
+\`\`\`
+
+Then in any component:
+
+\`\`\`svelte
+<script lang="ts">
+  import { ViewportInfo } from './viewport-utils.svelte';
+
+  const viewport = new ViewportInfo();
+</script>
+
+<div class="layout" class:landscape={viewport.isLandscape}>
+  <p>Aspect ratio: {viewport.aspectRatio.toFixed(2)}</p>
+  <p>Orientation: {viewport.orientation}</p>
+  <progress value={viewport.scrollProgress} max="100"></progress>
+</div>
+\`\`\`
+
+This pattern centralizes responsive logic in one place. If your design system changes breakpoints from 640/1024 to 600/960, you update a single file. Every component that uses the shared helper automatically reflects the change.
+
+You can also create a module-level singleton rather than instantiating per-component:
+
+\`\`\`typescript
+// responsive.svelte.ts
+import { innerWidth } from 'svelte/reactivity/window';
+
+class Responsive {
+  breakpoint = $derived(
+    (innerWidth.current ?? 1024) < 640 ? 'sm' as const :
+    (innerWidth.current ?? 1024) < 1024 ? 'md' as const : 'lg' as const
+  );
+  isMobile = $derived(this.breakpoint === 'sm');
+}
+
+export const responsive = new Responsive();
+\`\`\`
+
+\`\`\`svelte
+<script lang="ts">
+  import { responsive } from './responsive.svelte';
+</script>
+
+{#if responsive.isMobile}
+  <MobileNav />
+{:else}
+  <DesktopNav />
+{/if}
+\`\`\`
 
 **Your task:** Build a scroll progress indicator bar that shows how far the user has scrolled down the page. Use \`scrollY\` from \`svelte/reactivity/window\` and a \`$derived\` expression to calculate the percentage. The bar should be fixed to the top of the viewport.`
 		},
@@ -242,11 +433,86 @@ The \`online\` / \`offline\` events fire when the browser detects a change in ne
 
 This value changes when a user moves a browser window between monitors with different pixel densities, or when they change their OS display scaling. The reactive version automatically updates the UI when this happens.
 
-**Task:** Add an online/offline status badge to your component. When the user is online, show a green badge with "Online". When offline, show a red badge with "Offline". Also display the current viewport dimensions using \`innerWidth\` and \`innerHeight\`.`
+**Task:** Add an online/offline status badge to your component. When the user is online, show a green badge with "Online". When offline, show a red badge with "Offline". Also display the current viewport dimensions using \`innerWidth\` and \`innerHeight\`, and show the aspect ratio computed from both values.`
 		},
 		{
 			type: 'checkpoint',
 			content: 'cp-2'
+		},
+		{
+			type: 'text',
+			content: `## Testing Components That Use Reactive Window Values
+
+Components that depend on \`svelte/reactivity/window\` read from singletons that ultimately rely on the browser's \`window\` object. In a test environment (Node.js with jsdom or happy-dom), these values either do not exist or behave differently from a real browser. To write reliable tests, you need to mock the reactive window imports.
+
+### Mocking with Vitest
+
+The simplest approach is to mock the entire \`svelte/reactivity/window\` module:
+
+\`\`\`typescript
+import { vi, test, expect } from 'vitest';
+import { render, screen } from '@testing-library/svelte';
+
+// Create reactive-like mock objects
+const mockInnerWidth = { current: 1024 };
+const mockScrollY = { current: 0 };
+const mockOnline = { current: true };
+
+vi.mock('svelte/reactivity/window', () => ({
+  innerWidth: mockInnerWidth,
+  innerHeight: { current: 768 },
+  scrollX: { current: 0 },
+  scrollY: mockScrollY,
+  online: mockOnline,
+  devicePixelRatio: { current: 2 }
+}));
+
+import ResponsiveHeader from './ResponsiveHeader.svelte';
+
+test('shows mobile layout for narrow viewport', () => {
+  mockInnerWidth.current = 480;
+  render(ResponsiveHeader);
+  expect(screen.getByText('App')).toBeInTheDocument();
+});
+
+test('shows desktop layout for wide viewport', () => {
+  mockInnerWidth.current = 1200;
+  render(ResponsiveHeader);
+  expect(screen.getByText('My Application')).toBeInTheDocument();
+});
+
+test('shows offline banner when offline', () => {
+  mockOnline.current = false;
+  render(ResponsiveHeader);
+  expect(screen.getByRole('alert')).toHaveTextContent('offline');
+});
+\`\`\`
+
+This approach works because the component reads \`.current\` during rendering. By setting \`.current\` on the mock objects before rendering, you control what the component sees.
+
+### Simulating Value Changes After Render
+
+To test that a component reacts to window value *changes* (not just initial values), you need the mock objects to participate in Svelte's reactivity system. In a test, the simplest approach is to re-render the component with updated mock values:
+
+\`\`\`typescript
+import { render, screen, cleanup } from '@testing-library/svelte';
+
+test('updates layout when viewport changes', () => {
+  mockInnerWidth.current = 1200;
+  const { rerender } = render(ResponsiveHeader);
+  expect(screen.getByText('My Application')).toBeInTheDocument();
+
+  // Simulate a resize
+  mockInnerWidth.current = 480;
+  // In a real reactive system, the component would auto-update.
+  // In tests with mocked modules, you may need to re-render.
+  cleanup();
+  render(ResponsiveHeader);
+  expect(screen.getByText('App')).toBeInTheDocument();
+});
+\`\`\`
+
+For more sophisticated testing where you need true reactivity from mocks, consider using \`$state\` in your mock setup (if your test runner compiles \`.svelte.ts\` files) or use an integration test that renders the component in a real browser with Playwright.`
 		},
 		{
 			type: 'xray-prompt',
@@ -318,7 +584,7 @@ Sometimes you need to perform imperative actions when window values change. Use 
 
 ## Summary
 
-The \`svelte/reactivity/window\` module provides reactive, singleton-based access to key browser window properties. Each export (\`innerWidth\`, \`innerHeight\`, \`scrollX\`, \`scrollY\`, \`online\`, \`devicePixelRatio\`) has a \`.current\` property that is reactive -- reading it in a template, \`$derived\`, or \`$effect\` automatically subscribes to changes. The values return \`undefined\` during SSR, so always provide fallback defaults with \`??\`. Unlike \`<svelte:window bind:...>\`, these values work in \`.svelte.ts\` modules, reactive classes, and shared utilities. They are singletons, meaning only one event listener per property exists across your entire application regardless of how many consumers read the value.`
+The \`svelte/reactivity/window\` module provides reactive, singleton-based access to key browser window properties. Each export (\`innerWidth\`, \`innerHeight\`, \`scrollX\`, \`scrollY\`, \`online\`, \`devicePixelRatio\`) has a \`.current\` property that is reactive -- reading it in a template, \`$derived\`, or \`$effect\` automatically subscribes to changes. The values return \`undefined\` during SSR, so always provide fallback defaults with \`??\`. Unlike \`<svelte:window bind:...>\`, these values work in \`.svelte.ts\` modules, reactive classes, and shared utilities. They are singletons, meaning only one event listener per property exists across your entire application regardless of how many consumers read the value. The listeners are lazy -- they only activate when at least one reactive consumer is tracking the value, and deactivate when all consumers stop. For window properties not covered by the module, build your own reactive values using \`createSubscriber\` from \`svelte/reactivity\`. Combine multiple reactive window values in shared \`.svelte.ts\` utility classes to centralize responsive logic, and mock the module in tests to control viewport-dependent behavior.`
 		},
 		{
 			type: 'concept-callout',
@@ -338,6 +604,8 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
   //       scrollProgress = (scrollY / (documentHeight - viewportHeight)) * 100
 
   // TODO: Create a $derived expression for online/offline status
+
+  // TODO: Create a $derived expression for aspect ratio from innerWidth and innerHeight
 </script>
 
 <div class="progress-bar">
@@ -349,8 +617,9 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
   <!-- TODO: Show online/offline badge -->
   <span class="badge">Unknown</span>
 
-  <!-- TODO: Show viewport dimensions -->
+  <!-- TODO: Show viewport dimensions and aspect ratio -->
   <span class="dimensions">? x ?</span>
+  <span class="aspect-ratio">Aspect: ?</span>
 </div>
 
 <main class="content">
@@ -421,6 +690,11 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
     font-variant-numeric: tabular-nums;
   }
 
+  .aspect-ratio {
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+  }
+
   .content {
     padding: 3rem 1.5rem;
     max-width: 700px;
@@ -465,6 +739,12 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
   });
 
   const isOnline = $derived(online.current ?? true);
+
+  const aspectRatio = $derived.by(() => {
+    const w = innerWidth.current ?? 0;
+    const h = innerHeight.current ?? 0;
+    return h > 0 ? (w / h).toFixed(2) : '0.00';
+  });
 </script>
 
 <div class="progress-bar">
@@ -478,6 +758,10 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
 
   <span class="dimensions">
     {innerWidth.current ?? '?'} x {innerHeight.current ?? '?'}
+  </span>
+
+  <span class="aspect-ratio">
+    Aspect: {aspectRatio}
   </span>
 </div>
 
@@ -546,6 +830,11 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
 
   .dimensions {
     color: #64748b;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .aspect-ratio {
+    color: #94a3b8;
     font-variant-numeric: tabular-nums;
   }
 
