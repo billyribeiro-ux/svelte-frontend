@@ -11,13 +11,12 @@
 
 	let { skills }: Props = $props();
 
-	let canvas = $state<HTMLCanvasElement | null>(null);
+	function renderRadar(canvas: HTMLCanvasElement) {
+		$effect(() => {
+			if (skills.length === 0) return;
 
-	$effect(() => {
-		if (!canvas || skills.length === 0) return;
-
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return;
 
 		const dpr = window.devicePixelRatio || 1;
 		const size = 220;
@@ -106,11 +105,12 @@
 			ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
 			ctx.fillText(skills[i]!.label, x, y);
 		}
-	});
+		});
+	}
 </script>
 
 <div class="skill-radar">
-	<canvas bind:this={canvas}></canvas>
+	<canvas {@attach renderRadar}></canvas>
 </div>
 
 <style>

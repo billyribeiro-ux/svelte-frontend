@@ -50,14 +50,14 @@
 		}
 	}
 
+	function assignMenuRoles(menu: HTMLDivElement) {
+		const menuItems = menu.querySelectorAll('button, a');
+		menuItems.forEach((el) => el.setAttribute('role', 'menuitem'));
+	}
+
 	$effect(() => {
 		if (open) {
 			document.addEventListener('click', handleClickOutside, true);
-			// Assign role="menuitem" to all interactive children in the menu
-			if (dropdownEl) {
-				const items = dropdownEl.querySelectorAll('.sf-dropdown-menu button, .sf-dropdown-menu a');
-				items.forEach((el) => el.setAttribute('role', 'menuitem'));
-			}
 		}
 		return () => {
 			document.removeEventListener('click', handleClickOutside, true);
@@ -82,8 +82,7 @@
 		{@render children()}
 	</button>
 	{#if open}
-		<div class="sf-dropdown-menu" role="menu" tabindex="-1" transition:scale={{ duration: 150, start: 0.95, easing: cubicOut }}>
-			<!-- items should use role="menuitem" -->
+		<div class="sf-dropdown-menu" role="menu" tabindex="-1" transition:scale={{ duration: 150, start: 0.95, easing: cubicOut }} {@attach assignMenuRoles}>
 			{@render items()}
 		</div>
 	{/if}
