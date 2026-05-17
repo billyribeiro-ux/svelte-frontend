@@ -148,7 +148,62 @@ Modifying \`url.pathname\` or \`url.search\` in the input fields reactively upda
 		},
 		{
 			type: 'text',
-			content: `## When to Use SvelteMap/SvelteSet vs $state({}) or $state([])
+			content: `## SvelteMap vs $state(new Map()) -- The Mutation Detection Difference
+
+This comparison is the most frequently asked question about reactive collections, so it deserves a thorough answer. The two approaches look similar but behave fundamentally differently.
+
+### $state(new Map()) -- Reference-Level Reactivity
+
+When you wrap a Map in \`$state\`, you get reactivity on the **variable assignment**, not on the Map's contents:
+
+\`\`\`typescript
+let scores = $state(new Map<string, number>());
+
+// Does NOT trigger reactivity (mutation, not reassignment)
+scores.set('Alice', 95);
+
+// DOES trigger reactivity (full reassignment)
+scores = new Map([...scores, ['Alice', 95]]);
+\`\`\`
+
+The reassignment approach works but creates a new Map on every update. This has three costs: (1) the old Map is garbage collected, (2) the new Map must be constructed from the spread entries, and (3) any component holding a reference to the old Map sees stale data.
+
+### SvelteMap -- Mutation-Level Reactivity
+
+\`SvelteMap\` intercepts every method call and triggers fine-grained reactivity:
+
+\`\`\`typescript
+const scores = new SvelteMap<string, number>();
+
+// Triggers reactivity directly
+scores.set('Alice', 95);
+
+// Reading .size creates a dependency
+const count = scores.size;
+
+// Reading .get() creates a dependency on that specific key
+const aliceScore = scores.get('Alice');
+\`\`\`
+
+No reassignment needed. No copying. No garbage collection pressure. The collection mutates in place, and Svelte tracks exactly which reads depend on which writes.
+
+### When to Still Use $state(new Map())
+
+There is one scenario where \`$state(new Map())\` makes sense: when you receive a complete new Map from an external source (like an API response) and want to replace the entire collection at once. In that case, the variable reassignment IS the intended update:
+
+\`\`\`typescript
+let scores = $state(new Map<string, number>());
+
+async function loadScores() {
+  const response = await fetch('/api/scores');
+  const data: [string, number][] = await response.json();
+  scores = new Map(data); // Replaces everything, triggers reactivity
+}
+\`\`\`
+
+But even here, you could use a SvelteMap with \`clear()\` + repopulation. The \`$state\` approach is cleaner for full replacement scenarios.
+
+## When to Use SvelteMap/SvelteSet vs $state({}) or $state([])
 
 This is a critical design decision that many developers get wrong. Here is the framework:
 
@@ -209,6 +264,76 @@ async function loadScores() {
   return new SvelteMap(data);
 }
 \`\`\`
+
+### Migration Patterns from Plain Collections
+
+If you have existing code that uses plain Maps, Sets, or self-assignment tricks, migrating to reactive builtins is straightforward:
+
+**Before (plain Map with self-assignment):**
+\`\`\`typescript
+let cache = $state(new Map<string, Data>());
+
+function addItem(key: string, data: Data) {
+  cache.set(key, data);
+  cache = cache; // trigger reactivity
+}
+
+function removeItem(key: string) {
+  cache.delete(key);
+  cache = cache; // trigger reactivity
+}
+\`\`\`
+
+**After (SvelteMap):**
+\`\`\`typescript
+const cache = new SvelteMap<string, Data>();
+
+function addItem(key: string, data: Data) {
+  cache.set(key, data); // reactivity is automatic
+}
+
+function removeItem(key: string) {
+  cache.delete(key); // reactivity is automatic
+}
+\`\`\`
+
+The migration involves three changes: (1) import from \`svelte/reactivity\`, (2) change \`let\` to \`const\` (since you no longer reassign), (3) remove all self-assignment lines. The API is identical, so no call sites need to change.
+
+**Before (array used as a Set):**
+\`\`\`typescript
+let selected = $state<string[]>([]);
+
+function toggle(id: string) {
+  if (selected.includes(id)) {
+    selected = selected.filter(s => s !== id);
+  } else {
+    selected = [...selected, id];
+  }
+}
+
+function isSelected(id: string) {
+  return selected.includes(id); // O(n)
+}
+\`\`\`
+
+**After (SvelteSet):**
+\`\`\`typescript
+const selected = new SvelteSet<string>();
+
+function toggle(id: string) {
+  if (selected.has(id)) {
+    selected.delete(id);
+  } else {
+    selected.add(id);
+  }
+}
+
+function isSelected(id: string) {
+  return selected.has(id); // O(1)
+}
+\`\`\`
+
+The SvelteSet version is cleaner, faster (O(1) vs O(n) for lookups), and impossible to accidentally create duplicates.
 
 **Your task:** Build a tag manager using \`SvelteSet\` for tracking which tags are selected and \`SvelteMap\` for storing tag metadata (label and color). Clicking a tag should toggle its selection. Display the selected tags with their metadata.`
 		},
@@ -319,7 +444,102 @@ Identify two problems with this pattern. Explain what happens on each reactive u
 		},
 		{
 			type: 'text',
-			content: `## SvelteURL for Dynamic URL Construction
+			content: `## SvelteURLSearchParams Deep Dive
+
+While \`SvelteURL\` gets most of the attention, \`SvelteURLSearchParams\` is equally valuable and deserves dedicated coverage. It makes every search parameter manipulation reactive, enabling powerful URL-driven UI patterns.
+
+### Basic Usage
+
+\`\`\`svelte
+<script lang="ts">
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
+
+  const params = new SvelteURLSearchParams('sort=name&order=asc&page=1');
+</script>
+
+<div class="filters">
+  <select onchange={(e) => params.set('sort', e.currentTarget.value)}>
+    <option value="name" selected={params.get('sort') === 'name'}>Name</option>
+    <option value="date" selected={params.get('sort') === 'date'}>Date</option>
+    <option value="score" selected={params.get('sort') === 'score'}>Score</option>
+  </select>
+
+  <button onclick={() => {
+    const current = params.get('order');
+    params.set('order', current === 'asc' ? 'desc' : 'asc');
+  }}>
+    Order: {params.get('order')}
+  </button>
+
+  <p>Query string: ?{params.toString()}</p>
+</div>
+\`\`\`
+
+Every \`params.get()\` call creates a reactive dependency. Every \`params.set()\` call triggers those dependencies. The UI stays perfectly synchronized with the query string.
+
+### Multi-Value Parameters
+
+\`SvelteURLSearchParams\` supports multi-value parameters, just like the native \`URLSearchParams\`:
+
+\`\`\`typescript
+import { SvelteURLSearchParams } from 'svelte/reactivity';
+
+const params = new SvelteURLSearchParams();
+
+// Add multiple values for the same key
+params.append('tag', 'svelte');
+params.append('tag', 'typescript');
+params.append('tag', 'css');
+
+// Get all values
+const allTags = params.getAll('tag'); // ['svelte', 'typescript', 'css']
+
+// Iterate entries (includes duplicates)
+for (const [key, value] of params.entries()) {
+  console.log(key, value);
+}
+// tag svelte
+// tag typescript
+// tag css
+\`\`\`
+
+This is useful for filter UIs where multiple values can be selected for the same parameter, like tags, categories, or price ranges.
+
+### SvelteURLSearchParams with SvelteURL
+
+When you access the \`searchParams\` property of a \`SvelteURL\`, you get a reactive \`SvelteURLSearchParams\` object:
+
+\`\`\`svelte
+<script lang="ts">
+  import { SvelteURL } from 'svelte/reactivity';
+
+  const url = new SvelteURL('https://api.example.com/v1/users');
+
+  let searchTerm = $state('');
+  let page = $state(1);
+  let limit = $state(20);
+
+  // Reactively build the full URL
+  $effect(() => {
+    if (searchTerm) {
+      url.searchParams.set('q', searchTerm);
+    } else {
+      url.searchParams.delete('q');
+    }
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('limit', String(limit));
+  });
+</script>
+
+<input bind:value={searchTerm} placeholder="Search users..." />
+<input type="number" bind:value={page} min="1" />
+
+<p>Request URL: <code>{url.href}</code></p>
+\`\`\`
+
+Modifying \`searchTerm\` or \`page\` triggers the effect, which updates the URL's search params, which triggers a re-render of the \`url.href\` display. Every link in the chain is reactive.
+
+## SvelteURL for Dynamic URL Construction
 
 \`SvelteURL\` is particularly useful for building API clients, link generators, or any UI that constructs URLs from parts:
 

@@ -72,9 +72,7 @@ When the variable name matches the CSS property name, you can use the shorthand:
 
 <!-- Works for any matching name -->
 <div style:opacity>
-\`\`\`
-
-This mirrors how attribute shorthand works in Svelte (\`<input {value}>\` instead of \`<input value={value}>\`).`
+\`\`\``
 		},
 		{
 			type: 'concept-callout',
@@ -129,6 +127,50 @@ Custom properties are the bridge between JavaScript state and CSS. Instead of co
 \`\`\`
 
 A single custom property drives both the width and the color. The CSS does the heavy lifting, and JavaScript only manages the single source of truth.
+
+### Advanced: Multi-Property Theming with Custom Properties
+
+Custom properties become truly powerful when a single property drives an entire visual system. Consider a component where you expose a \`--hue\` property and derive the entire color palette from it:
+
+\`\`\`svelte
+<script lang="ts">
+  let hue = $state(220);
+</script>
+
+<div class="themed-panel" style:--hue={hue}>
+  <h3>Themed Panel</h3>
+  <p>Every color is derived from a single hue value.</p>
+  <button>Action</button>
+</div>
+
+<input type="range" min="0" max="360" bind:value={hue} />
+
+<style>
+  .themed-panel {
+    --bg: hsl(var(--hue), 20%, 97%);
+    --text: hsl(var(--hue), 40%, 20%);
+    --accent: hsl(var(--hue), 70%, 50%);
+    --border: hsl(var(--hue), 30%, 85%);
+
+    background: var(--bg);
+    color: var(--text);
+    border: 2px solid var(--border);
+    padding: 1.5rem;
+    border-radius: 12px;
+  }
+
+  .themed-panel button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+</style>
+\`\`\`
+
+JavaScript passes a single \`--hue\` value. CSS derives four internal custom properties (\`--bg\`, \`--text\`, \`--accent\`, \`--border\`) from it. This pattern minimizes the JavaScript-to-CSS surface area while maximizing the expressiveness of the theme system.
 
 **Task:** Create a box element where the user can control the background color and border radius using reactive state variables and the \`style:\` directive. Include at least one CSS custom property.`
 		},
@@ -193,6 +235,27 @@ Component style props can be dynamic, responding to reactive state:
 
 When \`isDark\` changes, Svelte updates the custom properties on the wrapper element, and the component re-renders with the new values. No prop drilling, no context, no stores -- just CSS cascade.
 
+### Style Props Across Component Boundaries
+
+A powerful pattern emerges when components forward style props through nested component trees. A parent can set custom properties that flow through intermediary components to deeply nested children, all via CSS cascade:
+
+\`\`\`svelte
+<!-- App.svelte -->
+<Layout --layout-gap="2rem" --layout-max-width="1200px">
+  <Sidebar --sidebar-width="280px" --sidebar-bg="#f8fafc">
+    <NavItem --nav-hover-bg="#e2e8f0" />
+    <NavItem --nav-hover-bg="#e2e8f0" />
+  </Sidebar>
+  <MainContent --content-padding="2rem">
+    <Card --card-bg="#ffffff" --card-shadow="0 2px 8px rgba(0,0,0,0.1)" />
+  </MainContent>
+</Layout>
+\`\`\`
+
+Each component only reads the custom properties it cares about. \`Layout\` reads \`--layout-gap\` and \`--layout-max-width\`. \`Sidebar\` reads \`--sidebar-width\` and \`--sidebar-bg\`. The custom properties that \`Layout\` does not reference pass through its wrapper \`div\` and cascade to children naturally. This means you can set a property on a grandparent and have a grandchild read it, even if the parent component has no knowledge of that property.
+
+This cascading behavior is the key difference from JavaScript props. Props must be explicitly forwarded at each level (\`<Child {prop} />\`). Custom properties cascade automatically through the DOM tree.
+
 ### display: contents Caveat
 
 The wrapper \`<div style="display: contents">\` is mostly invisible to layout. \`display: contents\` removes the element from the box model, so its children participate in the parent's layout as if the wrapper did not exist. However, there are edge cases:
@@ -209,9 +272,34 @@ In practice, these edge cases rarely cause problems. If they do, you can use the
 		},
 		{
 			type: 'text',
-			content: `## style: vs class: -- When to Use Each
+			content: `## Comprehensive Comparison: style: vs class: vs Inline Style Strings
 
-Svelte provides both \`style:\` and \`class:\` directives. They serve different purposes, and choosing correctly matters for maintainability and performance.
+Svelte provides three mechanisms for applying styles to elements: the \`style:\` directive, the \`class:\` directive, and inline style strings. Each has distinct characteristics, performance profiles, and ideal use cases. Understanding the tradeoffs prevents common mistakes and helps you write maintainable component styles.
+
+### Full Comparison Table
+
+| Feature | \`style:\` directive | \`class:\` directive | Inline style string |
+|---|---|---|---|
+| **Syntax** | \`style:color={val}\` | \`class:active={bool}\` | \`style="color: {val}"\` |
+| **Granularity** | Per-property updates | Per-class toggle | Entire string rebuilt |
+| **Values** | Dynamic (any string/number) | Boolean (on/off) | Dynamic (any string) |
+| **TypeScript support** | Property names validated | Class names as strings | No validation |
+| **Null/undefined** | Removes property | Removes class | Leaves empty value |
+| **Composition** | Additive (each independent) | Additive (each independent) | Overwrites entire attribute |
+| **Performance** | Single setProperty call | Single classList toggle | Full attribute replacement |
+| **CSS cascade** | Inline specificity (highest) | Class specificity (normal) | Inline specificity (highest) |
+| **Custom properties** | Supported (\`style:--foo\`) | N/A | Supported (in string) |
+| **!important** | Supported (\`\|important\`) | N/A | Supported (in string) |
+
+### Performance Deep Dive
+
+The performance difference between \`style:\` directives and inline style strings becomes measurable in two scenarios: high-frequency updates and multiple simultaneous property changes.
+
+**High-frequency updates** occur during animations, drag operations, or scroll-driven effects. When a value changes on every animation frame (60+ times per second), the \`style:\` directive calls \`element.style.setProperty('transform', newValue)\` -- a single DOM API call that only touches the changed property. An inline style string like \`style="transform: {transform}; opacity: {opacity}"\` rebuilds the entire string, parses it, and applies all properties, even if only \`transform\` changed.
+
+**Multiple properties** amplify the difference. If you have ten \`style:\` directives and one value changes, Svelte makes one DOM call. With an inline string containing ten interpolated values, any single change triggers a full string reconstruction and re-parse of all ten properties.
+
+In practice, for most components with a handful of dynamic styles that change infrequently (on user interaction, not per frame), the difference is negligible. But for animation-heavy components, \`style:\` directives provide a measurable advantage.
 
 ### class: Directive Recap
 
@@ -348,7 +436,23 @@ The inline style from the directive has higher specificity than the scoped class
 
 Each \`style:\` directive creates a minimal reactive update. When the value changes, Svelte calls \`element.style.setProperty(prop, newValue)\` -- a single DOM API call. This is more efficient than setting the entire \`style\` attribute string, especially when multiple style properties exist but only one changes.
 
-For animations where values change on every frame, \`style:\` directives work well because each update is a single property set. However, for complex animations, consider using CSS animations or the Web Animations API instead, as they run on the compositor thread and do not block the main thread.`
+For animations where values change on every frame, \`style:\` directives work well because each update is a single property set. However, for complex animations, consider using CSS animations or the Web Animations API instead, as they run on the compositor thread and do not block the main thread.
+
+### Custom Properties and Component Boundaries
+
+When using \`style:--custom-property\` on regular HTML elements, the property is set directly on that element and cascades to all descendants. When using \`--custom-property\` syntax on a Svelte component, the wrapper \`div\` with \`display: contents\` receives the property, and it cascades into the component's DOM.
+
+A subtle but important distinction: if a component renders a Shadow DOM (rare in Svelte, but possible with Web Components), custom properties still cascade through the shadow boundary. This is one of the few CSS features that penetrates shadow DOM, making custom properties the preferred theming mechanism for design systems that may include Web Components.
+
+\`\`\`svelte
+<!-- Custom properties cross shadow DOM boundaries -->
+<div style:--theme-primary="#6366f1" style:--theme-radius="8px">
+  <my-web-component />
+  <!-- The web component can use var(--theme-primary) in its shadow styles -->
+</div>
+\`\`\`
+
+This characteristic makes \`style:\` with custom properties a universal theming solution that works across Svelte components, plain HTML, and Web Components alike.`
 		},
 		{
 			type: 'concept-callout',
