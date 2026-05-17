@@ -240,6 +240,112 @@ The key distinction: attachments are element-scoped lifecycle hooks. \`$effect\`
 		{
 			type: 'checkpoint',
 			content: 'cp-2'
+		},
+		{
+			type: 'text',
+			content: `## Conditional & Inline Attachments
+
+Falsy values are treated as no-ops, enabling conditional usage:
+
+\`\`\`svelte
+<div {@attach enabled && myAttachment}>...</div>
+\`\`\`
+
+You can also create attachments inline — useful for one-off DOM setup:
+
+\`\`\`svelte
+<canvas
+  width={32}
+  height={32}
+  {@attach (canvas) => {
+    const ctx = canvas.getContext('2d');
+
+    $effect(() => {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    });
+  }}
+></canvas>
+\`\`\`
+
+The nested \`$effect\` re-runs when \`color\` changes, while the outer attachment runs only once since it reads no reactive state.
+
+## Passing Attachments to Components
+
+When \`{@attach ...}\` is used on a component, it creates a prop with a \`Symbol\` key. If the component spreads props onto an element, that element receives the attachment:
+
+\`\`\`svelte
+<!-- Button.svelte -->
+<script>
+  let { children, ...props } = $props();
+</script>
+
+<button {...props}>
+  {@render children?.()}
+</button>
+\`\`\`
+
+\`\`\`svelte
+<!-- App.svelte -->
+<Button {@attach tooltip('Hello!')}>Hover me</Button>
+\`\`\`
+
+This lets you decorate wrapper components without modifying their internals.
+
+## Controlling When Attachments Re-Run
+
+Attachments are fully reactive: \`{@attach foo(bar)}\` re-runs when either \`foo\` or \`bar\` changes, or when any state read inside \`foo\` changes. If setup is expensive, pass data via a getter and read it in a child effect:
+
+\`\`\`ts
+function foo(getBar: () => string) {
+  return (node: HTMLElement) => {
+    veryExpensiveSetupWork(node);
+
+    $effect(() => {
+      update(node, getBar());
+    });
+  };
+}
+\`\`\`
+
+## \`fromAction\` — Converting Legacy Actions to Attachments
+
+If you depend on a library that only exposes \`use:\` actions, convert them to attachments with \`fromAction\` from \`svelte/attachments\`:
+
+\`\`\`svelte
+<script>
+  import { fromAction } from 'svelte/attachments';
+  import { someLibraryAction } from 'some-library';
+</script>
+
+<!-- Before: <div use:someLibraryAction={bar}>...</div> -->
+<!-- After:  -->
+<div {@attach fromAction(someLibraryAction, () => bar)}>...</div>
+\`\`\`
+
+The second argument must be a **function** returning the parameter, not the parameter itself.
+
+## \`createAttachmentKey\` — Programmatic Attachments
+
+For library authors who need to attach behavior programmatically (without template syntax), use \`createAttachmentKey\`:
+
+\`\`\`svelte
+<script>
+  import { createAttachmentKey } from 'svelte/attachments';
+
+  const props = {
+    class: 'cool',
+    onclick: () => alert('clicked'),
+    [createAttachmentKey()]: (node) => {
+      node.textContent = 'attached!';
+    }
+  };
+</script>
+
+<button {...props}>click me</button>
+\`\`\`
+
+This is how you add attachments to spread objects — useful for headless component libraries.`
 		}
 	],
 

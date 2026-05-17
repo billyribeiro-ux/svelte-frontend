@@ -225,6 +225,76 @@ The rule of thumb: **if the output is a value, use \`$derived\`. If the output i
 		{
 			type: 'checkpoint',
 			content: 'cp-3'
+		},
+		{
+			type: 'text',
+			content: `## \`$effect.tracking()\` — Am I in a Reactive Context?
+
+\`$effect.tracking()\` returns \`true\` if code is currently running inside a tracked context (an effect or a template expression), and \`false\` otherwise:
+
+\`\`\`svelte
+<script>
+  console.log('in setup:', $effect.tracking()); // false
+
+  $effect(() => {
+    console.log('in effect:', $effect.tracking()); // true
+  });
+</script>
+
+<p>in template: {$effect.tracking()}</p> <!-- true -->
+\`\`\`
+
+This is used internally to build abstractions like \`createSubscriber\` that only register listeners when values are actually tracked reactively.
+
+## \`$effect.pending()\` — Counting Pending Promises
+
+When using \`await\` in components with \`<svelte:boundary>\`, \`$effect.pending()\` tells you how many promises are still resolving in the current boundary:
+
+\`\`\`svelte
+<script>
+  async function loadData(n) {
+    await new Promise(f => setTimeout(f, 500));
+    return n * 2;
+  }
+  let a = $state(1);
+</script>
+
+<p>Result: {await loadData(a)}</p>
+
+{#if $effect.pending()}
+  <p>Pending: {$effect.pending()}</p>
+{/if}
+\`\`\`
+
+This is useful for building loading indicators that are aware of multiple concurrent async operations.
+
+## Function Bindings — A Better Alternative to Effects
+
+Since Svelte 5.25, \`$derived\` values can be directly overridden. And for cases where you would use effects to sync two related state values, **function bindings** are the preferred pattern:
+
+\`\`\`svelte
+<script>
+  const total = 100;
+  let spent = $state(0);
+  let left = $derived(total - spent);
+
+  function updateLeft(newLeft) {
+    spent = total - newLeft;
+  }
+</script>
+
+<label>
+  <input type="range" bind:value={spent} max={total} />
+  {spent}/{total} spent
+</label>
+
+<label>
+  <input type="range" bind:value={() => left, updateLeft} max={total} />
+  {left}/{total} left
+</label>
+\`\`\`
+
+The \`bind:value={() => left, updateLeft}\` syntax provides a getter and setter — no effects, no infinite loops, no timing bugs.`
 		}
 	],
 

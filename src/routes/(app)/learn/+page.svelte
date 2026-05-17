@@ -4,27 +4,39 @@
 	import SEOHead from '$components/seo/SEOHead.svelte';
 	import { initLessons } from '$lessons/init';
 	import { getAllTracks } from '$lessons/registry';
+	import { fly, blur } from 'svelte/transition';
+	import { expoOut, cubicOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	initLessons();
 
-	const tracks = $derived(getAllTracks().map((track) => ({
-		slug: track.slug,
-		title: track.title,
-		description: track.description,
-		modules: track.modules.length,
-		lessons: track.modules.reduce((sum, m) => sum + m.lessons.length, 0),
-		progress: 0
-	})));
+	const tracks = getAllTracks().map((t) => ({
+		slug: t.slug,
+		title: t.title,
+		description: t.description,
+		modules: t.modules.length,
+		lessons: t.modules.reduce((s, m) => s + m.lessons.length, 0),
+		// Placeholder progress
+		progress: t.slug === 'svelte-core' ? 35 : t.slug === 'foundations' ? 80 : 0
+	}));
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 800);
+	const inY = $derived(prefersReducedMotion.current ? 0 : 30);
+	const blurAmount = $derived(prefersReducedMotion.current ? 0 : 8);
 </script>
 
 <SEOHead seo={{ title: 'Learning Tracks', description: 'Browse interactive learning tracks for Svelte 5, SvelteKit, HTML, CSS, and TypeScript.' }} />
 
 <div class="tracks-page">
-	<h1 class="page-title">Learning Tracks</h1>
+	<h1 class="page-title" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>Learning Tracks</h1>
 
 	<div class="tracks-grid">
-		{#each tracks as track}
-			<a href="/learn/{track.slug}" class="track-card">
+		{#each tracks as track, index}
+			<a 
+				href="/learn/{track.slug}" 
+				class="track-card"
+				in:fly={{ y: inY, duration: inDuration, delay: 150 + (index * 100), easing: expoOut, opacity: 0 }}
+			>
 				<h2 class="track-title">{track.title}</h2>
 				<p class="track-description">{track.description}</p>
 				<div class="track-meta">

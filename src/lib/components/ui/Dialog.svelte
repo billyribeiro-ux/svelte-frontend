@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { cn } from '$utils/cn';
 	import type { Snippet } from 'svelte';
+	import { fade, scale, fly } from 'svelte/transition';
+	import { cubicOut, expoOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	interface Props {
 		open?: boolean;
@@ -13,6 +16,9 @@
 
 	let dialogEl: HTMLDialogElement | undefined = $state();
 	let previousFocus: HTMLElement | null = null;
+
+	const inDuration = $derived(prefersReducedMotion.current ? 0 : 400);
+	const outDuration = $derived(prefersReducedMotion.current ? 0 : 250);
 
 	function close() {
 		open = false;

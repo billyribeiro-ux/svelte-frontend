@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import Input from '$components/ui/Input.svelte';
 	import Button from '$components/ui/Button.svelte';
 	import Icon from '$components/ui/Icon.svelte';
@@ -8,18 +7,22 @@
 	import { expoOut } from 'svelte/easing';
 
 	let email = $state('');
-	let password = $state('');
+	let submitted = $state(false);
 	let loading = $state(false);
 	let visible = $state(false);
 	$effect(() => { visible = true; });
 
-	function handleLogin() {
+	function handleSubmit() {
+		if (!email.trim()) return;
 		loading = true;
-		setTimeout(() => goto('/dashboard'), 600);
+		setTimeout(() => {
+			loading = false;
+			submitted = true;
+		}, 800);
 	}
 </script>
 
-<SEOHead seo={{ title: 'Log In — SvelteForge', description: 'Log in to your SvelteForge account to continue learning.', noindex: true }} />
+<SEOHead seo={{ title: 'Reset Password — SvelteForge', description: 'Reset your SvelteForge password.', noindex: true }} />
 
 <div class="auth-page">
 	<div class="auth-orb" aria-hidden="true"></div>
@@ -33,36 +36,38 @@
 				</a>
 			</div>
 
-			<h1 class="auth-title">Welcome back</h1>
-			<p class="auth-subtitle">Log in to continue your learning journey.</p>
+			{#if submitted}
+				<div class="success-state" in:fly={{ y: 16, duration: 500, easing: expoOut, opacity: 0 }}>
+					<div class="success-icon">
+						<Icon icon="ph:envelope-open" size={32} />
+					</div>
+					<h1 class="auth-title">Check your inbox</h1>
+					<p class="auth-subtitle">
+						If <strong>{email}</strong> has an account, a password reset link has been sent. Check your spam folder too.
+					</p>
+					<a href="/login" class="back-link">
+						<Icon icon="ph:arrow-left" size={14} />
+						Back to login
+					</a>
+				</div>
+			{:else}
+				<h1 class="auth-title">Forgot password?</h1>
+				<p class="auth-subtitle">Enter your email and we'll send you a reset link.</p>
 
-			<div class="social-btns">
-				<button class="social-btn" type="button">
-					<Icon icon="ph:github-logo" size={18} />
-					Continue with GitHub
-				</button>
-				<button class="social-btn" type="button">
-					<Icon icon="ph:google-logo" size={18} />
-					Continue with Google
-				</button>
-			</div>
+				<form class="auth-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+					<Input type="email" label="Email address" placeholder="you@example.com" bind:value={email} />
+					<Button type="submit" variant="primary" size="md" disabled={loading || !email.trim()}>
+						{loading ? 'Sending…' : 'Send Reset Link'}
+					</Button>
+				</form>
 
-			<div class="auth-divider">
-				<span>or continue with email</span>
-			</div>
-
-			<form class="auth-form" onsubmit={e => { e.preventDefault(); handleLogin(); }}>
-				<Input type="email" label="Email" placeholder="you@example.com" bind:value={email} />
-				<Input type="password" label="Password" placeholder="Your password" bind:value={password} />
-				<a href="/forgot-password" class="forgot-link">Forgot password?</a>
-				<Button type="submit" variant="primary" size="md" disabled={loading}>
-					{loading ? 'Logging in…' : 'Log In'}
-				</Button>
-			</form>
-
-			<p class="auth-footer">
-				Don't have an account? <a href="/register" class="auth-link">Create one free</a>
-			</p>
+				<p class="auth-footer">
+					<a href="/login" class="auth-link">
+						<Icon icon="ph:arrow-left" size={13} />
+						Back to login
+					</a>
+				</p>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -83,7 +88,7 @@
 		position: absolute;
 		inline-size: 600px; block-size: 600px;
 		border-radius: 50%;
-		background: radial-gradient(circle, oklch(0.65 0.25 275 / 0.1), transparent 65%);
+		background: radial-gradient(circle, oklch(0.65 0.25 275 / 0.09), transparent 65%);
 		filter: blur(80px);
 		inset-block-start: 50%; inset-inline-start: 50%;
 		translate: -50% -50%;
@@ -106,14 +111,12 @@
 	}
 
 	.auth-brand { text-align: center; }
-
 	.brand-link {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--sf-space-2);
 		text-decoration: none;
 	}
-
 	.brand-mark {
 		display: inline-flex;
 		align-items: center;
@@ -126,7 +129,6 @@
 		font-size: var(--sf-font-size-sm);
 		font-weight: 800;
 	}
-
 	.brand-name {
 		font-family: var(--sf-font-sans);
 		font-size: var(--sf-font-size-md);
@@ -148,46 +150,7 @@
 		color: var(--sf-text-2);
 		margin: calc(-1 * var(--sf-space-3)) 0 0;
 		text-align: center;
-	}
-
-	.social-btns {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sf-space-2);
-	}
-
-	.social-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--sf-space-2);
-		inline-size: 100%;
-		padding: var(--sf-space-3) var(--sf-space-4);
-		background: var(--sf-bg-2);
-		border: 1px solid var(--sf-bg-3);
-		border-radius: var(--sf-radius-md);
-		font-family: var(--sf-font-sans);
-		font-size: var(--sf-font-size-sm);
-		font-weight: 500;
-		color: var(--sf-text-0);
-		cursor: pointer;
-		transition: all var(--sf-transition-fast);
-		&:hover { border-color: var(--sf-accent); background: var(--sf-bg-3); }
-	}
-
-	.auth-divider {
-		display: flex;
-		align-items: center;
-		gap: var(--sf-space-3);
-		color: var(--sf-text-3);
-		font-size: var(--sf-font-size-xs);
-
-		&::before, &::after {
-			content: '';
-			flex: 1;
-			block-size: 1px;
-			background: var(--sf-bg-3);
-		}
+		line-height: 1.6;
 	}
 
 	.auth-form {
@@ -196,27 +159,40 @@
 		gap: var(--sf-space-4);
 	}
 
-	.forgot-link {
-		font-size: var(--sf-font-size-xs);
-		color: var(--sf-text-3);
-		text-decoration: none;
-		text-align: end;
-		margin-block-start: calc(-1 * var(--sf-space-2));
-		&:hover { color: var(--sf-accent); }
-	}
-
 	.auth-footer {
-		font-family: var(--sf-font-sans);
-		font-size: var(--sf-font-size-sm);
-		color: var(--sf-text-2);
 		text-align: center;
 		margin: 0;
 	}
 
-	.auth-link {
-		color: var(--sf-accent);
-		text-decoration: none;
+	.auth-link, .back-link {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sf-space-1);
+		color: var(--sf-text-2);
+		font-size: var(--sf-font-size-sm);
 		font-weight: 500;
-		&:hover { text-decoration: underline; }
+		text-decoration: none;
+		transition: color var(--sf-transition-fast);
+		&:hover { color: var(--sf-accent); }
+	}
+
+	.success-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--sf-space-4);
+		text-align: center;
+	}
+
+	.success-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 64px;
+		block-size: 64px;
+		border-radius: var(--sf-radius-xl);
+		background: var(--sf-accent-subtle);
+		color: var(--sf-accent);
+		border: 1px solid oklch(0.65 0.25 275 / 0.2);
 	}
 </style>

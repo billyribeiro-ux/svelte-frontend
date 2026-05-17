@@ -7,7 +7,7 @@ import { hooksAndMiddlewareModule } from './05-hooks-and-middleware/_module';
 import { ssrAndRenderingModule } from './06-ssr-and-rendering/_module';
 import { environmentAndConfigModule } from './07-environment-and-config/_module';
 import { advancedSvelteKitModule } from './08-advanced-sveltekit/_module';
-import { testingModule } from './09-testing/_module';
+import { animationsAndMotionModule } from './09-animations-and-motion/_module';
 
 export const svelteKitTrack: Track = {
 	id: 'sveltekit',
@@ -25,6 +25,6 @@ export const svelteKitTrack: Track = {
 		ssrAndRenderingModule,
 		environmentAndConfigModule,
 		advancedSvelteKitModule,
-		testingModule
+		animationsAndMotionModule
 	]
 };
