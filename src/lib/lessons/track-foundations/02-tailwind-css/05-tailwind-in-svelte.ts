@@ -343,7 +343,7 @@ For components with multiple dimensions of variation (size + variant + state), c
       </button>
     </section>
 
-    <!-- TODO: Add class: directive for conditional highlight -->
+    <!-- TODO: Add conditional classes using a clsx-style class array -->
     <section>
       <h2 class="text-lg font-semibold text-slate-800 mb-3">Card Highlight</h2>
       <div class="p-4 rounded-lg border-2 border-gray-200 bg-white">

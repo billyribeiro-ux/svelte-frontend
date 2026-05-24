@@ -231,7 +231,7 @@ The key insight is that these are not runtime features — they are compiler fea
   <button onclick={() => status = 'error'}>Error</button>
 </div>
 
-<!-- TODO: Add class:dismissed directive -->
+<!-- TODO: Add conditional "dismissed" class using a clsx-style class array -->
 <div
   class="notification"
   style:--status-color={statusColors[status]}
