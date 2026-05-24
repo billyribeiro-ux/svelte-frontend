@@ -8,6 +8,7 @@
 	import { validateCheckpoint } from '$engine/analysis/checkpoint-validator';
 	import { debounce } from '$utils/debounce';
 	import { saveProgress, loadProgress, clearProgress } from '$utils/autosave';
+	import { decodePlaygroundState } from '$utils/share';
 	import PanelResizer from './PanelResizer.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import KeyboardShortcuts from './KeyboardShortcuts.svelte';
@@ -40,7 +41,13 @@
 
 	$effect(() => {
 		lessonState.setLesson(lesson);
-		const saved = loadProgress(lesson.id);
+
+		// Priority: URL shared code > localStorage auto-save > starter files
+		const urlCode = typeof window !== 'undefined'
+			? decodePlaygroundState(new URLSearchParams(window.location.search).get('code') ?? '')
+			: null;
+
+		const saved = urlCode ?? loadProgress(lesson.id);
 		if (saved) {
 			const restoredFiles = lesson.starterFiles.map((f) => ({
 				...f,

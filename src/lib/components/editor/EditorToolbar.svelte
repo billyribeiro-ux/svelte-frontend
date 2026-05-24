@@ -1,5 +1,8 @@
 <script lang="ts">
 	import Icon from '$components/ui/Icon.svelte';
+	import { showToast } from '$components/ui/Toast.svelte';
+	import { editor } from '$stores/editor.svelte';
+	import { generateShareUrl, copyToClipboard } from '$utils/share';
 
 	interface Props {
 		onrun: () => void;
@@ -9,6 +12,16 @@
 	}
 
 	let { onrun, onformat, onreset, isCompiling = false }: Props = $props();
+
+	async function handleShare() {
+		const url = generateShareUrl(editor.getCodeSnapshot());
+		const copied = await copyToClipboard(url);
+		if (copied) {
+			showToast('Link copied to clipboard!', { type: 'success' });
+		} else {
+			showToast('Failed to copy link', { type: 'error' });
+		}
+	}
 </script>
 
 <div class="toolbar" aria-busy={isCompiling}>
@@ -40,6 +53,16 @@
 	</div>
 
 	<div class="toolbar-group">
+		<button
+			class="toolbar-btn"
+			onclick={handleShare}
+			disabled={isCompiling}
+			title="Share code via link"
+			aria-label="Share code"
+		>
+			<Icon icon="ph:share-network-bold" size={16} />
+			<span>Share</span>
+		</button>
 		<button
 			class="toolbar-btn toolbar-btn--danger"
 			onclick={onreset}
