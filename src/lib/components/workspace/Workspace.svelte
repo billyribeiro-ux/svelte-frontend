@@ -11,6 +11,7 @@
 	import StatusBar from './StatusBar.svelte';
 	import KeyboardShortcuts from './KeyboardShortcuts.svelte';
 	import ShortcutsDialog from './ShortcutsDialog.svelte';
+	import SettingsPanel from './SettingsPanel.svelte';
 	import StatusAnnouncer from './StatusAnnouncer.svelte';
 	import LessonPanel from '$components/lesson/LessonPanel.svelte';
 	import Editor from '$components/editor/Editor.svelte';
@@ -32,6 +33,7 @@
 	let domMutations = $state<DOMMutation[]>([]);
 	let previewContainer = $state<HTMLDivElement | null>(null);
 	let shortcutsOpen = $state(false);
+	let settingsOpen = $state(false);
 	let announcer: StatusAnnouncer;
 
 	$effect(() => {
@@ -138,6 +140,7 @@
 
 <KeyboardShortcuts onrun={handleRun} onshortcutshelp={() => shortcutsOpen = true} />
 <ShortcutsDialog open={shortcutsOpen} onclose={() => shortcutsOpen = false} />
+<SettingsPanel open={settingsOpen} onclose={() => settingsOpen = false} />
 <StatusAnnouncer bind:this={announcer} />
 
 <div class="workspace">
@@ -289,7 +292,7 @@
 	</div>
 </div>
 
-<StatusBar />
+<StatusBar onsettings={() => settingsOpen = true} />
 
 <style>
 	.workspace {
