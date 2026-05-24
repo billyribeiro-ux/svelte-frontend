@@ -198,7 +198,7 @@ const [send, receive] = crossfade({ duration: 400 });
   <div class="controls">
     {#each Object.keys(transitions) as name}
       <button
-        class:active={selected === name}
+        class={[selected === name && "active"]}
         onclick={() => { selected = name; visible = true; }}
       >
         {name}
@@ -282,7 +282,7 @@ const [send, receive] = crossfade({ duration: 400 });
   <div class="controls">
     {#each Object.keys(transitions) as name}
       <button
-        class:active={selected === name}
+        class={[selected === name && "active"]}
         onclick={() => { selected = name; visible = true; }}
       >
         {name}
