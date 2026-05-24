@@ -7,12 +7,14 @@
 	import { compileSvelte } from '$engine/compiler/svelte-compiler';
 	import { validateCheckpoint } from '$engine/analysis/checkpoint-validator';
 	import { debounce } from '$utils/debounce';
+	import { saveProgress, loadProgress, clearProgress } from '$utils/autosave';
 	import PanelResizer from './PanelResizer.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import KeyboardShortcuts from './KeyboardShortcuts.svelte';
 	import ShortcutsDialog from './ShortcutsDialog.svelte';
 	import SettingsPanel from './SettingsPanel.svelte';
 	import StatusAnnouncer from './StatusAnnouncer.svelte';
+	import LessonComplete from './LessonComplete.svelte';
 	import LessonPanel from '$components/lesson/LessonPanel.svelte';
 	import Editor from '$components/editor/Editor.svelte';
 	import EditorTabs from '$components/editor/EditorTabs.svelte';
@@ -38,8 +40,24 @@
 
 	$effect(() => {
 		lessonState.setLesson(lesson);
-		editor.setFiles(lesson.starterFiles);
+		const saved = loadProgress(lesson.id);
+		if (saved) {
+			const restoredFiles = lesson.starterFiles.map((f) => ({
+				...f,
+				content: saved[f.path] ?? f.content
+			}));
+			editor.setFiles(restoredFiles);
+		} else {
+			editor.setFiles(lesson.starterFiles);
+		}
 	});
+
+	// Auto-save on file changes (debounced)
+	const autosaveDebounced = debounce(() => {
+		if (editor.isDirty) {
+			saveProgress(lesson.id, editor.getCodeSnapshot());
+		}
+	}, 1000);
 
 	// Auto-compile on file changes (debounced)
 	const compileDebounced = debounce(() => {
@@ -64,6 +82,7 @@
 	function handleCodeChange(content: string) {
 		editor.updateActiveFileContent(content);
 		compileDebounced();
+		autosaveDebounced();
 	}
 
 	function handleRun() {
@@ -83,6 +102,7 @@
 
 	function handleReset() {
 		editor.resetToStarter(lesson.starterFiles);
+		clearProgress(lesson.id);
 		consoleEntries = [];
 		domMutations = [];
 	}
@@ -213,6 +233,8 @@
 				</aside>
 			{/if}
 		</div>
+
+		<LessonComplete lessonTitle={lesson.title} onreplay={handleReset} />
 
 		<!-- Bottom Panel -->
 		{#if !workspace.layout.bottom.collapsed}
