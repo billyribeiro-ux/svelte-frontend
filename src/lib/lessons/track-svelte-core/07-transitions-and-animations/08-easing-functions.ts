@@ -248,7 +248,7 @@ transition:fly={{ y: 30, easing: springEase, duration: 600 }}
     <div class="list">
       {#each Object.keys(easings) as name}
         <button
-          class:active={name === selectedName}
+          class={[name === selectedName && "active"]}
           onclick={() => { selectedName = name; key++; }}
         >
           {name}
@@ -364,7 +364,7 @@ transition:fly={{ y: 30, easing: springEase, duration: 600 }}
     <div class="list">
       {#each Object.keys(easings) as name}
         <button
-          class:active={name === selectedName}
+          class={[name === selectedName && "active"]}
           onclick={() => { selectedName = name; key++; }}
         >
           {name}

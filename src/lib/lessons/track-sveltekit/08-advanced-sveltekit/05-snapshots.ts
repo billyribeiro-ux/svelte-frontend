@@ -371,7 +371,7 @@ You can also export snapshots from \`+layout.svelte\`. This is useful when UI st
   };
 </script>
 
-<div class="layout" class:sidebar-collapsed={!sidebarOpen}>
+<div class={["layout", !sidebarOpen && "sidebar-collapsed"]}>
   <aside>
     <input bind:value={searchQuery} placeholder="Search..." />
   </aside>
