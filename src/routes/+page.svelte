@@ -323,12 +323,14 @@
 		}
 	});
 
-	function observe(node: Element, onVisible: () => void) {
-		const io = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) { onVisible(); io.disconnect(); }
-		}, { threshold: 0.15 });
-		io.observe(node);
-		return { destroy: () => io.disconnect() };
+	function observe(onVisible: () => void) {
+		return (node: Element) => {
+			const io = new IntersectionObserver((entries) => {
+				if (entries[0]?.isIntersecting) { onVisible(); io.disconnect(); }
+			}, { threshold: 0.15 });
+			io.observe(node);
+			return () => io.disconnect();
+		};
 	}
 
 	onMount(() => {
@@ -373,9 +375,9 @@
 
 <div class="scroll-progress" aria-hidden="true"></div>
 
-<nav class="page-toc" class:toc-hidden={!tocVisible} aria-label="Page sections">
+<nav class={["page-toc", !tocVisible && "toc-hidden"]} aria-label="Page sections">
 	{#each tocSections as sec}
-		<a href="#{sec.id}" class="toc-dot" class:toc-dot--active={activeSection === sec.id} aria-label={sec.label}>
+		<a href="#{sec.id}" class={["toc-dot", activeSection === sec.id && "toc-dot--active"]} aria-label={sec.label}>
 			<span class="toc-indicator"></span>
 			<span class="toc-label">{sec.label}</span>
 		</a>
@@ -446,7 +448,7 @@
 							{#each typedLines as _, i}<span>{i + 1}</span>
 {/each}
 						</div>
-						<pre class="demo-code" aria-label="Live Svelte 5 code preview">{#each typedLines as line, i}<span class="demo-line" class:demo-line--cursor={i === cursorLine && typedLines.length < 8}>{#if line.includes('$state')}<span class="c-rune">{line}</span>{:else if line.includes('$derived')}<span class="c-rune">{line}</span>{:else if line.startsWith('<script') || line.startsWith('</script') || line.startsWith('<button') || line.startsWith('</button')}<span class="c-tag">{line}</span>{:else if line.includes('{count}') || line.includes('{doubled}')}{@html line.replace(/\{(count|doubled)\}/g, '<span class="c-expr">{$1}</span>')}{:else}{line}{/if}
+						<pre class="demo-code" aria-label="Live Svelte 5 code preview">{#each typedLines as line, i}<span class={["demo-line", i === cursorLine && typedLines.length < 8 && "demo-line--cursor"]}>{#if line.includes('$state')}<span class="c-rune">{line}</span>{:else if line.includes('$derived')}<span class="c-rune">{line}</span>{:else if line.startsWith('<script') || line.startsWith('</script') || line.startsWith('<button') || line.startsWith('</button')}<span class="c-tag">{line}</span>{:else if line.includes('{count}') || line.includes('{doubled}')}{@html line.replace(/\{(count|doubled)\}/g, '<span class="c-expr">{$1}</span>')}{:else}{line}{/if}
 </span>{/each}</pre>
 					</div>
 					<div class="demo-preview">
@@ -474,7 +476,7 @@
 	</div>
 
 	<!-- ░░ STATS BAR ░░ -->
-	<div class="stats-bar" use:observe={() => { statsVisible = true; }}>
+	<div class="stats-bar" {@attach observe(() => { statsVisible = true; })}>
 		{#each statsData as stat, i}
 			<div class="stat-item">
 				<span class="stat-number">{Math.round(statTweens[i]?.current ?? 0).toLocaleString()}+</span>
@@ -487,7 +489,7 @@
 	</div>
 
 	<!-- ░░ HOW IT WORKS ░░ -->
-	<section id="how" class="how" use:observe={() => { stepsVisible = true; }}>
+	<section id="how" class="how" {@attach observe(() => { stepsVisible = true; })}>
 		<div class="section-inner">
 			{#if stepsVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -515,7 +517,7 @@
 	</section>
 
 	<!-- ░░ FEATURES ░░ -->
-	<section id="features" class="features" use:observe={() => { featuresVisible = true; }}>
+	<section id="features" class="features" {@attach observe(() => { featuresVisible = true; })}>
 		<div class="section-inner">
 			{#if featuresVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -542,7 +544,7 @@
 	</section>
 
 	<!-- ░░ CURRICULUM ░░ -->
-	<section id="curriculum" class="curriculum" use:observe={() => { curriculumVisible = true; }}>
+	<section id="curriculum" class="curriculum" {@attach observe(() => { curriculumVisible = true; })}>
 		<div class="section-inner">
 			{#if curriculumVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -579,7 +581,7 @@
 	</section>
 
 	<!-- ░░ SVG ANIMATIONS ░░ -->
-	<section id="svg-demo" class="svg-section" use:observe={() => { svgVisible = true; }}>
+	<section id="svg-demo" class="svg-section" {@attach observe(() => { svgVisible = true; })}>
 		<div class="section-inner">
 			{#if svgVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -718,7 +720,7 @@
 	</section>
 
 	<!-- ░░ LEARNING PATH TIMELINE TOC ░░ -->
-	<section id="path" class="path-section" use:observe={() => { pathVisible = true; }}>
+	<section id="path" class="path-section" {@attach observe(() => { pathVisible = true; })}>
 		<div class="section-inner">
 			{#if pathVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -773,7 +775,7 @@
 	</section>
 
 	<!-- ░░ DOCUMENT INDEX TOC ░░ -->
-	<section id="index" class="doc-toc-section" use:observe={() => { indexedVisible = true; }}>
+	<section id="index" class="doc-toc-section" {@attach observe(() => { indexedVisible = true; })}>
 		<div class="section-inner doc-toc-inner">
 			{#if indexedVisible}
 				<div class="doc-toc-wrap" in:fly={{ y: inY, duration: inDuration, easing: expoOut, opacity: 0 }}>
@@ -820,7 +822,7 @@
 	</section>
 
 	<!-- ░░ FULL SYLLABUS TOC ░░ -->
-	<section id="syllabus" class="syllabus" use:observe={() => { syllabusVisible = true; }}>
+	<section id="syllabus" class="syllabus" {@attach observe(() => { syllabusVisible = true; })}>
 		<div class="section-inner">
 			{#if syllabusVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -837,8 +839,7 @@
 							in:fly={{ y: inY, duration: inDuration, delay: i * 100, easing: expoOut, opacity: 0 }}
 						>
 							<button
-								class="syllabus-header"
-								class:syllabus-header--open={openTracks[track.slug]}
+								class={["syllabus-header", openTracks[track.slug] && "syllabus-header--open"]}
 								onclick={() => { openTracks[track.slug] = !openTracks[track.slug]; }}
 							>
 								<span class="syllabus-icon"><Icon icon={track.icon} size={20} /></span>
@@ -848,7 +849,7 @@
 								</span>
 								<Icon icon={openTracks[track.slug] ? 'ph:caret-up' : 'ph:caret-down'} size={16} />
 							</button>
-							<div class="syllabus-modules" class:syllabus-modules--open={openTracks[track.slug]}>
+							<div class={["syllabus-modules", openTracks[track.slug] && "syllabus-modules--open"]}>
 								{#each track.modules as mod, mi}
 									<div class="syllabus-module">
 										<span class="syllabus-mod-num">{String(mi + 1).padStart(2, '0')}</span>
@@ -865,7 +866,7 @@
 	</section>
 
 	<!-- ░░ TESTIMONIALS ░░ -->
-	<section id="testimonials" class="testimonials" use:observe={() => { testimonialsVisible = true; }}>
+	<section id="testimonials" class="testimonials" {@attach observe(() => { testimonialsVisible = true; })}>
 		<div class="section-inner">
 			{#if testimonialsVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -891,7 +892,7 @@
 	</section>
 
 	<!-- ░░ FAQ ░░ -->
-	<section id="faq" class="faq" use:observe={() => { faqVisible = true; }}>
+	<section id="faq" class="faq" {@attach observe(() => { faqVisible = true; })}>
 		<div class="section-inner faq-inner">
 			{#if faqVisible}
 				<h2 class="section-heading" in:blur={{ amount: blurAmount, duration: inDuration, easing: expoOut }}>
@@ -900,15 +901,14 @@
 				<div class="faq-list">
 					{#each faqs as faq, i}
 						<div
-							class="faq-item"
-							class:faq-open={openFaq === i}
+							class={["faq-item", openFaq === i && "faq-open"]}
 							in:fly={{ y: inY, duration: inDuration, delay: i * 70, easing: expoOut, opacity: 0 }}
 						>
 							<button class="faq-question" onclick={() => { openFaq = openFaq === i ? null : i; }}>
 								<span>{faq.q}</span>
 								<Icon icon={openFaq === i ? 'ph:minus' : 'ph:plus'} size={18} />
 							</button>
-							<div class="faq-answer" class:faq-answer--open={openFaq === i}>
+							<div class={["faq-answer", openFaq === i && "faq-answer--open"]}>
 								<p>{faq.a}</p>
 							</div>
 						</div>
@@ -919,7 +919,7 @@
 	</section>
 
 	<!-- ░░ CLOSING CTA ░░ -->
-	<section id="cta" class="cta-section" use:observe={() => { ctaVisible = true; }}>
+	<section id="cta" class="cta-section" {@attach observe(() => { ctaVisible = true; })}>
 		<div class="cta-orb" aria-hidden="true"></div>
 		{#if ctaVisible}
 			<div class="cta-inner" in:fly={{ y: inY, duration: inDuration, easing: expoOut, opacity: 0 }}>

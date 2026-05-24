@@ -288,16 +288,14 @@
 
 	<div class="graph-filters">
 		<button
-			class="filter-chip"
-			class:active={graphState.filterCategory === null}
+			class={["filter-chip", graphState.filterCategory === null && "active"]}
 			onclick={() => graphState.setFilter(null)}
 		>
 			All
 		</button>
 		{#each CATEGORY_LABELS as cat}
 			<button
-				class="filter-chip"
-				class:active={graphState.filterCategory === cat}
+				class={["filter-chip", graphState.filterCategory === cat && "active"]}
 				style:--chip-color={CATEGORY_COLORS[cat]}
 				onclick={() => graphState.setFilter(graphState.filterCategory === cat ? null : cat)}
 			>
@@ -310,8 +308,7 @@
 <!-- svelte-ignore a11y_no_interactive_element_to_noninteractive_role -->
 <canvas
 	bind:this={canvas}
-	class="graph-canvas"
-	class:grabbing={dragging}
+	class={["graph-canvas", dragging && "grabbing"]}
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}

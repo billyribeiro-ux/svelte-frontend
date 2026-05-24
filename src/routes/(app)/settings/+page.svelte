@@ -135,8 +135,7 @@
 			<div class="goal-selector">
 				{#each [1, 2, 3, 5, 10] as n}
 					<button
-						class="goal-btn"
-						class:goal-btn--active={dailyGoal === n}
+						class={["goal-btn", dailyGoal === n && "goal-btn--active"]}
 						onclick={() => { dailyGoal = n; }}
 					>{n}</button>
 				{/each}

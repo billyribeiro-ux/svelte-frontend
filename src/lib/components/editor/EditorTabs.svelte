@@ -39,8 +39,7 @@
 <div class="tab-bar" role="tablist">
 	{#each files as file, index}
 		<div
-			class="tab"
-			class:active={index === activeIndex}
+			class={["tab", index === activeIndex && "active"]}
 			role="tab"
 			aria-selected={index === activeIndex}
 			tabindex={index === activeIndex ? 0 : -1}
