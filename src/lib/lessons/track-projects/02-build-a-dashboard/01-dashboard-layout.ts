@@ -76,10 +76,10 @@ The sidebar needs to render a list of navigation items, each with an icon and a 
   let { items, collapsed }: { items: NavItem[]; collapsed: boolean } = $props();
 </script>
 
-<aside class="sidebar" class:collapsed>
+<aside class={["sidebar", collapsed && "collapsed"]}>
   <nav>
     {#each items as item}
-      <a href={item.href} class:active={item.active}>
+      <a href={item.href} class={["", item.active && "active"]}>
         <span class="icon">{item.icon}</span>
         {#if !collapsed}
           <span class="label">{item.label}</span>
@@ -420,7 +420,7 @@ This layout lesson is the foundation for the entire dashboard module. Every subs
   let { items, collapsed }: { items: NavItem[]; collapsed: boolean } = $props();
 </script>
 
-<aside class="sidebar" class:collapsed>
+<aside class={["sidebar", collapsed && "collapsed"]}>
   <div class="logo">
     {#if collapsed}
       <span>D</span>
@@ -430,7 +430,7 @@ This layout lesson is the foundation for the entire dashboard module. Every subs
   </div>
   <nav>
     {#each items as item}
-      <a href={item.href} class:active={item.active}>
+      <a href={item.href} class={["", item.active && "active"]}>
         <span class="icon">{item.icon}</span>
         {#if !collapsed}
           <span class="label">{item.label}</span>

@@ -10,7 +10,7 @@ export const dragAndDrop: Lesson = {
 	moduleId: 'build-a-task-manager',
 	order: 3,
 	estimatedMinutes: 35,
-	concepts: ['svelte5.actions.use', 'svelte5.runes.state', 'svelte5.events.drag'],
+	concepts: ['svelte5.attachments.basic', 'svelte5.runes.state', 'svelte5.events.drag'],
 	prerequisites: ['projects.build-a-task-manager.task-filtering'],
 
 	content: [
