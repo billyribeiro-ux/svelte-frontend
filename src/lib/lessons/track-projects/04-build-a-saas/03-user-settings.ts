@@ -763,7 +763,7 @@ export const settingsStore = createSettingsStore();
 				config: {
 					patterns: [
 						{ type: 'contains', value: 'activeTab' },
-						{ type: 'contains', value: 'class:active' },
+						{ type: 'contains', value: '&& "active"' },
 						{ type: 'contains', value: '#if activeTab' }
 					]
 				}

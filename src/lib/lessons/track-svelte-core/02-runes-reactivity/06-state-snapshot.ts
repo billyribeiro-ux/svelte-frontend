@@ -233,7 +233,7 @@ $effect(() => {
 
   <ul class="todos">
     {#each todos as todo (todo.id)}
-      <li class="todo" class:done={todo.done} onclick={() => toggleTodo(todo.id)}>
+      <li class={["todo", todo.done && "done"]} onclick={() => toggleTodo(todo.id)}>
         {todo.text}
       </li>
     {/each}
@@ -312,7 +312,7 @@ $effect(() => {
   </div>
   <ul class="todos">
     {#each todos as todo (todo.id)}
-      <li class="todo" class:done={todo.done} onclick={() => toggleTodo(todo.id)}>
+      <li class={["todo", todo.done && "done"]} onclick={() => toggleTodo(todo.id)}>
         {todo.text}
       </li>
     {/each}

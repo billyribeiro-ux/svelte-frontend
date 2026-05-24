@@ -226,7 +226,7 @@ This lesson completes the blog module. You now have a fully functional blog with
 
   <div class="post-selector">
     {#each blogStore.posts as post}
-      <button onclick={() => selectedPost = post} class:active={selectedPost?.id === post.id}>
+      <button onclick={() => selectedPost = post} class={[selectedPost?.id === post.id && "active"]}>
         {post.title}
       </button>
     {/each}
@@ -592,7 +592,7 @@ export const blogStore = createBlogStore();
 
   <div class="post-selector">
     {#each blogStore.posts as post}
-      <button onclick={() => selectedPost = post} class:active={selectedPost?.id === post.id}>
+      <button onclick={() => selectedPost = post} class={[selectedPost?.id === post.id && "active"]}>
         {post.title}
       </button>
     {/each}

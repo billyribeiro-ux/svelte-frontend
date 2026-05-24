@@ -489,7 +489,7 @@ Use context over global module state whenever SSR is involved.`
   const inCart = $derived(cart.items.some(i => i.id === product.id));
 </script>
 
-<div class="card" class:in-cart={inCart}>
+<div class={["card", inCart && "in-cart"]}>
   <h3>{product.name}</h3>
   <p class="price">$\${product.price}</p>
   {#if inCart}

@@ -532,7 +532,7 @@ export const taskStore = createTaskStore();
   }
 </script>
 
-<div class="card" class:done={task.status === 'done'}>
+<div class={["card", task.status === 'done' && "done"]}>
   {#if editing}
     <input class="edit-input" bind:value={editTitle} />
     <textarea class="edit-input" bind:value={editDescription} rows="2"></textarea>

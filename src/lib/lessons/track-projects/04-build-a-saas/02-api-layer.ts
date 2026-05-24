@@ -415,7 +415,7 @@ export async function simulateApi<T>(data: T, delay = 600): Promise<T> {
       <div class="card">
         <div class="card-header">
           <h3>{project.name}</h3>
-          <span class="badge" class:archived={project.status === 'archived'}>{project.status}</span>
+          <span class={["badge", project.status === 'archived' && "archived"]}>{project.status}</span>
         </div>
         <p class="desc">{project.description}</p>
         <div class="card-footer">
