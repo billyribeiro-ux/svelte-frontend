@@ -10,7 +10,7 @@
 	let { entries, onclear }: Props = $props();
 </script>
 
-<div class="console">
+<div class="console" role="log" aria-label="Console output" aria-live="polite" aria-atomic="false">
 	{#if onclear && entries.length > 0}
 		<div class="console-toolbar">
 			<button class="clear-btn" onclick={onclear}>Clear</button>

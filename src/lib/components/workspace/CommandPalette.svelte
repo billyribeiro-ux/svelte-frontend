@@ -125,8 +125,7 @@
 						{#each filtered.filter((c) => c.category === category) as cmd, i}
 							{@const globalIndex = filtered.indexOf(cmd)}
 							<button
-								class="palette-item"
-								class:selected={globalIndex === selectedIndex}
+								class={["palette-item", globalIndex === selectedIndex && "selected"]}
 								onclick={() => executeCommand(cmd)}
 								onmouseenter={() => selectedIndex = globalIndex}
 							>

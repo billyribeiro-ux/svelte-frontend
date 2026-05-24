@@ -219,7 +219,7 @@ Here is a practical example — a reusable text input with label, error state, a
 
 <label>
   <span>{label}</span>
-  <input {type} bind:value class:error={!!error} />
+  <input {type} bind:value class={[!!error && "error"]} />
   {#if error}
     <span class="error-text">{error}</span>
   {/if}

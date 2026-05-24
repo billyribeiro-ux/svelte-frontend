@@ -4,7 +4,7 @@ export const tailwindInSvelte: Lesson = {
 	id: 'foundations.tailwind-css.tailwind-in-svelte',
 	slug: 'tailwind-in-svelte',
 	title: 'Tailwind CSS in Svelte 5',
-	description: 'Integrate Tailwind with Svelte 5 — dynamic classes with $state and $derived, the class: directive, and conditional styling patterns.',
+	description: 'Integrate Tailwind with Svelte 5 — dynamic classes with $state and $derived, clsx-style class arrays, and conditional styling patterns.',
 	trackId: 'foundations',
 	moduleId: 'tailwind-css',
 	order: 5,
@@ -167,65 +167,60 @@ Both work, but template expressions in the class attribute are more readable:
 		},
 		{
 			type: 'text',
-			content: `## The class: Directive
+			content: `## Conditional Classes with clsx-Style Arrays
 
-Svelte's \`class:\` directive conditionally adds a single class based on a boolean:
+Svelte 5 supports clsx-style arrays and objects in the \`class\` attribute for conditionally adding classes:
 
 \`\`\`svelte
-<div class="p-4 rounded-lg" class:bg-blue-500={active} class:shadow-lg={active}>
+<div class={["p-4 rounded-lg", active && "bg-blue-500 shadow-lg"]}>
   Conditional styling
 </div>
 \`\`\`
 
-When \`active\` is true, \`bg-blue-500\` and \`shadow-lg\` are added. When false, they are removed.
+When \`active\` is true, \`bg-blue-500\` and \`shadow-lg\` are added. When false, the falsy value is ignored and only the base classes remain.
 
 This is cleaner than ternaries when you only need to **add** (not swap) classes.
 
-### class: Directive Patterns
+### clsx-Style Array Patterns
 
 \`\`\`svelte
 <!-- Add a single class conditionally -->
-<div class:hidden={!visible}>Content</div>
+<div class={[!visible && "hidden"]}>Content</div>
 
-<!-- Multiple class: directives -->
+<!-- Multiple conditional classes -->
 <button
-  class="px-4 py-2 rounded"
-  class:bg-blue-500={active}
-  class:text-white={active}
-  class:bg-gray-200={!active}
-  class:text-gray-700={!active}
+  class={[
+    "px-4 py-2 rounded",
+    active && "bg-blue-500 text-white",
+    !active && "bg-gray-200 text-gray-700"
+  ]}
 >
   Toggle
 </button>
-
-<!-- Shorthand: when the variable name matches the class -->
-<div class:active>  <!-- Same as class:active={active} -->
 \`\`\`
 
-### class: Directive vs Ternary — When to Use Which
+> **Note:** The \`class:\` directive still works but clsx-style arrays are preferred in Svelte 5. They are more composable and handle multiple conditional classes in a single attribute.
 
-**Use \`class:\`** when:
-- You are adding/removing a single class
-- You have multiple independent conditions: \`class:bold={important} class:italic={emphasis}\`
-- The class name happens to match a variable name (shorthand)
+### clsx Arrays vs Ternary — When to Use Which
+
+**Use clsx arrays** when:
+- You are adding/removing a single class: \`class={["card", active && "active"]}\`
+- You have multiple independent conditions: \`class={["text", important && "bold", emphasis && "italic"]}\`
 
 **Use ternary** when:
-- You are swapping between two class sets: \`{dark ? 'bg-black text-white' : 'bg-white text-black'}\`
+- You are swapping between two class sets: \`class={[dark ? 'bg-black text-white' : 'bg-white text-black']}\`
 - Both states have different classes (not just presence/absence of one class)
 
-### Tailwind Class Gotcha with class: Directive
+### Tailwind Class Gotcha with Responsive Prefixes
 
-Be careful with Tailwind classes that have special characters. Classes with colons (responsive prefixes) and slashes (arbitrary values) need special handling:
+Be careful with Tailwind classes that have special characters. Classes with colons (responsive prefixes) and slashes (arbitrary values) work naturally with clsx-style arrays since the class name is a plain string:
 
 \`\`\`svelte
-<!-- This will NOT work — the colon confuses the parser -->
-<div class:md:hidden={mobile}>
-
-<!-- Use the class attribute with a ternary instead -->
-<div class="{mobile ? 'md:hidden' : ''}">
+<!-- clsx arrays handle responsive prefixes naturally -->
+<div class={[mobile && "md:hidden"]}>
 \`\`\`
 
-**Task:** Add a \`class:\` directive to the card element to conditionally apply a highlight style.`
+**Task:** Add conditional classes to the card element using clsx-style arrays to apply a highlight style.`
 		},
 		{
 			type: 'checkpoint',
@@ -348,7 +343,7 @@ For components with multiple dimensions of variation (size + variant + state), c
       </button>
     </section>
 
-    <!-- TODO: Add class: directive for conditional highlight -->
+    <!-- TODO: Add conditional classes using a clsx-style class array -->
     <section>
       <h2 class="text-lg font-semibold text-slate-800 mb-3">Card Highlight</h2>
       <div class="p-4 rounded-lg border-2 border-gray-200 bg-white">
@@ -413,10 +408,10 @@ For components with multiple dimensions of variation (size + variant + state), c
     <section>
       <h2 class="text-lg font-semibold text-slate-800 mb-3">Card Highlight</h2>
       <div
-        class="p-4 rounded-lg border-2 bg-white transition-colors"
-        class:border-blue-500={active}
-        class:border-gray-200={!active}
-        class:bg-blue-50={active}
+        class={[
+          "p-4 rounded-lg border-2 bg-white transition-colors",
+          active ? "border-blue-500 bg-blue-50" : "border-gray-200"
+        ]}
       >
         <p class="text-slate-600">Click toggle above to highlight this card.</p>
       </div>
@@ -460,19 +455,19 @@ For components with multiple dimensions of variation (size + variant + state), c
 		},
 		{
 			id: 'cp-2',
-			description: 'Use the class: directive for conditional styling',
+			description: 'Use clsx-style class arrays for conditional styling',
 			validation: {
 				type: 'code-pattern',
 				config: {
 					patterns: [
-						{ type: 'contains', value: 'class:' }
+						{ type: 'regex', value: 'class=\\{\\[' }
 					]
 				}
 			},
 			hints: [
-				'Svelte\'s `class:` directive adds a class when a condition is true: `class:some-class={condition}`.',
-				'Add `class:border-blue-500={active}` to the card div to highlight it when active.',
-				'Update the card div: `<div class="p-4 rounded-lg border-2 bg-white" class:border-blue-500={active} class:bg-blue-50={active}>`'
+				'Svelte 5 supports clsx-style arrays in the class attribute: `class={["base-classes", condition && "conditional-class"]}`.',
+				'Add conditional classes using an array: `class={["p-4 rounded-lg border-2 bg-white transition-colors", active && "border-blue-500 bg-blue-50"]}`.',
+				'Update the card div: `<div class={["p-4 rounded-lg border-2 bg-white transition-colors", active ? "border-blue-500 bg-blue-50" : "border-gray-200"]}>`'
 			],
 			conceptsTested: ['tailwind.class-directive', 'tailwind.svelte-integration']
 		},

@@ -41,7 +41,7 @@
 	});
 </script>
 
-<div class="app-shell" class:sidebar-collapsed={sidebarCollapsed}>
+<div class={["app-shell", sidebarCollapsed && "sidebar-collapsed"]}>
 	<a href="#main-content" class="skip-link">Skip to content</a>
 	<aside class="sidebar">
 		<div class="sidebar-header">
@@ -65,8 +65,7 @@
 			{#each navItems as item}
 				<a
 					href={item.href}
-					class="nav-item"
-					class:nav-item--active={isActive(item.href)}
+					class={["nav-item", isActive(item.href) && "nav-item--active"]}
 					aria-current={isActive(item.href) ? 'page' : undefined}
 				>
 					<Icon icon={item.icon} size={20} />

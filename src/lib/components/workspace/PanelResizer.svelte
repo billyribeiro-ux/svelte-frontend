@@ -29,8 +29,7 @@
 </script>
 
 <div
-	class="resizer {direction}"
-	class:dragging={isDragging}
+	class={["resizer", direction, isDragging && "dragging"]}
 	role="separator"
 	aria-orientation={direction === 'horizontal' ? 'vertical' : 'horizontal'}
 	tabindex="-1"

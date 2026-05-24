@@ -318,7 +318,7 @@ Every consumer just imports \`cart\` and uses \`cart.add(product)\`, \`cart.tota
     <ul>
       {#each todoStore.todos as todo}
         <li>
-          <label class:done={todo.done}>
+          <label class={["", todo.done && "done"]}>
             <input type="checkbox" checked={todo.done} onchange={() => todoStore.toggle(todo.id)} />
             {todo.text}
           </label>

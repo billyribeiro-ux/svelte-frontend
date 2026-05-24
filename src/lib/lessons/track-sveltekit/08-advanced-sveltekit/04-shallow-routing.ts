@@ -419,8 +419,7 @@ The challenge is that \`page.state\` changes instantly on popstate, so the \`{#i
 
 {#if modalPhoto}
   <div
-    class="modal-overlay"
-    class:visible={modalVisible}
+    class={["modal-overlay", modalVisible && "visible"]}
     onclick={() => history.back()}
   >
     <div class="modal-content" onclick={(e) => e.stopPropagation()}>

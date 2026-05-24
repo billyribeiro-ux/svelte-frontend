@@ -148,7 +148,7 @@ Changes to any component automatically update \`url.href\` and vice versa. \`Sve
   <DesktopNav />
 {/if}
 
-<div class:dark={prefersDark.current}>
+<div class={[prefersDark.current && "dark"]}>
   <p>Reduced motion: {prefersReducedMotion.current ? 'yes' : 'no'}</p>
 </div>
 \`\`\`

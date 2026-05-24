@@ -325,7 +325,7 @@ Here is the approach:
   bind:this={imgEl}
   src={isInView ? src : placeholder}
   {alt}
-  class:loaded={isLoaded}
+  class={["", isLoaded && "loaded"]}
 />
 
 <style>
@@ -516,47 +516,48 @@ A common pattern is implementing keyboard shortcuts that only activate when a ce
 
 The keydown listener is only active when the modal is open. When \`isModalOpen\` becomes false, the effect re-runs and the previous cleanup removes the listener. This prevents keyboard shortcuts from firing when they should not be active.
 
-### Integration with {@attach} Actions
+### Integration with {@attach} Attachments
 
-Svelte 5 introduces the \`{@attach}\` directive (replacing Svelte 4's \`use:\`) for reusable element behaviors. Actions and \`on()\` serve complementary roles:
+Svelte 5 introduces the \`{@attach}\` directive (replacing Svelte 4's \`use:\` actions) for reusable element behaviors. Attachments and \`on()\` serve complementary roles:
 
 \`\`\`svelte
 <script lang="ts">
   import { on } from 'svelte/events';
-  import type { Action } from 'svelte/action';
 
-  // An action that uses on() internally
-  const longpress: Action<HTMLElement, number> = (node, duration = 500) => {
-    let timer: ReturnType<typeof setTimeout>;
+  // An attachment that uses on() internally
+  function longpress(duration = 500) {
+    return (node: HTMLElement) => {
+      let timer: ReturnType<typeof setTimeout>;
 
-    const offPointerDown = on(node, 'pointerdown', () => {
-      timer = setTimeout(() => {
-        node.dispatchEvent(new CustomEvent('longpress'));
-      }, duration);
-    });
+      const offPointerDown = on(node, 'pointerdown', () => {
+        timer = setTimeout(() => {
+          node.dispatchEvent(new CustomEvent('longpress'));
+        }, duration);
+      });
 
-    const offPointerUp = on(node, 'pointerup', () => {
-      clearTimeout(timer);
-    });
+      const offPointerUp = on(node, 'pointerup', () => {
+        clearTimeout(timer);
+      });
 
-    return {
-      destroy() {
+      return () => {
         offPointerDown();
         offPointerUp();
         clearTimeout(timer);
-      }
+      };
     };
-  };
+  }
 </script>
 
-<button use:longpress={800} onlongpress={() => alert('Long pressed!')}>
+<button {@attach longpress(800)} onlongpress={() => alert('Long pressed!')}>
   Hold me
 </button>
 \`\`\`
 
-Inside an action, \`on()\` is the natural choice for attaching listeners because you have a reference to the DOM node but no template syntax available. The action's \`destroy\` callback calls the cleanup functions returned by \`on()\`.
+Inside an attachment, \`on()\` is the natural choice for attaching listeners because you have a reference to the DOM node but no template syntax available. The attachment's cleanup function calls the cleanup functions returned by \`on()\`.
 
-This pattern -- using \`on()\` inside actions and \`$effect\` blocks while using template handlers for everything else -- gives you the best of both worlds: declarative template handlers for simple cases and programmatic \`on()\` for complex integration scenarios.`
+> **Note:** The legacy \`use:\` directive still works for backward compatibility, but \`{@attach}\` is the recommended modern pattern. If you encounter a library that only provides \`use:\` actions, you can convert them with \`fromAction\` from \`svelte/attachments\`.
+
+This pattern -- using \`on()\` inside attachments and \`$effect\` blocks while using template handlers for everything else -- gives you the best of both worlds: declarative template handlers for simple cases and programmatic \`on()\` for complex integration scenarios.`
 		},
 		{
 			type: 'concept-callout',
@@ -603,7 +604,7 @@ This pattern -- using \`on()\` inside actions and \`$effect\` blocks while using
     <img
       src={isInView ? imgSrc : placeholderSrc}
       alt="Random landscape"
-      class:loaded={imageLoaded}
+      class={["", imageLoaded && "loaded"]}
     />
     <p>
       {#if !isInView}
@@ -728,7 +729,7 @@ This pattern -- using \`on()\` inside actions and \`$effect\` blocks while using
       bind:this={imgEl}
       src={isInView ? imgSrc : placeholderSrc}
       alt="Random landscape"
-      class:loaded={imageLoaded}
+      class={["", imageLoaded && "loaded"]}
     />
     <p>
       {#if !isInView}

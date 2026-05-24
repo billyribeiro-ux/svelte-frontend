@@ -272,21 +272,21 @@ In practice, these edge cases rarely cause problems. If they do, you can use the
 		},
 		{
 			type: 'text',
-			content: `## Comprehensive Comparison: style: vs class: vs Inline Style Strings
+			content: `## Comprehensive Comparison: style: vs Class Arrays vs Inline Style Strings
 
-Svelte provides three mechanisms for applying styles to elements: the \`style:\` directive, the \`class:\` directive, and inline style strings. Each has distinct characteristics, performance profiles, and ideal use cases. Understanding the tradeoffs prevents common mistakes and helps you write maintainable component styles.
+Svelte provides several mechanisms for applying styles to elements: the \`style:\` directive, clsx-style class arrays, and inline style strings. Each has distinct characteristics, performance profiles, and ideal use cases. Understanding the tradeoffs prevents common mistakes and helps you write maintainable component styles.
 
 ### Full Comparison Table
 
-| Feature | \`style:\` directive | \`class:\` directive | Inline style string |
+| Feature | \`style:\` directive | clsx class array | Inline style string |
 |---|---|---|---|
-| **Syntax** | \`style:color={val}\` | \`class:active={bool}\` | \`style="color: {val}"\` |
+| **Syntax** | \`style:color={val}\` | \`class={["base", cond && "cls"]}\` | \`style="color: {val}"\` |
 | **Granularity** | Per-property updates | Per-class toggle | Entire string rebuilt |
 | **Values** | Dynamic (any string/number) | Boolean (on/off) | Dynamic (any string) |
 | **TypeScript support** | Property names validated | Class names as strings | No validation |
-| **Null/undefined** | Removes property | Removes class | Leaves empty value |
-| **Composition** | Additive (each independent) | Additive (each independent) | Overwrites entire attribute |
-| **Performance** | Single setProperty call | Single classList toggle | Full attribute replacement |
+| **Null/undefined** | Removes property | Falsy values filtered out | Leaves empty value |
+| **Composition** | Additive (each independent) | Additive (all in one array) | Overwrites entire attribute |
+| **Performance** | Single setProperty call | Efficient class list update | Full attribute replacement |
 | **CSS cascade** | Inline specificity (highest) | Class specificity (normal) | Inline specificity (highest) |
 | **Custom properties** | Supported (\`style:--foo\`) | N/A | Supported (in string) |
 | **!important** | Supported (\`\|important\`) | N/A | Supported (in string) |
@@ -301,21 +301,25 @@ The performance difference between \`style:\` directives and inline style string
 
 In practice, for most components with a handful of dynamic styles that change infrequently (on user interaction, not per frame), the difference is negligible. But for animation-heavy components, \`style:\` directives provide a measurable advantage.
 
-### class: Directive Recap
+> **Note:** The \`class:\` directive still works but clsx-style class arrays are preferred in Svelte 5 for their composability and readability.
+
+### Conditional Classes Recap
 
 \`\`\`svelte
-<div class:active={isActive} class:highlighted={isHighlighted}>
+<div class={["card", isActive && "active", isHighlighted && "highlighted"]}>
 \`\`\`
 
-This adds or removes the class name based on the boolean expression. The actual CSS rules live in the \`<style>\` block.
+The clsx-style array adds or removes class names based on the boolean expressions. Falsy values are filtered out. The actual CSS rules live in the \`<style>\` block.
+
+> **Note:** The \`class:\` directive (e.g., \`class:active={isActive}\`) still works but clsx-style arrays are preferred in Svelte 5.
 
 ### Decision Framework
 
 | Situation | Use | Why |
 |---|---|---|
-| Predefined visual states (active, disabled, error) | \`class:\` | States are known at build time; CSS handles the rules |
+| Predefined visual states (active, disabled, error) | clsx class array | States are known at build time; CSS handles the rules |
 | User-controlled colors or sizes | \`style:\` | Values are dynamic and not from a fixed set |
-| Theming with a known set of themes | \`class:\` | Each theme is a CSS class with defined rules |
+| Theming with a known set of themes | clsx class array | Each theme is a CSS class with defined rules |
 | Theming with arbitrary user values | \`style:\` with custom properties | Values cannot be predefined in CSS |
 | Animation keyframe values | \`style:\` | Interpolated values change continuously |
 | Responsive breakpoint-based changes | Neither -- use CSS media queries | CSS handles responsive layout natively |
@@ -323,17 +327,17 @@ This adds or removes the class name based on the boolean expression. The actual 
 
 ### The Key Principle
 
-**Use \`class:\` when the styling is categorical** (the element is in one of a known set of visual states). **Use \`style:\` when the styling is continuous** (the value comes from a range like a color picker, slider, or calculation).
+**Use class arrays when the styling is categorical** (the element is in one of a known set of visual states). **Use \`style:\` when the styling is continuous** (the value comes from a range like a color picker, slider, or calculation).
 
 \`\`\`svelte
 <!-- Categorical: the button is either primary or not -->
-<button class:primary={variant === 'primary'}>
+<button class={["btn", variant === 'primary' && "primary"]}>
 
 <!-- Continuous: the progress width could be any value -->
 <div class="bar" style:width="{progress}%">
 
 <!-- Categorical: the message is one of a known set of types -->
-<p class:error={type === 'error'} class:success={type === 'success'}>
+<p class={["msg", type === 'error' && "error", type === 'success' && "success"]}>
 
 <!-- Continuous: the color comes from user input -->
 <div style:background-color={userColor}>
@@ -341,17 +345,16 @@ This adds or removes the class name based on the boolean expression. The actual 
 
 ### Combining Both
 
-You can and should combine \`class:\` and \`style:\` on the same element when appropriate:
+You can and should combine class arrays and \`style:\` on the same element when appropriate:
 
 \`\`\`svelte
 <div
-  class="card"
-  class:elevated={isElevated}
+  class={["card", isElevated && "elevated"]}
   style:--card-accent={accentColor}
 >
 \`\`\`
 
-The class handles the structural styling change (adding a shadow for elevated cards), while the custom property handles the dynamic accent color.`
+The class array handles the structural styling change (adding a shadow for elevated cards), while the custom property handles the dynamic accent color.`
 		},
 		{
 			type: 'text',

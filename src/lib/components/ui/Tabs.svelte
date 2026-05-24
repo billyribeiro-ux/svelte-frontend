@@ -52,8 +52,7 @@
 			<button
 				role="tab"
 				id={`tab-${tab.id}`}
-				class="sf-tabs-trigger"
-				class:sf-tabs-trigger--active={activeTab === tab.id}
+				class={["sf-tabs-trigger", activeTab === tab.id && "sf-tabs-trigger--active"]}
 				aria-selected={activeTab === tab.id}
 				aria-controls={`tabpanel-${tab.id}`}
 				tabindex={activeTab === tab.id ? 0 : -1}

@@ -196,8 +196,7 @@
 			>
 				<div class="bottom-tabs">
 					<button
-						class="bottom-tab"
-						class:active={workspace.layout.bottom.activeTab === 'console'}
+						class={["bottom-tab", workspace.layout.bottom.activeTab === 'console' && "active"]}
 						onclick={() => workspace.setBottomTab('console')}
 					>
 						Console
@@ -206,21 +205,19 @@
 						{/if}
 					</button>
 					<button
-						class="bottom-tab"
-						class:active={workspace.layout.bottom.activeTab === 'xray'}
+						class={["bottom-tab", workspace.layout.bottom.activeTab === 'xray' && "active"]}
 						onclick={() => workspace.setBottomTab('xray')}
 					>
 						X-Ray
 					</button>
 					<button
-						class="bottom-tab"
-						class:active={workspace.layout.bottom.activeTab === 'tutor'}
+						class={["bottom-tab", workspace.layout.bottom.activeTab === 'tutor' && "active"]}
 						onclick={() => workspace.setBottomTab('tutor')}
 					>
 						AI Tutor
 					</button>
 				</div>
-				<div class="bottom-content">
+				<div class="bottom-content" aria-live="polite" aria-atomic="true">
 					{#if workspace.layout.bottom.activeTab === 'console'}
 						<Console entries={consoleEntries} onclear={() => consoleEntries = []} />
 					{:else if workspace.layout.bottom.activeTab === 'xray'}

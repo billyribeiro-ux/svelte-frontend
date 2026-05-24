@@ -75,7 +75,7 @@ Critically, this frame loop runs **outside** Svelte's normal reactivity graph. S
   });
 </script>
 
-<svg on:pointermove={(e) => coords.set({ x: e.clientX, y: e.clientY })}>
+<svg onpointermove={(e) => coords.set({ x: e.clientX, y: e.clientY })}>
   <circle cx={$coords.x} cy={$coords.y} r="20" fill="#6366f1" />
 </svg>
 \`\`\`

@@ -167,7 +167,7 @@ You can destructure each item directly in the block expression:
 
 \`\`\`svelte
 {#each todos as { id, text, done } (id)}
-  <li class:done>{text}</li>
+  <li class={["", done && "done"]}>{text}</li>
 {/each}
 \`\`\`
 
@@ -231,7 +231,7 @@ In Svelte 5, arrays declared with \`$state\` are deeply reactive. This means you
 </script>
 
 {#each todos as { id, text, done } (id)}
-  <li class:done>
+  <li class={["", done && "done"]}>
     <input type="checkbox" checked={done} onchange={() => toggleTodo(id)} />
     <span>{text}</span>
     <button onclick={() => removeTodo(id)}>Delete</button>
@@ -336,7 +336,7 @@ Notice that \`todos.push()\`, \`todos.splice()\`, and direct property mutation (
 
 <ul>
   {#each todos as { id, text, done } (id)}
-    <li class:done onclick={() => toggleTodo(id)}>
+    <li class={["", done && "done"]} onclick={() => toggleTodo(id)}>
       {text}
     </li>
   {/each}

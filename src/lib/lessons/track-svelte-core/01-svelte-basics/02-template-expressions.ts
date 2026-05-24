@@ -140,7 +140,7 @@ The second parameter (\`index\`) is optional and gives you the zero-based positi
 
 \`\`\`svelte
 {#each tasks as { name, completed }}
-  <li class:done={completed}>{name}</li>
+  <li class={["", completed && "done"]}>{name}</li>
 {/each}
 \`\`\`
 
@@ -322,7 +322,7 @@ Template expressions are the bridge between your component's data and its render
         <span class={task.completed ? 'check' : 'pending'}>
           {task.completed ? '✓' : '○'}
         </span>
-        <span class:done={task.completed}>{task.name}</span>
+        <span class={["", task.completed && "done"]}>{task.name}</span>
       </li>
     {/each}
   </ul>

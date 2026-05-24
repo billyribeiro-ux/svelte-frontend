@@ -67,8 +67,8 @@
 
 			<!-- Toggle -->
 			<div class="billing-toggle" in:scale={{ start: 0.95, duration: inDuration, delay: 280, easing: expoOut, opacity: 0 }}>
-				<button class="toggle-btn" class:active={!annual} onclick={() => { annual = false; }}>Monthly</button>
-				<button class="toggle-btn" class:active={annual} onclick={() => { annual = true; }}>
+				<button class={["toggle-btn", !annual && "active"]} onclick={() => { annual = false; }}>Monthly</button>
+				<button class={["toggle-btn", annual && "active"]} onclick={() => { annual = true; }}>
 					Annual
 					<span class="toggle-badge">Save {saving}%</span>
 				</button>
@@ -132,8 +132,7 @@
 				<div class="faq-list">
 					{#each faqs as faq, i}
 						<div
-							class="faq-item"
-							class:open={openFaq === i}
+							class={["faq-item", openFaq === i && "open"]}
 							in:fly={{ y: inY, duration: inDuration, delay: 600 + i * 60, easing: expoOut, opacity: 0 }}
 						>
 							<button class="faq-q" onclick={() => { openFaq = openFaq === i ? null : i; }}>

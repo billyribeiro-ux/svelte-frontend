@@ -99,28 +99,25 @@ Look at the starter code. It renders a notification card with a status indicator
 		},
 		{
 			type: 'text',
-			content: `## The class: Directive
+			content: `## Conditional Classes with clsx-Style Arrays
 
-Svelte provides a shorthand for conditionally toggling CSS classes:
+Svelte 5 supports clsx-style arrays and objects in the \`class\` attribute for conditionally toggling CSS classes:
 
 \`\`\`svelte
-<!-- Long form -->
+<!-- Long form ternary -->
 <div class={isActive ? 'card active' : 'card'}>
 
-<!-- Svelte class directive — much cleaner -->
-<div class="card" class:active={isActive}>
+<!-- clsx-style array — cleaner and more composable -->
+<div class={["card", isActive && "active"]}>
 \`\`\`
 
-The \`class:name={condition}\` directive adds the class \`name\` when \`condition\` is truthy and removes it when falsy. If the variable name matches the class name, you get an even shorter form:
+The array form lets you list base classes and conditional classes together. Falsy values (\`false\`, \`undefined\`, \`null\`, \`""\`) are automatically filtered out. This is the preferred approach in Svelte 5.
 
-\`\`\`svelte
-<!-- When the variable is named 'active' and the class is 'active' -->
-<div class="card" class:active>
-\`\`\`
+> **Note:** The \`class:\` directive (e.g., \`class:active={isActive}\`) still works but clsx-style arrays are preferred in Svelte 5 for their composability and readability.
 
-This is not just syntax sugar. The compiled output for \`class:\` directives is a targeted \`classList.toggle()\` call — it does not rebuild the entire class attribute string. This is more efficient than the ternary approach, especially when an element has many conditional classes.
+The compiled output for class arrays is efficient — Svelte handles the class list without rebuilding the entire class attribute string.
 
-**Task:** Add a \`class:dismissed\` directive to the notification card. When clicked, the card should toggle its dismissed state and show a visual change (opacity reduction, strikethrough, etc.).`
+**Task:** Add a conditional \`"dismissed"\` class to the notification card using a clsx-style class array. When clicked, the card should toggle its dismissed state and show a visual change (opacity reduction, strikethrough, etc.).`
 		},
 		{
 			type: 'checkpoint',
@@ -190,7 +187,7 @@ If you find yourself using \`:global()\` frequently, it usually means the compon
 
 1. **Hash specificity** — Every scoped selector has \`.svelte-xxxxx\` appended, increasing its specificity by exactly one class. This means scoped styles are slightly more specific than equivalent unscoped styles. If you have a global \`.card { color: red }\` and a scoped \`.card { color: blue }\`, the scoped style wins because \`.card.svelte-xxxxx\` is more specific than \`.card\`.
 
-2. **The \`class:\` directive output** — Find the compiled JavaScript for the \`class:dismissed\` directive. You should see a \`classList.toggle('dismissed', condition)\` call, not string concatenation of the class attribute.
+2. **The conditional class output** — Find the compiled JavaScript for the \`dismissed && "dismissed"\` conditional class. You should see efficient class list management, not string concatenation of the class attribute.
 
 3. **The \`style:\` directive output** — Look for \`element.style.setProperty('--status-color', value)\` in the compiled code. This is a direct API call, not a template string rebuild.
 
@@ -200,9 +197,9 @@ If you find yourself using \`:global()\` frequently, it usually means the compon
 			type: 'text',
 			content: `## Summary
 
-Svelte's approach to styling embodies the framework's philosophy: do the heavy lifting at compile time so the runtime is minimal. Scoped styles give you isolation without BEM, CSS Modules, or runtime libraries. The \`class:\` directive provides clean conditional class toggling that compiles to efficient \`classList.toggle()\` calls. The \`style:\` directive enables dynamic inline styles via targeted \`setProperty()\` calls. CSS custom properties bridge the gap between component encapsulation and parent-level theming.
+Svelte's approach to styling embodies the framework's philosophy: do the heavy lifting at compile time so the runtime is minimal. Scoped styles give you isolation without BEM, CSS Modules, or runtime libraries. Clsx-style class arrays provide clean conditional class toggling, and the \`style:\` directive enables dynamic inline styles via targeted \`setProperty()\` calls. CSS custom properties bridge the gap between component encapsulation and parent-level theming.
 
-The key insight is that these are not runtime features — they are compiler features. The Svelte compiler sees your \`<style>\` block, your \`class:\` directives, and your \`style:\` directives at build time and generates the minimal JavaScript and CSS needed to make them work. The browser never loads a CSS-in-JS runtime, never parses template strings to compute class names, and never diffs style objects. It just applies pre-computed styles to pre-hashed elements.`
+The key insight is that these are not runtime features — they are compiler features. The Svelte compiler sees your \`<style>\` block, your class arrays, and your \`style:\` directives at build time and generates the minimal JavaScript and CSS needed to make them work. The browser never loads a CSS-in-JS runtime, never parses template strings to compute class names, and never diffs style objects. It just applies pre-computed styles to pre-hashed elements.`
 		}
 	],
 
@@ -234,7 +231,7 @@ The key insight is that these are not runtime features — they are compiler fea
   <button onclick={() => status = 'error'}>Error</button>
 </div>
 
-<!-- TODO: Add class:dismissed directive -->
+<!-- TODO: Add conditional "dismissed" class using a clsx-style class array -->
 <div
   class="notification"
   style:--status-color={statusColors[status]}
@@ -280,8 +277,7 @@ The key insight is that these are not runtime features — they are compiler fea
 </div>
 
 <div
-  class="notification"
-  class:dismissed
+  class={["notification", dismissed && "dismissed"]}
   style:--status-color={statusColors[status]}
   onclick={() => dismissed = !dismissed}
 >
@@ -379,17 +375,17 @@ The key insight is that these are not runtime features — they are compiler fea
 		},
 		{
 			id: 'cp-2',
-			description: 'Add a class:dismissed directive to the notification div',
+			description: 'Add a conditional "dismissed" class to the notification div using a clsx-style class array',
 			validation: {
 				type: 'code-pattern',
 				config: {
-					patterns: [{ type: 'contains', value: 'class:dismissed' }]
+					patterns: [{ type: 'regex', value: 'class=\\{\\[.*dismissed' }]
 				}
 			},
 			hints: [
-				'The `class:` directive conditionally adds a CSS class. Since the variable `dismissed` matches the class name `dismissed`, you can use the shorthand form: `class:dismissed` (no `={...}` needed).',
-				'Add `class:dismissed` as an attribute on the `.notification` div, alongside the existing `class="notification"`. Then add a `.notification.dismissed` style rule with reduced opacity.',
-				'Change the div to: `<div class="notification" class:dismissed style:--status-color={statusColors[status]} onclick={() => dismissed = !dismissed}>` and add `.notification.dismissed { opacity: 0.4; }` to your style block.'
+				'Use a clsx-style class array to conditionally add the "dismissed" class: `class={["notification", dismissed && "dismissed"]}`.',
+				'Replace the static `class="notification"` with `class={["notification", dismissed && "dismissed"]}` on the notification div. Then add a `.notification.dismissed` style rule with reduced opacity.',
+				'Change the div to: `<div class={["notification", dismissed && "dismissed"]} style:--status-color={statusColors[status]} onclick={() => dismissed = !dismissed}>` and add `.notification.dismissed { opacity: 0.4; }` to your style block.'
 			],
 			conceptsTested: ['svelte5.styles.class-directive']
 		}

@@ -32,8 +32,7 @@
 <div class={cn('sf-switch-wrapper', className)}>
 	<button
 		id={switchId}
-		class="sf-switch"
-		class:sf-switch--checked={checked}
+		class={["sf-switch", checked && "sf-switch--checked"]}
 		role="switch"
 		type="button"
 		aria-checked={checked}

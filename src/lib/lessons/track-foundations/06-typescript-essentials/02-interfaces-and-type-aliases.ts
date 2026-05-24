@@ -340,7 +340,7 @@ The interface clearly documents what the component accepts. Default values handl
 <div class="task-list">
   <h2>Tasks</h2>
   {#each tasks as task}
-    <div class="task" class:done={task.completed}>
+    <div class={["task", task.completed && "done"]}>
       <span>{task.title}</span>
       <span>{task.completed ? '✓' : '○'}</span>
     </div>
@@ -403,7 +403,7 @@ The interface clearly documents what the component accepts. Default values handl
 <div class="task-list">
   <h2>Tasks</h2>
   {#each tasks as task}
-    <div class="task" class:done={task.completed}>
+    <div class={["task", task.completed && "done"]}>
       <span>{task.title}</span>
       <span>{task.completed ? '✓' : '○'}</span>
     </div>

@@ -138,7 +138,7 @@ Render tabs as buttons with conditional active styling:
 <div class="tabs">
   {#each ['profile', 'preferences', 'notifications'] as tab}
     <button
-      class:active={activeTab === tab}
+      class={["", activeTab === tab && "active"]}
       onclick={() => activeTab = tab}
     >
       {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -467,7 +467,7 @@ export const settingsStore = createSettingsStore();
   <div class="tabs">
     {#each tabs as tab}
       <button
-        class:active={activeTab === tab.id}
+        class={["", activeTab === tab.id && "active"]}
         onclick={() => activeTab = tab.id}
       >
         {tab.label}
@@ -763,7 +763,7 @@ export const settingsStore = createSettingsStore();
 				config: {
 					patterns: [
 						{ type: 'contains', value: 'activeTab' },
-						{ type: 'contains', value: 'class:active' },
+						{ type: 'contains', value: '&& "active"' },
 						{ type: 'contains', value: '#if activeTab' }
 					]
 				}

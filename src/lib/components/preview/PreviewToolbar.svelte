@@ -10,24 +10,21 @@
 	<span class="label">Preview</span>
 	<div class="viewport-buttons">
 		<button
-			class="vp-btn"
-			class:active={viewport === 'mobile'}
+			class={["vp-btn", viewport === 'mobile' && "active"]}
 			onclick={() => (viewport = 'mobile')}
 			aria-label="Mobile viewport"
 		>
 			375px
 		</button>
 		<button
-			class="vp-btn"
-			class:active={viewport === 'tablet'}
+			class={["vp-btn", viewport === 'tablet' && "active"]}
 			onclick={() => (viewport = 'tablet')}
 			aria-label="Tablet viewport"
 		>
 			768px
 		</button>
 		<button
-			class="vp-btn"
-			class:active={viewport === 'desktop'}
+			class={["vp-btn", viewport === 'desktop' && "active"]}
 			onclick={() => (viewport = 'desktop')}
 			aria-label="Desktop viewport"
 		>

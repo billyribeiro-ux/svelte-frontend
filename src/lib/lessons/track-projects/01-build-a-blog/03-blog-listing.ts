@@ -412,14 +412,12 @@ export const blogStore = createBlogStore();
 
   <div class="tag-cloud">
     <button
-      class="tag-btn"
-      class:active={activeTag === null}
+      class={["tag-btn", activeTag === null && "active"]}
       onclick={() => activeTag = null}
     >All</button>
     {#each allTags as tag}
       <button
-        class="tag-btn"
-        class:active={activeTag === tag}
+        class={["tag-btn", activeTag === tag && "active"]}
         onclick={() => activeTag = tag}
       >{tag}</button>
     {/each}

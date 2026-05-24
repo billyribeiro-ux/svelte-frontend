@@ -128,8 +128,8 @@ In Svelte 5, \`page\` is a reactive object (using \`$state\` semantics). You can
 </script>
 
 <nav>
-  <a href="/" class:active={page.url.pathname === '/'}>Home</a>
-  <a href="/about" class:active={page.url.pathname === '/about'}>About</a>
+  <a href="/" class={["", page.url.pathname === '/' && "active"]}>Home</a>
+  <a href="/about" class={["", page.url.pathname === '/about' && "active"]}>About</a>
 </nav>
 \`\`\`
 

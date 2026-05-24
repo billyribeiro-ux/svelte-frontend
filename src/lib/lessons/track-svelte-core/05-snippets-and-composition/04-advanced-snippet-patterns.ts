@@ -268,7 +268,7 @@ Each optional snippet has a sensible default. This approach gives consumers full
   <DataList items={todos}>
     {#snippet row(item: Todo, index: number)}
       <div class="todo-item">
-        <span class:done={item.done}>{index + 1}. {item.text}</span>
+        <span class={[item.done && "done"]}>{index + 1}. {item.text}</span>
         {#if item.done}
           <span>&#10003;</span>
         {/if}
