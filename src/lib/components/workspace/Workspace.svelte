@@ -10,6 +10,8 @@
 	import PanelResizer from './PanelResizer.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import KeyboardShortcuts from './KeyboardShortcuts.svelte';
+	import ShortcutsDialog from './ShortcutsDialog.svelte';
+	import StatusAnnouncer from './StatusAnnouncer.svelte';
 	import LessonPanel from '$components/lesson/LessonPanel.svelte';
 	import Editor from '$components/editor/Editor.svelte';
 	import EditorTabs from '$components/editor/EditorTabs.svelte';
@@ -29,6 +31,8 @@
 	let consoleEntries = $state<ConsoleEntry[]>([]);
 	let domMutations = $state<DOMMutation[]>([]);
 	let previewContainer = $state<HTMLDivElement | null>(null);
+	let shortcutsOpen = $state(false);
+	let announcer: StatusAnnouncer;
 
 	$effect(() => {
 		lessonState.setLesson(lesson);
@@ -47,6 +51,12 @@
 		editor.isCompiling = true;
 		const result = compileSvelte(file.content, file.name);
 		editor.setCompilationResult(result);
+
+		if (result.errors.length > 0) {
+			announcer?.announce(`Compilation failed: ${result.errors.length} error${result.errors.length > 1 ? 's' : ''}`);
+		} else {
+			announcer?.announce('Compilation successful');
+		}
 	}
 
 	function handleCodeChange(content: string) {
@@ -108,9 +118,27 @@
 	function handleDOMMutation(mutation: DOMMutation) {
 		domMutations = [...domMutations, mutation];
 	}
+
+	const bottomTabs = ['console', 'xray', 'tutor'] as const;
+
+	function handleTabKeydown(event: KeyboardEvent) {
+		const currentIndex = bottomTabs.indexOf(workspace.layout.bottom.activeTab as typeof bottomTabs[number]);
+		let nextIndex = currentIndex;
+
+		if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % bottomTabs.length;
+		else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + bottomTabs.length) % bottomTabs.length;
+		else return;
+
+		event.preventDefault();
+		const tab = bottomTabs[nextIndex]!;
+		workspace.setBottomTab(tab);
+		document.getElementById(`tab-${tab}`)?.focus();
+	}
 </script>
 
-<KeyboardShortcuts onrun={handleRun} />
+<KeyboardShortcuts onrun={handleRun} onshortcutshelp={() => shortcutsOpen = true} />
+<ShortcutsDialog open={shortcutsOpen} onclose={() => shortcutsOpen = false} />
+<StatusAnnouncer bind:this={announcer} />
 
 <div class="workspace">
 	<!-- Lesson Panel -->
@@ -194,30 +222,52 @@
 				class="panel bottom-panel"
 				style="block-size: {workspace.layout.bottom.height ?? 200}px"
 			>
-				<div class="bottom-tabs">
+				<!-- svelte-ignore a11y_interactive_supports_focus -->
+				<div class="bottom-tabs" role="tablist" aria-label="Output panels" onkeydown={handleTabKeydown}>
 					<button
 						class={["bottom-tab", workspace.layout.bottom.activeTab === 'console' && "active"]}
+						role="tab"
+						id="tab-console"
+						aria-selected={workspace.layout.bottom.activeTab === 'console'}
+						aria-controls="tabpanel-console"
+						tabindex={workspace.layout.bottom.activeTab === 'console' ? 0 : -1}
 						onclick={() => workspace.setBottomTab('console')}
 					>
 						Console
 						{#if consoleEntries.length > 0}
-							<span class="tab-badge">{consoleEntries.length}</span>
+							<span class="tab-badge" aria-label="{consoleEntries.length} entries">{consoleEntries.length}</span>
 						{/if}
 					</button>
 					<button
 						class={["bottom-tab", workspace.layout.bottom.activeTab === 'xray' && "active"]}
+						role="tab"
+						id="tab-xray"
+						aria-selected={workspace.layout.bottom.activeTab === 'xray'}
+						aria-controls="tabpanel-xray"
+						tabindex={workspace.layout.bottom.activeTab === 'xray' ? 0 : -1}
 						onclick={() => workspace.setBottomTab('xray')}
 					>
 						X-Ray
 					</button>
 					<button
 						class={["bottom-tab", workspace.layout.bottom.activeTab === 'tutor' && "active"]}
+						role="tab"
+						id="tab-tutor"
+						aria-selected={workspace.layout.bottom.activeTab === 'tutor'}
+						aria-controls="tabpanel-tutor"
+						tabindex={workspace.layout.bottom.activeTab === 'tutor' ? 0 : -1}
 						onclick={() => workspace.setBottomTab('tutor')}
 					>
 						AI Tutor
 					</button>
 				</div>
-				<div class="bottom-content" aria-live="polite" aria-atomic="true">
+				<div
+					class="bottom-content"
+					role="tabpanel"
+					id="tabpanel-{workspace.layout.bottom.activeTab}"
+					aria-labelledby="tab-{workspace.layout.bottom.activeTab}"
+					aria-live="polite"
+				>
 					{#if workspace.layout.bottom.activeTab === 'console'}
 						<Console entries={consoleEntries} onclear={() => consoleEntries = []} />
 					{:else if workspace.layout.bottom.activeTab === 'xray'}
@@ -356,6 +406,47 @@
 			border-radius: var(--sf-radius-sm);
 			cursor: pointer;
 			font-size: var(--sf-font-size-sm);
+		}
+	}
+
+	/* Mobile: stack all panels vertically */
+	@media (max-width: 768px) {
+		.workspace {
+			flex-direction: column;
+		}
+
+		.lesson-panel {
+			inline-size: 100% !important;
+			max-block-size: 35vh;
+			border-inline-end: none;
+			border-block-end: 1px solid var(--sf-bg-3);
+		}
+
+		.editor-preview-row {
+			flex-direction: column;
+		}
+
+		.preview-panel {
+			inline-size: 100% !important;
+			max-block-size: 40vh;
+			border-inline-start: none;
+			border-block-start: 1px solid var(--sf-bg-3);
+		}
+
+		.bottom-panel {
+			block-size: auto !important;
+			max-block-size: 30vh;
+		}
+	}
+
+	/* Tablet: hide lesson, stack editor/preview */
+	@media (min-width: 769px) and (max-width: 1024px) {
+		.lesson-panel {
+			inline-size: 260px !important;
+		}
+
+		.preview-panel {
+			inline-size: 320px !important;
 		}
 	}
 

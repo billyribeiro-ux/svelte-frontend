@@ -31,6 +31,10 @@
 		background: oklch(0.15 0.02 25 / 0.95);
 		overflow-y: auto;
 		animation: sf-slide-up 300ms var(--sf-ease-out);
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+		}
 	}
 
 	.error-header {
