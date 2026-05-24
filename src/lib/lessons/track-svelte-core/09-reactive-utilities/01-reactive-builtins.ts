@@ -112,7 +112,7 @@ Note that you do not need to wrap \`SvelteMap\` in \`$state\`. The map itself is
 
 {#each ['svelte', 'react', 'vue', 'angular'] as tag}
   <button
-    class:selected={selectedTags.has(tag)}
+    class={["", selectedTags.has(tag) && "selected"]}
     onclick={() => toggleTag(tag)}
   >
     {tag}
@@ -766,8 +766,7 @@ Key rules: (1) Do not wrap them in \`$state\` -- they are already reactive. (2) 
   <div class="tags">
     {#each tagMeta.entries() as [id, meta]}
       <button
-        class="tag-btn"
-        class:selected={selectedTags.has(id)}
+        class={["tag-btn", selectedTags.has(id) && "selected"]}
         style:background-color={selectedTags.has(id) ? meta.color : 'white'}
         style:color={selectedTags.has(id) ? 'white' : meta.color}
         style:border-color={meta.color}

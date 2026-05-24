@@ -192,7 +192,7 @@ Make headers clickable with a pointer cursor and a subtle hover background. This
 The \`status\` field renders as a colored badge — green for "active", gray for "inactive". This is a common dashboard pattern:
 
 \`\`\`svelte
-<span class="badge" class:active={user.status === 'active'}>
+<span class={["badge", user.status === 'active' && "active"]}>
   {user.status}
 </span>
 \`\`\`
@@ -414,7 +414,7 @@ Right-align numeric columns for readability — this is a table design conventio
     </thead>
     <tbody>
       {#each paginatedUsers as user (user.id)}
-        <tr class:selected={selectedIds.has(user.id)}>
+        <tr class={["", selectedIds.has(user.id) && "selected"]}>
           <td class="checkbox-col">
             <input type="checkbox" checked={selectedIds.has(user.id)} onchange={() => toggleRow(user.id)} />
           </td>
@@ -422,7 +422,7 @@ Right-align numeric columns for readability — this is a table design conventio
           <td>{user.email}</td>
           <td>{user.role}</td>
           <td>
-            <span class="badge" class:active={user.status === 'active'}>{user.status}</span>
+            <span class={["badge", user.status === 'active' && "active"]}>{user.status}</span>
           </td>
           <td class="numeric">\${user.revenue.toLocaleString()}</td>
         </tr>

@@ -328,7 +328,7 @@ Similarly, Svelte directives do not work inside \`{@html}\`:
 \`\`\`svelte
 <!-- NONE of these work inside {@html} -->
 {@html '<input bind:value={name} />'}
-{@html '<div on:click={handler}>'}
+{@html '<div onclick={handler}>'}
 {@html '<Component />'}
 {@html '<div transition:fade>'}
 \`\`\`

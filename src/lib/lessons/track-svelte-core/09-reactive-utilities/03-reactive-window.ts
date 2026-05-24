@@ -321,7 +321,7 @@ Then in any component:
   const viewport = new ViewportInfo();
 </script>
 
-<div class="layout" class:landscape={viewport.isLandscape}>
+<div class={["layout", viewport.isLandscape && "landscape"]}>
   <p>Aspect ratio: {viewport.aspectRatio.toFixed(2)}</p>
   <p>Orientation: {viewport.orientation}</p>
   <progress value={viewport.scrollProgress} max="100"></progress>
@@ -752,7 +752,7 @@ The \`svelte/reactivity/window\` module provides reactive, singleton-based acces
 </div>
 
 <div class="status-bar">
-  <span class="badge" class:online={isOnline} class:offline={!isOnline}>
+  <span class={["badge", isOnline && "online", !isOnline && "offline"]}>
     {isOnline ? 'Online' : 'Offline'}
   </span>
 

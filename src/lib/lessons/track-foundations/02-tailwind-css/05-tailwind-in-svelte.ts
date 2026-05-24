@@ -455,19 +455,19 @@ For components with multiple dimensions of variation (size + variant + state), c
 		},
 		{
 			id: 'cp-2',
-			description: 'Use the class: directive for conditional styling',
+			description: 'Use clsx-style class arrays for conditional styling',
 			validation: {
 				type: 'code-pattern',
 				config: {
 					patterns: [
-						{ type: 'contains', value: 'class:' }
+						{ type: 'regex', value: 'class=\\{\\[' }
 					]
 				}
 			},
 			hints: [
-				'Svelte\'s `class:` directive adds a class when a condition is true: `class:some-class={condition}`.',
-				'Add `class:border-blue-500={active}` to the card div to highlight it when active.',
-				'Update the card div: `<div class="p-4 rounded-lg border-2 bg-white" class:border-blue-500={active} class:bg-blue-50={active}>`'
+				'Svelte 5 supports clsx-style arrays in the class attribute: `class={["base-classes", condition && "conditional-class"]}`.',
+				'Add conditional classes using an array: `class={["p-4 rounded-lg border-2 bg-white transition-colors", active && "border-blue-500 bg-blue-50"]}`.',
+				'Update the card div: `<div class={["p-4 rounded-lg border-2 bg-white transition-colors", active ? "border-blue-500 bg-blue-50" : "border-gray-200"]}>`'
 			],
 			conceptsTested: ['tailwind.class-directive', 'tailwind.svelte-integration']
 		},
