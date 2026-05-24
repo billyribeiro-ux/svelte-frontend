@@ -439,7 +439,7 @@ This lesson completes the dashboard module. You have built a responsive layout, 
   <div class="header">
     <h1>Live Dashboard</h1>
     <div class="controls">
-      <span class="status" class:live={!paused}>{connectionStatus}</span>
+      <span class={["status", !paused && "live"]}>{connectionStatus}</span>
       <button onclick={() => paused = !paused}>
         {paused ? 'Resume' : 'Pause'}
       </button>
@@ -627,7 +627,7 @@ This lesson completes the dashboard module. You have built a responsive layout, 
   {:else}
     <ul class="event-list">
       {#each events as event (event.id)}
-        <li class="event" class:error={event.type === 'error'}>
+        <li class={["event", event.type === 'error' && "error"]}>
           <span class="icon">{typeIcons[event.type]}</span>
           <div class="details">
             <span class="message">{event.message}</span>

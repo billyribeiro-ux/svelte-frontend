@@ -44,8 +44,7 @@ Our board has three columns, one per status. Each column is a drop zone that acc
 <div class="board">
   {#each columns as column}
     <div
-      class="column"
-      class:drag-over={dragOverColumn === column.status}
+      class={["column", dragOverColumn === column.status && "drag-over"]}
       ondragover={(e) => { e.preventDefault(); dragOverColumn = column.status; }}
       ondragleave={() => dragOverColumn = null}
       ondrop={(e) => handleDrop(e, column.status)}
@@ -121,12 +120,11 @@ Good drag-and-drop UX requires visual feedback at every stage:
 2. **The target column** should highlight to show where the card will land.
 3. **Other columns** should remain normal for contrast.
 
-We achieve this with reactive CSS classes:
+We achieve this with clsx-style class arrays:
 
 \`\`\`svelte
 <div
-  class="task-card"
-  class:dragging={draggedTaskId === task.id}
+  class={["task-card", draggedTaskId === task.id && "dragging"]}
   draggable="true"
   ...
 >
@@ -364,8 +362,7 @@ export const taskStore = createTaskStore();
 <div class="board">
   {#each columns as column}
     <div
-      class="column"
-      class:drag-over={dragOverColumn === column.status}
+      class={["column", dragOverColumn === column.status && "drag-over"]}
       ondragover={(e) => { e.preventDefault(); dragOverColumn = column.status; }}
       ondragleave={() => dragOverColumn = null}
       ondrop={(e) => handleDrop(e, column.status)}
@@ -378,8 +375,7 @@ export const taskStore = createTaskStore();
       <div class="card-list">
         {#each column.tasks as task (task.id)}
           <div
-            class="task-card"
-            class:dragging={draggedTaskId === task.id}
+            class={["task-card", draggedTaskId === task.id && "dragging"]}
             draggable="true"
             tabindex="0"
             ondragstart={(e) => handleDragStart(e, task)}
@@ -630,15 +626,15 @@ export const taskStore = createTaskStore();
 				type: 'code-pattern',
 				config: {
 					patterns: [
-						{ type: 'contains', value: 'class:dragging' },
-						{ type: 'contains', value: 'class:drag-over' },
+						{ type: 'contains', value: 'dragging' },
+						{ type: 'contains', value: 'drag-over' },
 						{ type: 'contains', value: 'draggable' }
 					]
 				}
 			},
 			hints: [
-				'Add `draggable="true"` to task cards and `class:dragging={draggedTaskId === task.id}` for opacity change.',
-				'Track `dragOverColumn` with `$state` and apply `class:drag-over={dragOverColumn === column.status}` to columns.',
+				'Add `draggable="true"` to task cards and use a clsx-style class array: `class={["task-card", draggedTaskId === task.id && "dragging"]}` for opacity change.',
+				'Track `dragOverColumn` with `$state` and apply `class={["column", dragOverColumn === column.status && "drag-over"]}` to columns.',
 				'Style `.task-card.dragging { opacity: 0.4; }` and `.column.drag-over { background: #eff6ff; border-color: #6366f1; }` for clear visual feedback.'
 			],
 			conceptsTested: ['svelte5.runes.state']

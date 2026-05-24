@@ -272,21 +272,21 @@ In practice, these edge cases rarely cause problems. If they do, you can use the
 		},
 		{
 			type: 'text',
-			content: `## Comprehensive Comparison: style: vs class: vs Inline Style Strings
+			content: `## Comprehensive Comparison: style: vs Class Arrays vs Inline Style Strings
 
-Svelte provides three mechanisms for applying styles to elements: the \`style:\` directive, the \`class:\` directive, and inline style strings. Each has distinct characteristics, performance profiles, and ideal use cases. Understanding the tradeoffs prevents common mistakes and helps you write maintainable component styles.
+Svelte provides several mechanisms for applying styles to elements: the \`style:\` directive, clsx-style class arrays, and inline style strings. Each has distinct characteristics, performance profiles, and ideal use cases. Understanding the tradeoffs prevents common mistakes and helps you write maintainable component styles.
 
 ### Full Comparison Table
 
-| Feature | \`style:\` directive | \`class:\` directive | Inline style string |
+| Feature | \`style:\` directive | clsx class array | Inline style string |
 |---|---|---|---|
-| **Syntax** | \`style:color={val}\` | \`class:active={bool}\` | \`style="color: {val}"\` |
+| **Syntax** | \`style:color={val}\` | \`class={["base", cond && "cls"]}\` | \`style="color: {val}"\` |
 | **Granularity** | Per-property updates | Per-class toggle | Entire string rebuilt |
 | **Values** | Dynamic (any string/number) | Boolean (on/off) | Dynamic (any string) |
 | **TypeScript support** | Property names validated | Class names as strings | No validation |
-| **Null/undefined** | Removes property | Removes class | Leaves empty value |
-| **Composition** | Additive (each independent) | Additive (each independent) | Overwrites entire attribute |
-| **Performance** | Single setProperty call | Single classList toggle | Full attribute replacement |
+| **Null/undefined** | Removes property | Falsy values filtered out | Leaves empty value |
+| **Composition** | Additive (each independent) | Additive (all in one array) | Overwrites entire attribute |
+| **Performance** | Single setProperty call | Efficient class list update | Full attribute replacement |
 | **CSS cascade** | Inline specificity (highest) | Class specificity (normal) | Inline specificity (highest) |
 | **Custom properties** | Supported (\`style:--foo\`) | N/A | Supported (in string) |
 | **!important** | Supported (\`\|important\`) | N/A | Supported (in string) |
@@ -300,6 +300,8 @@ The performance difference between \`style:\` directives and inline style string
 **Multiple properties** amplify the difference. If you have ten \`style:\` directives and one value changes, Svelte makes one DOM call. With an inline string containing ten interpolated values, any single change triggers a full string reconstruction and re-parse of all ten properties.
 
 In practice, for most components with a handful of dynamic styles that change infrequently (on user interaction, not per frame), the difference is negligible. But for animation-heavy components, \`style:\` directives provide a measurable advantage.
+
+> **Note:** The \`class:\` directive still works but clsx-style class arrays are preferred in Svelte 5 for their composability and readability.
 
 ### Conditional Classes Recap
 
@@ -343,17 +345,16 @@ The clsx-style array adds or removes class names based on the boolean expression
 
 ### Combining Both
 
-You can and should combine \`class:\` and \`style:\` on the same element when appropriate:
+You can and should combine class arrays and \`style:\` on the same element when appropriate:
 
 \`\`\`svelte
 <div
-  class="card"
-  class:elevated={isElevated}
+  class={["card", isElevated && "elevated"]}
   style:--card-accent={accentColor}
 >
 \`\`\`
 
-The class handles the structural styling change (adding a shadow for elevated cards), while the custom property handles the dynamic accent color.`
+The class array handles the structural styling change (adding a shadow for elevated cards), while the custom property handles the dynamic accent color.`
 		},
 		{
 			type: 'text',

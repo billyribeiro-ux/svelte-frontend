@@ -29,7 +29,7 @@ Consider a product listing. Each product has a \`price\` and a \`taxRate\`. You 
   <div>
     <span>{product.name}</span>
     <span>{(product.price * (1 + product.taxRate)).toFixed(2)}</span>
-    <span class:expensive={product.price * (1 + product.taxRate) > 100}>
+    <span class={[product.price * (1 + product.taxRate) > 100 && "expensive"]}>
       {product.price * (1 + product.taxRate) > 100 ? 'Premium' : 'Standard'}
     </span>
   </div>
@@ -56,7 +56,7 @@ Before \`{@const}\` existed, developers had two unsatisfying options:
   <div>
     <span>{product.name}</span>
     <span>{total.toFixed(2)}</span>
-    <span class:expensive={total > 100}>
+    <span class={[total > 100 && "expensive"]}>
       {total > 100 ? 'Premium' : 'Standard'}
     </span>
   </div>
@@ -182,7 +182,7 @@ If you need to call a function that produces a value used multiple times in a bl
 {#each dates as date}
   {@const formatted = formatDate(date, locale)}
   {@const isToday = isSameDay(date, today)}
-  <li class:today={isToday}>
+  <li class={[isToday && "today"]}>
     {formatted}
     {#if isToday}
       <span class="badge">Today</span>
@@ -377,7 +377,7 @@ You can declare as many constants as needed in a single block. They are evaluate
   {@const tax = subtotal * invoice.taxRate}
   {@const total = subtotal + tax}
   {@const isPaid = invoice.paidAmount >= total}
-  <div class:paid={isPaid}>
+  <div class={[isPaid && "paid"]}>
     <span>Subtotal: \${subtotal.toFixed(2)}</span>
     <span>Tax: \${tax.toFixed(2)}</span>
     <span>Total: \${total.toFixed(2)}</span>

@@ -290,7 +290,7 @@ Dynamic components work with snippets just like static ones:
     <nav>
       {#each tabs as tab, i}
         <button
-          class:active={i === activeIndex}
+          class={["", i === activeIndex && "active"]}
           onclick={() => activeIndex = i}
         >
           {tab.label}
@@ -435,7 +435,7 @@ Dynamic components work with snippets just like static ones:
     <nav>
       {#each tabs as tab, i}
         <button
-          class:active={i === activeIndex}
+          class={["", i === activeIndex && "active"]}
           onclick={() => activeIndex = i}
         >
           {tab.label}

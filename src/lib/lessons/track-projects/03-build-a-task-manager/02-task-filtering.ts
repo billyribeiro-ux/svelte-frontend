@@ -140,7 +140,7 @@ The filter bar should be visually clear and compact. Use button groups for statu
   <div class="button-group">
     {#each ['all', 'todo', 'in-progress', 'done'] as status}
       <button
-        class:active={statusFilter === status}
+        class={["filter-btn", statusFilter === status && "active"]}
         onclick={() => statusFilter = status}
       >
         {status === 'all' ? 'All' : status} ({statusCounts[status]})
@@ -150,7 +150,7 @@ The filter bar should be visually clear and compact. Use button groups for statu
 </div>
 \`\`\`
 
-The \`class:active\` directive highlights the selected filter. Clicking a button simply assigns the \`$state\` variable — no event dispatching, no imperative DOM updates.
+The clsx-style class array highlights the selected filter by conditionally adding the \`"active"\` class. Clicking a button simply assigns the \`$state\` variable — no event dispatching, no imperative DOM updates.
 
 ## Clearing All Filters
 
@@ -285,7 +285,7 @@ Test the complete filter system by creating tasks with different statuses and pr
   }
 </script>
 
-<div class="card" class:done={task.status === 'done'}>
+<div class={["card", task.status === 'done' && "done"]}>
   <div class="header">
     <h3>{task.title}</h3>
     <div class="badges">
@@ -498,7 +498,7 @@ export const taskStore = createTaskStore();
     <label>Status</label>
     <div class="button-group">
       {#each ['all', 'todo', 'in-progress', 'done'] as status}
-        <button class:active={statusFilter === status} onclick={() => statusFilter = status}>
+        <button class={["filter-btn", statusFilter === status && "active"]} onclick={() => statusFilter = status}>
           {status === 'all' ? 'All' : status} ({statusCounts[status]})
         </button>
       {/each}
@@ -509,7 +509,7 @@ export const taskStore = createTaskStore();
     <label>Priority</label>
     <div class="button-group">
       {#each ['all', 'low', 'medium', 'high'] as priority}
-        <button class:active={priorityFilter === priority} onclick={() => priorityFilter = priority}>
+        <button class={["filter-btn", priorityFilter === priority && "active"]} onclick={() => priorityFilter = priority}>
           {priority === 'all' ? 'All' : priority}
         </button>
       {/each}
@@ -566,7 +566,7 @@ export const taskStore = createTaskStore();
   }
 </script>
 
-<div class="card" class:done={task.status === 'done'}>
+<div class={["card", task.status === 'done' && "done"]}>
   <div class="header">
     <h3>{task.title}</h3>
     <div class="badges">
@@ -671,14 +671,14 @@ export const taskStore = createTaskStore();
 					patterns: [
 						{ type: 'contains', value: '$props()' },
 						{ type: 'contains', value: 'bind:value' },
-						{ type: 'contains', value: 'class:active' }
+						{ type: 'regex', value: 'class=\\{\\[.*active' }
 					]
 				}
 			},
 			hints: [
 				'Accept filter values as bindable props or as regular props with change callbacks.',
-				'Render button groups for status and priority using `{#each}` with `class:active` for the selected option.',
-				'Use `$bindable()` for two-way binding from the parent: `let { statusFilter = $bindable(\'all\'), ... } = $props()` and render `<button class:active={statusFilter === status} onclick={() => statusFilter = status}>`.'
+				'Render button groups for status and priority using `{#each}` with clsx-style class arrays for the selected option: `class={["filter-btn", statusFilter === status && "active"]}`.',
+				'Use `$bindable()` for two-way binding from the parent: `let { statusFilter = $bindable(\'all\'), ... } = $props()` and render `<button class={["filter-btn", statusFilter === status && "active"]} onclick={() => statusFilter = status}>`.'
 			],
 			conceptsTested: ['svelte5.runes.state', 'svelte5.control-flow.each']
 		},

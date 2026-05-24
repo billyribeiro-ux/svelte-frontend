@@ -359,8 +359,7 @@ The real power of these utilities emerges when you compose them. Consider a dash
 </script>
 
 <div
-  class="dashboard {layout}"
-  class:dark={prefersDark.current}
+  class={["dashboard", layout, prefersDark.current && "dark"]}
   style:--animation-duration={animationDuration}
 >
   <!-- Dashboard content -->
@@ -611,13 +610,11 @@ Together, these tools eliminate the need for manual \`onMount\`/\`onDestroy\` ev
   ];
 </script>
 
-<div class="dashboard" class:no-motion={prefersReducedMotion.current}>
+<div class={["dashboard", prefersReducedMotion.current && "no-motion"]}>
   <header>
     <h1>Dashboard</h1>
     <span
-      class="status-dot"
-      class:online={onlineStatus.current}
-      class:offline={!onlineStatus.current}
+      class={["status-dot", onlineStatus.current ? "online" : "offline"]}
       title={onlineStatus.current ? 'Online' : 'Offline'}
     ></span>
     <span class="layout-badge">{layoutLabel}</span>
@@ -740,7 +737,7 @@ Together, these tools eliminate the need for manual \`onMount\`/\`onDestroy\` ev
 			hints: [
 				'Import `MediaQuery` from `svelte/reactivity`. Create instances like `const isWide = new MediaQuery(\'min-width: 1024px\')`. Read the result with `.current`.',
 				'Derive the column count: `const columns = $derived(isWide.current ? 3 : isMedium.current ? 2 : 1)`. Use it in the grid style: `style:grid-template-columns="repeat({columns}, 1fr)"`.',
-				'Add `const prefersReducedMotion = new MediaQuery(\'prefers-reduced-motion: reduce\')` and use `class:no-motion={prefersReducedMotion.current}` on the dashboard container.'
+				'Add `const prefersReducedMotion = new MediaQuery(\'prefers-reduced-motion: reduce\')` and use `class={["dashboard", prefersReducedMotion.current && "no-motion"]}` on the dashboard container.'
 			],
 			conceptsTested: ['svelte5.reactivity.media-query']
 		},
@@ -760,7 +757,7 @@ Together, these tools eliminate the need for manual \`onMount\`/\`onDestroy\` ev
 			hints: [
 				'Import `createSubscriber` from `svelte/reactivity`. Create a function that tracks `navigator.onLine` and listens for `online`/`offline` window events.',
 				'Inside the `createSubscriber` callback, add event listeners for `online` and `offline`. Call `update()` in each handler. Return a cleanup function that removes the listeners.',
-				'Return an object with `get current() { subscribe(); return online; }`. Use it in the template: `class:online={onlineStatus.current}` on a status dot element.'
+				'Return an object with `get current() { subscribe(); return online; }`. Use it in the template: `class={["status-dot", onlineStatus.current ? "online" : "offline"]}` on a status dot element.'
 			],
 			conceptsTested: ['svelte5.reactivity.create-subscriber']
 		}

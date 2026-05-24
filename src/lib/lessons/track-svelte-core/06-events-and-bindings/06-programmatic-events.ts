@@ -325,7 +325,7 @@ Here is the approach:
   bind:this={imgEl}
   src={isInView ? src : placeholder}
   {alt}
-  class:loaded={isLoaded}
+  class={["", isLoaded && "loaded"]}
 />
 
 <style>
@@ -604,7 +604,7 @@ This pattern -- using \`on()\` inside attachments and \`$effect\` blocks while u
     <img
       src={isInView ? imgSrc : placeholderSrc}
       alt="Random landscape"
-      class:loaded={imageLoaded}
+      class={["", imageLoaded && "loaded"]}
     />
     <p>
       {#if !isInView}
@@ -729,7 +729,7 @@ This pattern -- using \`on()\` inside attachments and \`$effect\` blocks while u
       bind:this={imgEl}
       src={isInView ? imgSrc : placeholderSrc}
       alt="Random landscape"
-      class:loaded={imageLoaded}
+      class={["", imageLoaded && "loaded"]}
     />
     <p>
       {#if !isInView}
