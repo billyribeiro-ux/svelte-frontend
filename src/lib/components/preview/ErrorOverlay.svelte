@@ -8,7 +8,7 @@
 	let { errors }: Props = $props();
 </script>
 
-<div class="error-overlay">
+<div class="error-overlay" role="alert" aria-live="assertive">
 	<div class="error-header">Compilation Error</div>
 	{#each errors as error}
 		<div class="error-item">

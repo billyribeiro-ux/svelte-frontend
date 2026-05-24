@@ -217,7 +217,7 @@
 						AI Tutor
 					</button>
 				</div>
-				<div class="bottom-content">
+				<div class="bottom-content" aria-live="polite" aria-atomic="true">
 					{#if workspace.layout.bottom.activeTab === 'console'}
 						<Console entries={consoleEntries} onclear={() => consoleEntries = []} />
 					{:else if workspace.layout.bottom.activeTab === 'xray'}
