@@ -9,6 +9,8 @@
 	let isDragging = $state(false);
 	let startPos = $state(0);
 
+	const STEP = 20;
+
 	function handlePointerDown(event: PointerEvent) {
 		isDragging = true;
 		startPos = direction === 'horizontal' ? event.clientX : event.clientY;
@@ -26,17 +28,40 @@
 	function handlePointerUp() {
 		isDragging = false;
 	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		const isHorizontal = direction === 'horizontal';
+		let delta = 0;
+
+		if (isHorizontal) {
+			if (event.key === 'ArrowLeft') delta = -STEP;
+			else if (event.key === 'ArrowRight') delta = STEP;
+		} else {
+			if (event.key === 'ArrowUp') delta = -STEP;
+			else if (event.key === 'ArrowDown') delta = STEP;
+		}
+
+		if (delta !== 0) {
+			event.preventDefault();
+			onresize(delta);
+		}
+	}
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class={["resizer", direction, isDragging && "dragging"]}
 	role="separator"
 	aria-orientation={direction === 'horizontal' ? 'vertical' : 'horizontal'}
-	tabindex="-1"
+	aria-label={direction === 'horizontal' ? 'Resize panels horizontally' : 'Resize panels vertically'}
+	aria-valuenow={50}
+	tabindex="0"
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}
 	onpointercancel={handlePointerUp}
+	onkeydown={handleKeydown}
 >
 	<div class="handle"></div>
 </div>
@@ -58,6 +83,17 @@
 
 			& .handle {
 				opacity: 1;
+			}
+		}
+
+		&:focus-visible {
+			background: var(--sf-accent-subtle);
+			outline: 2px solid var(--sf-accent);
+			outline-offset: -2px;
+
+			& .handle {
+				opacity: 1;
+				background: var(--sf-accent);
 			}
 		}
 	}

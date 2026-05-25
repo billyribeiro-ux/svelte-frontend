@@ -6,9 +6,10 @@
 
 	interface Props {
 		onrun?: () => void;
+		onshortcutshelp?: () => void;
 	}
 
-	let { onrun }: Props = $props();
+	let { onrun, onshortcutshelp }: Props = $props();
 
 	const keybindings: Keybinding[] = [
 		{
@@ -52,6 +53,12 @@
 			mod: true,
 			handler: () => onrun?.(),
 			description: 'Run code'
+		},
+		{
+			key: '?',
+			mod: true,
+			handler: () => onshortcutshelp?.(),
+			description: 'Show keyboard shortcuts'
 		}
 	];
 
