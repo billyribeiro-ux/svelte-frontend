@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 use:enhance is the SvelteKit action (the Svelte-action kind, not the form-action kind) that does exactly that. Slap it on a form and it upgrades POST behaviour to fetch, intercepts the response, and updates the 'form' prop — all while keeping the form fully functional if JavaScript fails to load. That's progressive enhancement in one line.
 
-This lesson covers use:enhance with and without a callback, loading states, confirmation dialogs, and the reset:false option for keeping user input after a failed submit.`,
+This lesson covers use:enhance with and without a callback, loading states, confirmation dialogs, and the reset:false option for keeping user input after a failed submit.
+
+> **SvelteKit 2.27+:** Remote functions introduce \\\`form()\\\` from \\\`$app/server\\\` — a modern alternative to form actions + \\\`use:enhance\\\`. Remote forms use Standard Schema validation (Zod/Valibot), generate type-safe field helpers, and support single-flight mutations that refresh queries in the same request. See Module 17 Lesson 3 for full coverage.`,
 	objectives: [
 		'Add use:enhance to upgrade a classic form to fetch-based submission',
 		'Customize behaviour with an enhance callback and a result handler',

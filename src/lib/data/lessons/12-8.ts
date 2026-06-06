@@ -12,7 +12,9 @@ const lesson: LessonData = {
 
 Universal load runs on both sides — on the server for SSR and then in the browser on client-side navigation. It's great for public data fetched from public APIs where you don't want a round trip through your own server. Server load runs exclusively on the server — it's the right choice whenever you need secrets, a database, cookies, or any server-only resource.
 
-Get this wrong and you either leak secrets to the browser or force an extra hop through your own server for no reason. This lesson gives you a decision tree, a side-by-side comparison, and five realistic scenarios with the right answer for each.`,
+Get this wrong and you either leak secrets to the browser or force an extra hop through your own server for no reason. This lesson gives you a decision tree, a side-by-side comparison, and five realistic scenarios with the right answer for each.
+
+> **SvelteKit 2.27+:** Remote functions (\\\`query\\\` from \\\`$app/server\\\`, exported from \\\`.remote.ts\\\` files) provide a third option: type-safe data fetching that can be called from anywhere in your component tree — not just \\\`+page.ts\\\` / \\\`+page.server.ts\\\`. They deduplicate automatically and support single-flight mutations. See Module 17 Lesson 3 for full coverage.`,
 	objectives: [
 		'State the fundamental rule that picks between +page.ts and +page.server.ts',
 		'Recite the capability matrix for both load types',

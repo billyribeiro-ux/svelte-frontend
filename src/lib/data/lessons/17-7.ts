@@ -17,7 +17,9 @@ The three knobs:
 
 SvelteKit 2 adds refreshAll() which broadcasts an invalidation across browser tabs via BroadcastChannel — great for cross-tab consistency after a mutation. This lesson shows how to wire all three into a typical CRUD workflow.
 
-The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
+The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.
+
+> **Remote functions alternative:** With SvelteKit 2.27+ remote functions, you can skip \\\`invalidate()\\\` entirely. Call \\\`myQuery().refresh()\\\` inside a \\\`form()\\\` or \\\`command()\\\` handler for single-flight mutations — the fresh data piggybacks on the mutation response in a single round-trip, eliminating the invalidation → re-fetch cycle. You can also call \\\`myQuery(args).set(data)\\\` to update the cache directly without re-fetching.`,
 	objectives: [
 		'Declare a dependency key with depends() in load functions',
 		'Invalidate a single key with invalidate()',
