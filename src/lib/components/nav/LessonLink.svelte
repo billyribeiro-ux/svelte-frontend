@@ -17,8 +17,7 @@
 
 <a
 	{href}
-	class="lesson-link"
-	class:active={isActive}
+	class={["lesson-link", isActive && "active"]}
 	aria-current={isActive ? 'page' : undefined}
 >
 	<span class="lesson-number">{label}</span>

@@ -38,8 +38,7 @@
 
 	<div class="actions">
 		<button
-			class="mark-complete-btn"
-			class:completed={isCompleted}
+			class={["mark-complete-btn", isCompleted && "completed"]}
 			onclick={onmarkComplete}
 			disabled={isCompleted}
 		>

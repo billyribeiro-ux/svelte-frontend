@@ -14,6 +14,8 @@ const lesson: LessonData = {
 
 **\`{@const name = expression}\`** declares a block-scoped constant inside an \`{#each}\` or \`{#if}\` block. Each iteration gets its own copy. It's the right tool when you want a computed value like \`subtotal = price * qty\` *per row* — you don't need a full \`$derived\` for that, and duplicating the expression everywhere it's used is error-prone.
 
+> **Svelte 5.56+:** The \`{@const}\` syntax is now considered **legacy**. New code should use \`{const name = expression}\` (or \`{let name = expression}\` for mutable block-scoped variables). Declaration tags work anywhere in the template — not only inside blocks — and support \`$state\` and \`$derived\` for reactive local variables. This lesson uses \`{@const}\` because it's still widely encountered, but prefer \`{const ...}\` / \`{let ...}\` in new code.
+
 **\`{@debug var1, var2, ...}\`** is a conditional breakpoint you can check into source control. When any listed variable changes and DevTools is open, the debugger pauses; when DevTools is closed, it's a no-op. Beats sprinkling \`console.log\`s and forgetting to remove them.
 
 This lesson builds a fly-in slideshow (\`{#key}\` replays the transition), a profile selector that resets an editable field (\`{#key}\` on an id), a line-items invoice with four \`{@const}\` derivations per row, and a \`{@debug}\` playground.`,

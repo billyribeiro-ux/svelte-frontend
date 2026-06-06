@@ -15,8 +15,7 @@
 <div class="tab-bar">
 	{#each files as file, i}
 		<button
-			class="tab"
-			class:active={i === activeIndex}
+			class={["tab", i === activeIndex && "active"]}
 			onclick={() => onselect(i)}
 			title={file.filename}
 		>
