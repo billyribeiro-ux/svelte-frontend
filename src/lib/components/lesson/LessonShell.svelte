@@ -24,10 +24,12 @@
 				lessonId={lesson.meta.id}
 				onmarkComplete={handleMarkComplete}
 				isCompleted={completed}
+				starterFiles={lesson.files}
+				solutionFiles={lesson.solution}
 			/>
 		</Pane>
 		<Pane minSize={30} size={60}>
-			<IDE files={lesson.files} />
+			<IDE files={lesson.files} lessonId={lesson.meta.id} />
 		</Pane>
 	</Splitpanes>
 </div>

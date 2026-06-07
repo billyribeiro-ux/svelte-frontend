@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { course } from '$data/curriculum';
+	import SEOHead from '$lib/components/seo/SEOHead.svelte';
 </script>
 
-<svelte:head>
-	<title>Svelte PE7 Mastery</title>
-</svelte:head>
+<SEOHead
+	title="Learn Svelte 5 the PE7 Way"
+	description="Master Svelte 5, SvelteKit, and TypeScript with 149 hands-on lessons across 7 phases and 21 modules — from zero to production."
+/>
 
 <div class="landing">
 	<div class="hero">
@@ -191,5 +193,27 @@
 		font-size: 12px;
 		color: var(--text-muted);
 		font-family: var(--font-mono);
+	}
+
+	@media (max-width: 768px) {
+		.landing {
+			padding: var(--space-lg);
+		}
+
+		.hero-title {
+			font-size: 28px;
+		}
+
+		.stats {
+			gap: var(--space-lg);
+		}
+
+		.stat-number {
+			font-size: 24px;
+		}
+
+		.phase-cards {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

@@ -14,22 +14,37 @@
 		setContainerReady,
 		setPreviewUrl
 	} from '$lib/stores/ide.svelte';
+	import {
+		loadSavedCode,
+		clearSavedCode,
+		debouncedSave,
+		getSaveIndicatorVisible
+	} from '$lib/stores/codeSave.svelte';
 
-	let { files }: { files: LessonFile[] } = $props();
+	let {
+		files,
+		lessonId = ''
+	}: {
+		files: LessonFile[];
+		lessonId?: string;
+	} = $props();
 
 	let activeFileIndex = $state(0);
 	let containerError = $state<string | null>(null);
+	let workingFiles = $state<LessonFile[]>([]);
 
 	// Load lesson files and boot WebContainer when files change
 	$effect(() => {
 		if (files.length > 0) {
-			loadLesson(files);
+			const saved = lessonId ? loadSavedCode(lessonId) : null;
+			workingFiles = saved ?? files.map((f) => ({ ...f }));
+			loadLesson(workingFiles);
 			activeFileIndex = 0;
-			bootContainer(files);
+			bootContainer(workingFiles);
 		}
 	});
 
-	let activeFile = $derived(files[activeFileIndex]);
+	let activeFile = $derived(workingFiles[activeFileIndex]);
 
 	async function bootContainer(lessonFiles: LessonFile[]) {
 		containerError = null;
@@ -53,7 +68,14 @@
 
 	async function handleContentChange(value: string) {
 		if (activeFile) {
+			activeFile.content = value;
 			updateContent(activeFile.filename, value);
+
+			// Auto-save with debounce
+			if (lessonId) {
+				debouncedSave(lessonId, workingFiles);
+			}
+
 			// Write changed file to WebContainer for HMR
 			try {
 				const { writeFile } = await import('$lib/utils/webcontainer');
@@ -66,14 +88,36 @@
 			}
 		}
 	}
+
+	function resetToStarter() {
+		if (lessonId) {
+			clearSavedCode(lessonId);
+		}
+		workingFiles = files.map((f) => ({ ...f }));
+		loadLesson(workingFiles);
+		activeFileIndex = 0;
+		bootContainer(workingFiles);
+	}
 </script>
 
 <div class="ide-container">
-	<FileTabs
-		{files}
-		activeIndex={activeFileIndex}
-		onselect={handleTabSelect}
-	/>
+	<div class="ide-toolbar">
+		<FileTabs
+			files={workingFiles}
+			activeIndex={activeFileIndex}
+			onselect={handleTabSelect}
+		/>
+		<div class="toolbar-actions">
+			{#if getSaveIndicatorVisible()}
+				<span class="save-indicator">Saved</span>
+			{/if}
+			{#if lessonId}
+				<button class="reset-btn" onclick={resetToStarter} title="Reset to starter code">
+					Reset
+				</button>
+			{/if}
+		</div>
+	</div>
 
 	<div class="ide-panels">
 		<Splitpanes theme="modern-theme">
@@ -109,6 +153,54 @@
 		height: 100%;
 		background-color: var(--bg-primary);
 		overflow: hidden;
+	}
+
+	.ide-toolbar {
+		display: flex;
+		align-items: stretch;
+		background-color: var(--bg-secondary);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.toolbar-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: 0 var(--space-sm);
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+
+	.save-indicator {
+		font-size: 11px;
+		color: var(--success);
+		font-weight: 600;
+		animation: fadeInOut 1.5s ease-in-out;
+	}
+
+	@keyframes fadeInOut {
+		0% { opacity: 0; }
+		20% { opacity: 1; }
+		80% { opacity: 1; }
+		100% { opacity: 0; }
+	}
+
+	.reset-btn {
+		padding: 2px 8px;
+		font-size: 11px;
+		font-weight: 600;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
+		border: 1px solid var(--border);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.reset-btn:hover {
+		background: var(--bg-tertiary);
+		color: var(--text-primary);
+		border-color: var(--text-secondary);
 	}
 
 	.ide-panels {

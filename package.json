@@ -16,6 +16,7 @@
     "test:e2e:fetch": "tsx tests/e2e/routes-fetch.ts",
     "test:autofixer": "tsx tests/mcp/autofixer.runner.ts",
     "test:lessons": "vitest run tests/unit/data",
+    "test:coverage": "vitest run --coverage",
     "test:all": "bash scripts/test-all.sh",
     "report": "tsx scripts/report-summary.ts",
     "format": "prettier --write .",

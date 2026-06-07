@@ -1,11 +1,16 @@
 <script lang="ts">
+	import type { LessonFile } from '$lib/types';
+	import SolutionPanel from './SolutionPanel.svelte';
+
 	let {
 		title,
 		objectives,
 		description,
 		lessonId,
 		onmarkComplete,
-		isCompleted
+		isCompleted,
+		starterFiles = [],
+		solutionFiles
 	}: {
 		title: string;
 		objectives: string[];
@@ -13,7 +18,13 @@
 		lessonId: string;
 		onmarkComplete: () => void;
 		isCompleted: boolean;
+		starterFiles?: LessonFile[];
+		solutionFiles?: LessonFile[];
 	} = $props();
+
+	let showSolution = $state(false);
+
+	const hasSolution = $derived(!!solutionFiles && solutionFiles.length > 0);
 </script>
 
 <div class="lesson-content">
@@ -44,8 +55,25 @@
 		>
 			{isCompleted ? 'Completed \u2714' : 'Mark Complete'}
 		</button>
+		{#if hasSolution}
+			<button
+				class="show-solution-btn"
+				onclick={() => (showSolution = true)}
+			>
+				Show Solution
+			</button>
+		{/if}
 	</div>
 </div>
+
+{#if hasSolution && solutionFiles}
+	<SolutionPanel
+		{starterFiles}
+		{solutionFiles}
+		visible={showSolution}
+		onclose={() => (showSolution = false)}
+	/>
+{/if}
 
 <style>
 	.lesson-content {
@@ -126,5 +154,30 @@
 		background: var(--success-soft);
 		color: var(--success);
 		cursor: default;
+	}
+
+	.actions {
+		display: flex;
+		gap: var(--space-sm);
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	.show-solution-btn {
+		padding: var(--space-sm) var(--space-lg);
+		font-size: 14px;
+		font-weight: 600;
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: var(--text-secondary);
+		border: 1px solid var(--border);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.show-solution-btn:hover {
+		background: var(--bg-tertiary);
+		color: var(--text-primary);
+		border-color: var(--text-secondary);
 	}
 </style>

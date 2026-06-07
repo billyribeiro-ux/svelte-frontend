@@ -37,6 +37,18 @@ export default defineConfig({
 			deps: {
 				inline: ['@testing-library/svelte']
 			}
+		},
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'json', 'html'],
+			include: ['src/lib/**/*.{ts,svelte}'],
+			exclude: ['src/lib/data/lessons/**', 'src/lib/types/**'],
+			thresholds: {
+				statements: 40,
+				branches: 30,
+				functions: 40,
+				lines: 40
+			}
 		}
 	}
 });
