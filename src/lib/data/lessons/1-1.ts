@@ -222,6 +222,205 @@ In this lesson, you'll create object literals, access properties using dot and b
 </style>`,
 			language: 'svelte'
 		}
+	],
+	solution: [
+		{
+			filename: 'App.svelte',
+			content: `<script lang="ts">
+  // ============================================================
+  // SOLUTION — Objects: Grouping Related Data
+  // ============================================================
+  // Best-practice version with TypeScript interfaces, proper
+  // typing, and clean reactive patterns.
+
+  // 1. Define interfaces for structured data
+  interface Person {
+    name: string;
+    age: number;
+    role: string;
+    email: string;
+  }
+
+  interface Company {
+    name: string;
+    founded: number;
+    address: { street: string; city: string; country: string };
+    ceo: { name: string; age: number };
+  }
+
+  interface Product {
+    title: string;
+    price: number;
+    quantity: number;
+    onSale: boolean;
+    details: { size: string; color: string };
+  }
+
+  // 2. Typed reactive state
+  let person: Person = $state({
+    name: 'Billy',
+    age: 30,
+    role: 'Developer',
+    email: 'billy@example.com'
+  });
+
+  function birthday(): void {
+    person.age += 1;
+  }
+
+  function promote(): void {
+    person.role = person.role === 'Developer'
+      ? 'Senior Developer'
+      : 'Developer';
+  }
+
+  // 3. Bracket notation for dynamic keys
+  let selectedField: keyof Person = $state('name');
+  const fields: (keyof Person)[] = ['name', 'age', 'role', 'email'];
+
+  // 4. Nested objects with typed interface
+  let company: Company = $state({
+    name: 'Acme Corp',
+    founded: 2020,
+    address: {
+      street: '123 Main St',
+      city: 'Codeville',
+      country: 'JS Land'
+    },
+    ceo: {
+      name: 'Jane Doe',
+      age: 45
+    }
+  });
+
+  function moveCompany(): void {
+    company.address.city = company.address.city === 'Codeville'
+      ? 'Frameworkton'
+      : 'Codeville';
+  }
+
+  function ceoBirthday(): void {
+    company.ceo.age += 1;
+  }
+
+  // 5. Shopping cart item with derived total
+  let product: Product = $state({
+    title: 'Svelte T-Shirt',
+    price: 25,
+    quantity: 1,
+    onSale: false,
+    details: {
+      size: 'M',
+      color: 'orange'
+    }
+  });
+
+  const total = $derived(
+    product.onSale
+      ? product.price * product.quantity * 0.8
+      : product.price * product.quantity
+  );
+
+  function increaseQty(): void { product.quantity += 1; }
+  function decreaseQty(): void {
+    if (product.quantity > 0) product.quantity -= 1;
+  }
+  function toggleSale(): void { product.onSale = !product.onSale; }
+  function toggleSize(): void {
+    product.details.size = product.details.size === 'M' ? 'L' : 'M';
+  }
+</script>
+
+<h1>Objects: Grouping Related Data</h1>
+
+<section>
+  <h2>1. Simple Object (dot notation)</h2>
+  <p>Name: <strong>{person.name}</strong></p>
+  <p>Age: <strong>{person.age}</strong></p>
+  <p>Role: <strong>{person.role}</strong></p>
+  <p>Email: <strong>{person.email}</strong></p>
+  <div class="buttons">
+    <button onclick={birthday}>Birthday (+1 age)</button>
+    <button onclick={promote}>Toggle Promotion</button>
+  </div>
+</section>
+
+<section>
+  <h2>2. Bracket Notation (dynamic keys)</h2>
+  <p>Click a field below — the value is looked up by key:</p>
+  <div class="buttons">
+    {#each fields as field (field)}
+      <button
+        onclick={() => selectedField = field}
+        class:active={selectedField === field}
+      >
+        {field}
+      </button>
+    {/each}
+  </div>
+  <p>
+    <code>person["{selectedField}"]</code> =
+    <strong>{person[selectedField]}</strong>
+  </p>
+</section>
+
+<section>
+  <h2>3. Nested Objects</h2>
+  <p>Company: <strong>{company.name}</strong> (founded {company.founded})</p>
+  <p>Address: {company.address.street}, <strong>{company.address.city}</strong>, {company.address.country}</p>
+  <p>CEO: <strong>{company.ceo.name}</strong>, age {company.ceo.age}</p>
+  <div class="buttons">
+    <button onclick={moveCompany}>Move Company</button>
+    <button onclick={ceoBirthday}>CEO Birthday</button>
+  </div>
+</section>
+
+<section>
+  <h2>4. Real-World: Shopping Cart Item</h2>
+  <div class="product" class:sale={product.onSale}>
+    <h3>{product.title}</h3>
+    <p>Size: <strong>{product.details.size}</strong> | Color: {product.details.color}</p>
+    <p>Price: \${product.price} x {product.quantity} = <strong>\${total.toFixed(2)}</strong></p>
+    {#if product.onSale}
+      <p class="sale-tag">20% OFF!</p>
+    {/if}
+  </div>
+  <div class="buttons">
+    <button onclick={decreaseQty}>-</button>
+    <button onclick={increaseQty}>+</button>
+    <button onclick={toggleSale}>Toggle Sale</button>
+    <button onclick={toggleSize}>Toggle Size</button>
+  </div>
+</section>
+
+<style>
+  h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
+  h2 { font-size: 16px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+  h3 { margin: 0 0 6px 0; color: #222; font-size: 15px; }
+  section { margin-bottom: 24px; }
+  p { color: #444; font-size: 14px; margin: 4px 0; }
+  strong { color: #222; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+  .buttons { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+  button {
+    padding: 6px 14px; border: 2px solid #ff3e00; background: white;
+    color: #ff3e00; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button:hover { background: #ff3e00; color: white; }
+  .active { background: #ff3e00; color: white; }
+  .product {
+    background: #fff7f3; border: 2px solid #ffd4bf;
+    padding: 12px; border-radius: 8px; margin: 8px 0;
+  }
+  .product.sale { border-color: #4ec9b0; background: #f0faf8; }
+  .sale-tag {
+    display: inline-block; background: #4ec9b0; color: white;
+    padding: 2px 10px; border-radius: 10px; font-size: 11px;
+    font-weight: 700; margin-top: 4px;
+  }
+</style>`,
+			language: 'svelte'
+		}
 	]
 };
 

@@ -795,6 +795,420 @@ export const GET = async ({ params }) => {
 </style>`,
 			language: 'svelte'
 		}
+	],
+	solution: [
+		{
+			filename: 'App.svelte',
+			content: `<script lang="ts">
+  // ============================================================
+  // SOLUTION — $app/server & Remote Functions
+  // ============================================================
+  // Best-practice: fully typed simulations, clean state management,
+  // proper async patterns.
+
+  type Post = { id: number; title: string; slug: string };
+
+  let posts: Post[] = $state([
+    { id: 1, title: 'Getting Started with SvelteKit', slug: 'getting-started' },
+    { id: 2, title: 'Remote Functions Deep Dive', slug: 'remote-functions' },
+    { id: 3, title: 'Single-Flight Mutations', slug: 'single-flight' }
+  ]);
+
+  let likes: Record<string, number> = $state({ '1': 5, '2': 12, '3': 3 });
+  let nextId: number = $state(4);
+  let queryCallCount: number = $state(0);
+
+  // Simulated query with deduplication
+  const queryCache = new Map<string, Post[]>();
+  function getPosts(): Post[] {
+    const key = 'all';
+    queryCallCount++;
+    if (!queryCache.has(key)) {
+      queryCache.set(key, [...posts]);
+    }
+    return queryCache.get(key)!;
+  }
+
+  function refreshPosts(): void {
+    queryCache.clear();
+    queryCallCount = 0;
+  }
+
+  // Form state
+  let formTitle: string = $state('');
+  let formContent: string = $state('');
+  let formErrors: { title?: string; content?: string } = $state({});
+  let formResult: { success: boolean; slug: string } | null = $state(null);
+  let formPending: boolean = $state(false);
+
+  function validateForm(): boolean {
+    formErrors = {};
+    if (!formTitle.trim()) formErrors.title = 'Title is required';
+    if (!formContent.trim()) formErrors.content = 'Content is required';
+    return !formErrors.title && !formErrors.content;
+  }
+
+  async function submitForm(): Promise<void> {
+    if (!validateForm()) return;
+    formPending = true;
+    await new Promise((r) => setTimeout(r, 600));
+    const slug = formTitle.toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    posts = [...posts, { id: nextId++, title: formTitle, slug }];
+    refreshPosts();
+    formResult = { success: true, slug };
+    formTitle = '';
+    formContent = '';
+    formPending = false;
+  }
+
+  // Command simulation
+  let commandLog: string[] = $state([]);
+  async function addLike(itemId: string): Promise<void> {
+    await new Promise((r) => setTimeout(r, 300));
+    likes[itemId] = (likes[itemId] ?? 0) + 1;
+    likes = { ...likes };
+    commandLog = [\`+1 like for item \${itemId} (now \${likes[itemId]})\`, ...commandLog].slice(0, 5);
+  }
+
+  // getRequestEvent simulation
+  type DemoEvent = {
+    locals: { user: { id: string; email: string; role: 'admin' | 'user' } | null };
+    cookies: { session?: string };
+    url: string;
+  };
+
+  type CallLog = { id: number; helper: string; result: string; ok: boolean };
+
+  let eventLogs: CallLog[] = $state([]);
+  let eventLogId: number = $state(0);
+  let scenario: 'anon' | 'user' | 'admin' = $state('user');
+
+  const scenarios: Record<typeof scenario, DemoEvent> = {
+    anon: { locals: { user: null }, cookies: {}, url: '/dashboard' },
+    user: {
+      locals: { user: { id: 'u42', email: 'alice@example.com', role: 'user' } },
+      cookies: { session: 'sess_abc' }, url: '/dashboard'
+    },
+    admin: {
+      locals: { user: { id: 'u1', email: 'root@example.com', role: 'admin' } },
+      cookies: { session: 'sess_root' }, url: '/admin/users'
+    }
+  };
+
+  let currentEvent: DemoEvent | null = null;
+  function getRequestEvent(): DemoEvent {
+    if (!currentEvent) throw new Error('Called outside a request');
+    return currentEvent;
+  }
+
+  function requireUser(): NonNullable<DemoEvent['locals']['user']> {
+    const event = getRequestEvent();
+    if (!event.locals.user) throw new Error('401 Unauthorized');
+    return event.locals.user;
+  }
+
+  function runIn(name: string, fn: () => string): void {
+    currentEvent = scenarios[scenario];
+    try {
+      const result = fn();
+      eventLogs = [{ id: eventLogId++, helper: name, result, ok: true }, ...eventLogs].slice(0, 6);
+    } catch (e) {
+      eventLogs = [{ id: eventLogId++, helper: name, result: (e as Error).message, ok: false }, ...eventLogs].slice(0, 6);
+    } finally {
+      currentEvent = null;
+    }
+  }
+
+  // read() simulation
+  const fakeAssets: Record<string, { type: string; size: number; preview: string }> = {
+    '/fonts/Inter.woff2': { type: 'font/woff2', size: 84200, preview: '(binary font data)' },
+    '/data/cities.json': { type: 'application/json', size: 2100, preview: '[{"name":"Tokyo","pop":37.4},...]' },
+    '/images/logo.svg': { type: 'image/svg+xml', size: 540, preview: '<svg viewBox="0 0 32 32">...</svg>' }
+  };
+  let selectedAsset: string = $state('/data/cities.json');
+  let readResult: { type: string; size: number; preview: string } | null = $state(null);
+  function callRead(): void {
+    readResult = fakeAssets[selectedAsset] ?? null;
+  }
+
+  // Active tab control
+  let activeTab: 'remote' | 'event' | 'read' = $state('remote');
+</script>
+
+<h1>$app/server &amp; Remote Functions</h1>
+
+<p class="intro">
+  SvelteKit 2.27 introduced <strong>remote functions</strong> — the most significant
+  addition to <code>$app/server</code>. They provide type-safe client-server
+  communication via <code>.remote.ts</code> files.
+</p>
+
+<nav class="tabs">
+  <button class:active={activeTab === 'remote'} onclick={() => (activeTab = 'remote')}>
+    Remote Functions
+  </button>
+  <button class:active={activeTab === 'event'} onclick={() => (activeTab = 'event')}>
+    getRequestEvent
+  </button>
+  <button class:active={activeTab === 'read'} onclick={() => (activeTab = 'read')}>
+    read()
+  </button>
+</nav>
+
+{#if activeTab === 'remote'}
+
+<section>
+  <h2>1. query() — Read Server Data</h2>
+  <h3>Interactive Demo: Deduplication</h3>
+  <div class="demo-row">
+    <button class="btn" onclick={() => getPosts()}>getPosts()</button>
+    <button class="btn" onclick={() => getPosts()}>getPosts() again</button>
+    <button class="btn outline" onclick={refreshPosts}>Refresh Cache</button>
+    <span class="badge">Server calls: {queryCallCount}</span>
+  </div>
+  <div class="post-list">
+    {#each getPosts() as post (post.id)}
+      <div class="post-card">
+        <strong>{post.title}</strong>
+        <code>/blog/{post.slug}</code>
+      </div>
+    {/each}
+  </div>
+</section>
+
+<section>
+  <h2>2. form() — Type-Safe Form Submissions</h2>
+  <form class="demo-form" onsubmit={(e) => { e.preventDefault(); submitForm(); }}>
+    <label>
+      <span>Title</span>
+      <input type="text" bind:value={formTitle} oninput={validateForm}
+        aria-invalid={!!formErrors.title} placeholder="My new blog post" />
+      {#if formErrors.title}
+        <p class="issue">{formErrors.title}</p>
+      {/if}
+    </label>
+    <label>
+      <span>Content</span>
+      <textarea bind:value={formContent} oninput={validateForm}
+        aria-invalid={!!formErrors.content} placeholder="Write something..." rows="3"></textarea>
+      {#if formErrors.content}
+        <p class="issue">{formErrors.content}</p>
+      {/if}
+    </label>
+    <button type="submit" disabled={formPending}>
+      {formPending ? 'Publishing...' : 'Publish!'}
+    </button>
+  </form>
+  {#if formResult}
+    <div class="success-box">
+      Published! Slug: <code>/blog/{formResult.slug}</code>
+    </div>
+  {/if}
+</section>
+
+<section>
+  <h2>3. command() — Non-Form Mutations</h2>
+  <div class="like-demo">
+    {#each posts.slice(0, 3) as post (post.id)}
+      <div class="like-row">
+        <span>{post.title}</span>
+        <button class="btn sm" onclick={() => addLike(String(post.id))}>
+          Like ({likes[String(post.id)] ?? 0})
+        </button>
+      </div>
+    {/each}
+  </div>
+  {#if commandLog.length > 0}
+    <div class="cmd-log">
+      {#each commandLog as entry}
+        <div class="cmd-entry">{entry}</div>
+      {/each}
+    </div>
+  {/if}
+</section>
+
+<section>
+  <h2>When to Use What?</h2>
+  <div class="comparison">
+    <div class="comp-row header"><span>Pattern</span><span>Use When</span></div>
+    <div class="comp-row"><code>query()</code><span>Reading dynamic data — replaces most load functions</span></div>
+    <div class="comp-row"><code>form()</code><span>Form submissions with validation — replaces actions</span></div>
+    <div class="comp-row"><code>command()</code><span>Non-form mutations (likes, deletes, toggles)</span></div>
+    <div class="comp-row"><code>query.live()</code><span>Real-time data (notifications, chat)</span></div>
+    <div class="comp-row"><code>load + actions</code><span>URL-dependent data, complex layouts</span></div>
+  </div>
+</section>
+
+{:else if activeTab === 'event'}
+
+<section>
+  <h2>getRequestEvent() — Ambient Access from Helpers</h2>
+  <div class="scenario">
+    {#each Object.keys(scenarios) as s (s)}
+      <button class:active={scenario === s} onclick={() => (scenario = s as typeof scenario)}>{s}</button>
+    {/each}
+  </div>
+  <div class="event-box">
+    <strong>Active event</strong>
+    <pre>{JSON.stringify(scenarios[scenario], null, 2)}</pre>
+  </div>
+  <div class="helpers">
+    <button onclick={() => runIn('getRequestEvent()', () => {
+      const e = getRequestEvent();
+      return \`\${e.url} — user=\${e.locals.user?.email ?? 'none'}\`;
+    })}>getRequestEvent()</button>
+    <button onclick={() => runIn('requireUser()', () => {
+      const user = requireUser();
+      return \`OK — \${user.email}\`;
+    })}>requireUser()</button>
+  </div>
+  {#if eventLogs.length > 0}
+    <div class="log">
+      {#each eventLogs as entry (entry.id)}
+        <div class="log-entry" class:ok={entry.ok} class:fail={!entry.ok}>
+          <code>{entry.helper}</code>
+          <span>{entry.result}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</section>
+
+{:else}
+
+<section>
+  <h2>read() — Load Static Assets on the Server</h2>
+  <div class="asset-picker">
+    {#each Object.keys(fakeAssets) as path (path)}
+      <button class:active={selectedAsset === path} onclick={() => (selectedAsset = path)}>
+        {path.split('/').pop()}
+      </button>
+    {/each}
+    <button class="primary" onclick={callRead}>read(asset)</button>
+  </div>
+  {#if readResult}
+    <div class="asset-result">
+      <div class="row"><span>Content-Type:</span> <code>{readResult.type}</code></div>
+      <div class="row"><span>Size:</span> <code>{readResult.size.toLocaleString()} bytes</code></div>
+      <pre class="preview">{readResult.preview}</pre>
+    </div>
+  {/if}
+</section>
+
+{/if}
+
+<style>
+  h1 { color: #2d3436; margin-bottom: 0.25rem; }
+  .intro { font-size: 0.9rem; color: #636e72; margin-bottom: 1rem; line-height: 1.5; }
+  .intro code { background: #dfe6e9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+  .tabs {
+    display: flex; gap: 0; margin-bottom: 1rem;
+    border-bottom: 2px solid #dfe6e9;
+  }
+  .tabs button {
+    padding: 0.5rem 1rem; border: none; background: none;
+    font-weight: 600; font-size: 0.85rem; color: #636e72;
+    cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: all 0.15s;
+  }
+  .tabs button.active { color: #00b894; border-bottom-color: #00b894; }
+  section { margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+  h2 { margin-top: 0; color: #00b894; font-size: 1.05rem; }
+  h3 { color: #2d3436; font-size: 0.95rem; margin: 1rem 0 0.5rem; }
+  .btn {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #0984e3; color: white; cursor: pointer;
+    font-weight: 600; font-size: 0.85rem;
+  }
+  .btn.outline { background: transparent; border: 1px solid #0984e3; color: #0984e3; }
+  .btn.sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+  .badge {
+    display: inline-flex; align-items: center; padding: 0.25rem 0.6rem;
+    background: #dfe6e9; border-radius: 12px; font-size: 0.8rem;
+    font-weight: 600; color: #2d3436;
+  }
+  .demo-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.5rem 0; }
+  .post-list { margin-top: 0.75rem; }
+  .post-card {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.5rem 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9; margin-bottom: 0.35rem; font-size: 0.85rem;
+  }
+  .post-card code { font-size: 0.75rem; color: #636e72; }
+  .demo-form {
+    background: white; padding: 1rem; border-radius: 6px; border: 1px solid #dfe6e9;
+  }
+  .demo-form label { display: block; margin-bottom: 0.75rem; }
+  .demo-form label span { display: block; font-size: 0.8rem; font-weight: 600; color: #2d3436; margin-bottom: 0.25rem; }
+  .demo-form input, .demo-form textarea {
+    width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #dfe6e9;
+    border-radius: 4px; font-size: 0.85rem; box-sizing: border-box;
+  }
+  .demo-form button {
+    padding: 0.5rem 1.2rem; background: #00b894; color: white;
+    border: none; border-radius: 4px; font-weight: 600; cursor: pointer;
+  }
+  .demo-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .issue { color: #d63031; font-size: 0.8rem; margin: 0.15rem 0 0; }
+  .success-box {
+    margin-top: 0.75rem; padding: 0.75rem; background: #f0fff4;
+    border: 1px solid #00b894; border-radius: 6px; font-size: 0.85rem;
+  }
+  .success-box code { background: #dfe6e9; padding: 0.1rem 0.3rem; border-radius: 3px; }
+  .like-demo { margin: 0.5rem 0; }
+  .like-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.4rem 0.75rem; background: white; border-radius: 6px;
+    border: 1px solid #dfe6e9; margin-bottom: 0.35rem; font-size: 0.85rem;
+  }
+  .cmd-log { margin-top: 0.5rem; padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #dfe6e9; }
+  .cmd-entry { font-size: 0.8rem; color: #636e72; padding: 0.15rem 0.5rem; }
+  .comparison { border: 1px solid #dfe6e9; border-radius: 6px; overflow: hidden; }
+  .comp-row {
+    display: grid; grid-template-columns: 140px 1fr; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; font-size: 0.82rem; border-bottom: 1px solid #dfe6e9;
+  }
+  .comp-row:last-child { border-bottom: none; }
+  .comp-row.header { background: #2d3436; color: white; font-weight: 600; }
+  .comp-row code { background: #dfe6e9; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.78rem; }
+  .scenario { display: flex; gap: 0.25rem; margin-bottom: 0.5rem; }
+  .scenario button, .asset-picker button, .helpers button {
+    padding: 0.4rem 0.8rem; border: none; border-radius: 4px;
+    background: #dfe6e9; color: #2d3436; cursor: pointer;
+    font-weight: 600; font-size: 0.85rem;
+  }
+  .scenario button.active, .asset-picker button.active { background: #00b894; color: white; }
+  .event-box {
+    background: white; padding: 0.75rem; border-radius: 6px;
+    border: 1px solid #dfe6e9; margin-bottom: 0.75rem;
+  }
+  .event-box strong { font-size: 0.8rem; color: #2d3436; }
+  .event-box pre { margin: 0.3rem 0 0; font-size: 0.75rem; color: #636e72; overflow-x: auto; }
+  .helpers { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .helpers button { background: #0984e3; color: white; font-family: monospace; }
+  .log { margin-top: 0.75rem; background: white; border-radius: 6px; padding: 0.5rem; border: 1px solid #dfe6e9; }
+  .log-entry {
+    display: flex; gap: 0.75rem; padding: 0.25rem 0.5rem;
+    font-size: 0.8rem; border-left: 3px solid;
+    margin-bottom: 0.25rem; border-radius: 2px;
+  }
+  .log-entry.ok { border-color: #00b894; background: #f0fff4; }
+  .log-entry.fail { border-color: #d63031; background: #fff5f5; }
+  .log-entry code { font-family: monospace; color: #2d3436; font-weight: 600; white-space: nowrap; }
+  .asset-picker { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .asset-picker .primary { background: #00b894; color: white; margin-left: auto; }
+  .asset-result { background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid #dfe6e9; }
+  .row { display: flex; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 0.2rem; }
+  .row span { color: #636e72; min-width: 110px; }
+  .row code { background: #dfe6e9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+  .preview {
+    padding: 0.5rem; background: #2d3436; color: #dfe6e9;
+    border-radius: 4px; font-size: 0.75rem; overflow-x: auto;
+    margin: 0.3rem 0 0; font-family: monospace;
+  }
+</style>`,
+			language: 'svelte'
+		}
 	]
 };
 

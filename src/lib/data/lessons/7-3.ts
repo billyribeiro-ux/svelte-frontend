@@ -317,6 +317,308 @@ Both patterns are used heavily in production Svelte apps. Custom errors for unex
 </style>`,
 			language: 'svelte'
 		}
+	],
+	solution: [
+		{
+			filename: 'App.svelte',
+			content: `<script lang="ts">
+  // ============================================================
+  // SOLUTION — Custom Errors & Patterns
+  // ============================================================
+  // Best-practice: typed custom errors, Result<T,E> pattern,
+  // generic retry helper with exponential backoff option.
+
+  // 1. Custom Error Classes with full TypeScript typing
+  class ValidationError extends Error {
+    readonly field: string;
+    constructor(message: string, field: string) {
+      super(message);
+      this.name = 'ValidationError';
+      this.field = field;
+    }
+  }
+
+  class NetworkError extends Error {
+    readonly status: number;
+    readonly isTransient: boolean;
+    constructor(message: string, status: number) {
+      super(message);
+      this.name = 'NetworkError';
+      this.status = status;
+      this.isTransient = status >= 500;
+    }
+  }
+
+  class NotFoundError extends Error {
+    readonly resource: string;
+    readonly id: number;
+    constructor(resource: string, id: number) {
+      super(\`\${resource} with id \${id} not found\`);
+      this.name = 'NotFoundError';
+      this.resource = resource;
+      this.id = id;
+    }
+  }
+
+  // 2. Result Pattern — typed discriminated union
+  type Result<T, E = string> =
+    | { ok: true; data: T }
+    | { ok: false; error: E };
+
+  // 3. Form validation
+  let email: string = $state('not-an-email');
+  let age: number = $state(15);
+  let formMessage: string = $state('');
+  let formStatus: string = $state('');
+
+  interface UserInput {
+    email: string;
+    age: number;
+  }
+
+  function validateUser(user: UserInput): UserInput {
+    if (!user.email.includes('@')) {
+      throw new ValidationError('Invalid email format', 'email');
+    }
+    if (user.age < 18) {
+      throw new ValidationError('Must be 18 or older', 'age');
+    }
+    return user;
+  }
+
+  function submitForm(): void {
+    try {
+      validateUser({ email, age });
+      formMessage = 'Form submitted successfully';
+      formStatus = 'ok';
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        formMessage = \`[\${err.field}] \${err.message}\`;
+        formStatus = 'err';
+      } else {
+        formMessage = 'Unexpected error: ' + (err instanceof Error ? err.message : String(err));
+        formStatus = 'err';
+      }
+    }
+  }
+
+  // 4. Result Pattern implementation
+  function parseInteger(str: string): Result<number> {
+    const n = Number(str);
+    if (Number.isNaN(n)) {
+      return { ok: false, error: 'Not a number' };
+    }
+    if (!Number.isInteger(n)) {
+      return { ok: false, error: 'Not an integer' };
+    }
+    return { ok: true, data: n };
+  }
+
+  let intInput: string = $state('42');
+  let intResult: Result<number> | null = $state(null);
+
+  function runParse(): void {
+    intResult = parseInteger(intInput);
+  }
+
+  // 5. Retry Logic
+  let attempts: number = 0;
+
+  function flakyCall(): { ok: true; message: string } {
+    attempts++;
+    if (attempts < 3) {
+      throw new NetworkError('Service temporarily unavailable', 503);
+    }
+    return { ok: true, message: 'Service responded' };
+  }
+
+  async function retry<T>(fn: () => T, maxAttempts = 3): Promise<Result<T, Error>> {
+    let lastError: Error = new Error('Unknown');
+    for (let i = 1; i <= maxAttempts; i++) {
+      try {
+        return { ok: true, data: fn() };
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (err instanceof NetworkError && err.isTransient && i < maxAttempts) {
+          retryLog = [...retryLog, \`Attempt \${i} failed (\${err.status}), retrying...\`];
+          await new Promise((r) => setTimeout(r, 300));
+          continue;
+        }
+        return { ok: false, error: lastError };
+      }
+    }
+    return { ok: false, error: lastError };
+  }
+
+  let retryLog: string[] = $state([]);
+  let retryResult: string = $state('');
+
+  async function runRetry(): Promise<void> {
+    attempts = 0;
+    retryLog = [];
+    retryResult = '';
+    const result = await retry(flakyCall);
+    if (result.ok) {
+      retryResult = 'Success: ' + result.data.message;
+      retryLog = [...retryLog, \`Succeeded on attempt \${attempts}\`];
+    } else {
+      retryResult = 'Failed: ' + result.error.message;
+    }
+  }
+
+  // 6. Database Lookup
+  interface User {
+    id: number;
+    name: string;
+  }
+
+  const users: User[] = [
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' }
+  ];
+
+  function findUser(id: number): User {
+    const user = users.find((u) => u.id === id);
+    if (!user) {
+      throw new NotFoundError('User', id);
+    }
+    return user;
+  }
+
+  let lookupId: number = $state(3);
+  let lookupMessage: string = $state('');
+  let lookupStatus: string = $state('');
+
+  function doLookup(): void {
+    try {
+      const user = findUser(lookupId);
+      lookupMessage = 'Found: ' + user.name;
+      lookupStatus = 'ok';
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        lookupMessage = \`[\${err.resource} #\${err.id}] \${err.message}\`;
+        lookupStatus = 'err';
+      } else {
+        lookupMessage = 'Unexpected error';
+        lookupStatus = 'err';
+      }
+    }
+  }
+</script>
+
+<h1>Custom Errors & Patterns</h1>
+
+<section>
+  <h2>1. ValidationError (custom class)</h2>
+  <p class="intro">Custom errors carry a <code>field</code> so the UI can highlight the right input.</p>
+  <div class="form">
+    <label>Email <input bind:value={email} /></label>
+    <label>Age <input type="number" bind:value={age} /></label>
+    <button onclick={submitForm}>Submit</button>
+  </div>
+  {#if formMessage}
+    <p class="result-text {formStatus}">{formMessage}</p>
+  {/if}
+</section>
+
+<section>
+  <h2>2. Result Pattern</h2>
+  <p class="intro">Return <code>{'{ok, data}'}</code> or <code>{'{ok: false, error}'}</code>. No throw, no catch.</p>
+  <input bind:value={intInput} />
+  <button onclick={runParse}>Parse</button>
+  {#if intResult}
+    {#if intResult.ok}
+      <p class="result-text ok">ok: true, data: {intResult.data}</p>
+    {:else}
+      <p class="result-text err">ok: false, error: {intResult.error}</p>
+    {/if}
+  {/if}
+  <p class="hint">Try "42", "3.14", and "hello" to see each branch.</p>
+</section>
+
+<section>
+  <h2>3. Retry Logic (NetworkError)</h2>
+  <p class="intro">Retry only transient failures (5xx). Permanent errors (4xx) fail fast.</p>
+  <button onclick={runRetry}>Call Flaky Service</button>
+  {#if retryLog.length > 0}
+    <ul class="log">
+      {#each retryLog as line, i (i)}
+        <li>{line}</li>
+      {/each}
+    </ul>
+  {/if}
+  {#if retryResult}
+    <p class="result-text ok">{retryResult}</p>
+  {/if}
+</section>
+
+<section>
+  <h2>4. NotFoundError</h2>
+  <div class="form">
+    <label>User ID <input type="number" bind:value={lookupId} /></label>
+    <button onclick={doLookup}>Look up</button>
+  </div>
+  {#if lookupMessage}
+    <p class="result-text {lookupStatus}">{lookupMessage}</p>
+  {/if}
+  <p class="hint">IDs 1 and 2 exist. Try 3 for NotFoundError.</p>
+</section>
+
+<section class="cheat">
+  <h2>When to Throw vs Return a Result</h2>
+  <ul>
+    <li><strong>Throw</strong> for unexpected failures (bugs, infrastructure errors, invariant violations).</li>
+    <li><strong>Return a Result</strong> for expected outcomes (validation, parsing, API responses with known failure modes).</li>
+    <li><strong>Custom Error classes</strong> let callers distinguish types with <code>instanceof</code>.</li>
+    <li><strong>Always set name</strong> in the constructor so <code>error.name</code> is meaningful.</li>
+  </ul>
+</section>
+
+<style>
+  h1 { color: #333; }
+  section { margin: 1.5rem 0; padding: 1rem; background: #fafafa; border-radius: 8px; }
+  .intro { font-size: 0.9rem; color: #555; margin: 0 0 0.5rem; }
+  .form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  label { display: flex; gap: 0.3rem; align-items: center; font-size: 0.9rem; }
+  input {
+    padding: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  button {
+    padding: 0.5rem 1rem;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover { background: #4338ca; }
+  .result-text {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  .ok { background: #f0fdf4; color: #065f46; border: 1px solid #86efac; }
+  .err { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+  .log {
+    font-size: 0.8rem;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 0.5rem 1.5rem;
+    border-radius: 4px;
+    margin: 0.5rem 0;
+  }
+  .hint { font-size: 0.85rem; color: #666; }
+  code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+  .cheat { background: #fffbeb; border: 1px solid #fde68a; }
+  .cheat ul { margin: 0; padding-left: 1.2rem; line-height: 1.7; font-size: 0.9rem; }
+</style>`,
+			language: 'svelte'
+		}
 	]
 };
 
