@@ -42,7 +42,7 @@ describe('ide store', () => {
 		const files = sampleFiles();
 		loadLesson(files);
 		expect(getOpenFiles()).toHaveLength(3);
-		expect(getOpenFiles()[0].filename).toBe('App.svelte');
+		expect(getOpenFiles()[0]?.filename).toBe('App.svelte');
 		expect(getActiveFileIndex()).toBe(0);
 		expect(getPreviewUrl()).toBeNull();
 	});
@@ -50,8 +50,8 @@ describe('ide store', () => {
 	it('loadLesson clones files (does not keep references)', () => {
 		const files = sampleFiles();
 		loadLesson(files);
-		files[0].content = 'MUTATED';
-		expect(getOpenFiles()[0].content).toBe('<h1>A</h1>');
+		files[0]!.content = 'MUTATED';
+		expect(getOpenFiles()[0]?.content).toBe('<h1>A</h1>');
 	});
 
 	it('getActiveFile returns the file at activeFileIndex', () => {
@@ -76,15 +76,15 @@ describe('ide store', () => {
 	it('updateContent mutates a file by filename', () => {
 		loadLesson(sampleFiles());
 		updateContent('App.svelte', '<h1>NEW</h1>');
-		expect(getOpenFiles()[0].content).toBe('<h1>NEW</h1>');
+		expect(getOpenFiles()[0]?.content).toBe('<h1>NEW</h1>');
 		// Other files untouched
-		expect(getOpenFiles()[1].content).toBe('<h2>Card</h2>');
+		expect(getOpenFiles()[1]?.content).toBe('<h2>Card</h2>');
 	});
 
 	it('updateContent is a no-op for unknown filename', () => {
 		loadLesson(sampleFiles());
 		updateContent('nope.svelte', 'x');
-		expect(getOpenFiles()[0].content).toBe('<h1>A</h1>');
+		expect(getOpenFiles()[0]?.content).toBe('<h1>A</h1>');
 	});
 
 	it('setPreviewUrl updates the preview url getter', () => {

@@ -61,10 +61,10 @@ describe('progress store', () => {
 		markComplete('5-1');
 		const entry = getProgress()['5-1'];
 		expect(entry).toBeDefined();
-		expect(entry.completed).toBe(true);
-		expect(typeof entry.completedAt).toBe('string');
+		expect(entry?.completed).toBe(true);
+		expect(typeof entry?.completedAt).toBe('string');
 		// ISO-ish
-		expect(() => new Date(entry.completedAt as string).toISOString()).not.toThrow();
+		expect(() => new Date(entry?.completedAt as string).toISOString()).not.toThrow();
 	});
 
 	it('persists to localStorage under the expected key', async () => {

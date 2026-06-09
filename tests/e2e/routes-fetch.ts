@@ -121,13 +121,14 @@ async function checkUrl(path: string, label: string, index: number, total: numbe
 		}
 		const body = await res.text();
 		const match = body.match(/<title>([^<]*)<\/title>/i);
-		if (!match || match[1].trim().length === 0) {
+		const titleText = match?.[1]?.trim() ?? '';
+		if (titleText.length === 0) {
 			failures.push({ url: path, reason: 'missing or empty <title>' });
 			log(`[${String(index).padStart(3, '0')}/${total}] FAIL ${path} — no <title>`);
 			return;
 		}
 		okCount++;
-		log(`[${String(index).padStart(3, '0')}/${total}] OK   ${path} — ${match[1].trim()}`);
+		log(`[${String(index).padStart(3, '0')}/${total}] OK   ${path} — ${titleText}`);
 	} catch (err) {
 		const reason = err instanceof Error ? err.message : String(err);
 		failures.push({ url: path, reason });
@@ -166,8 +167,8 @@ async function main(): Promise<void> {
 	// Landing
 	await checkUrl('/', 'landing', 1, total);
 
-	for (let i = 0; i < lessons.length; i++) {
-		await checkUrl(lessons[i].url, lessons[i].title, i + 2, total);
+	for (const [i, lesson] of lessons.entries()) {
+		await checkUrl(lesson.url, lesson.title, i + 2, total);
 	}
 
 	writeReport();
