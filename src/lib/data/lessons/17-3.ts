@@ -18,6 +18,9 @@ The module also exports three utility functions: getRequestEvent() returns the c
 		'Use query.live for real-time streaming data from the server',
 		'Use form() for type-safe form submissions with Standard Schema validation',
 		'Build forms with fields, .as() bindings, issues(), and validate()',
+		'Run client-side preflight schemas and programmatic invalid()/issue errors',
+		'Create isolated form instances with .for(id) and multi-submit buttons with as("submit", value)',
+		'Customize bad-input responses with the handleValidationError server hook',
 		'Use command() for non-form server mutations called from event handlers',
 		'Understand single-flight mutations — refresh/set in form/command handlers',
 		'Use requested() for client-requested query refreshes inside mutations',
@@ -370,6 +373,86 @@ export const createPost = form(
       — getPosts() was refreshed in the same flight.
     </div>
   {/if}
+</section>
+
+<section>
+  <h2>2b. Form Fields — the Full API</h2>
+  <p class="note">
+    Beyond <code>as()</code> and <code>issues()</code>, fields support live
+    validation, client-side preflight, programmatic server errors, isolated
+    per-item instances, and multi-submit buttons.
+  </p>
+
+  <h3>validate(), value()/set() and preflight()</h3>
+  <pre class="code"><code>{\`<!-- validate on every keystroke (untouched fields skipped) -->
+<form {...createPost} oninput={() => createPost.validate()}>
+  <!-- validate({ includeUntouched: true }) checks everything -->
+</form>
+
+<!-- live values: value() reflects the inputs as the user types -->
+<div class="preview">
+  <h2>{createPost.fields.title.value()}</h2>
+</div>
+<!-- and set() writes them: -->
+// createPost.fields.set({ title: '...', content: '...' });
+// createPost.fields.title.set('My new blog post');
+
+<!-- preflight: client-side schema blocks bad submits entirely.
+     The schema cannot be exported from a .remote.ts file — keep it
+     in a shared module or <script module>. -->
+<form {...createPost.preflight(schema)}>
+  <!-- all issues, not just one field's: -->
+  {#each createPost.fields.allIssues() as issue}
+    <p>{issue.message}</p>
+  {/each}
+</form>\`}</code></pre>
+
+  <h3>invalid() + issue — server-side programmatic validation</h3>
+  <pre class="code"><code>{\`// data.remote.ts — some things only the server can know
+import { invalid } from '@sveltejs/kit';
+import { form } from '$app/server';
+import * as v from 'valibot';
+
+export const buyHotcakes = form(
+  v.object({ qty: v.pipe(v.number(), v.minValue(1)) }),
+  async (data, issue) => {
+    try {
+      await db.buy(data.qty);
+    } catch (e) {
+      if (e.code === 'OUT_OF_STOCK') {
+        // throws, like redirect()/error(). Plain strings become
+        // form-level issues (visible via fields.allIssues());
+        // issue.qty(...) targets the qty field, fully type-safe.
+        invalid(issue.qty('we do not have enough hotcakes'));
+      }
+    }
+  }
+);\`}</code></pre>
+
+  <h3>.for(id) — isolated instances in a list</h3>
+  <pre class="code"><code>{\`{#each await getTodos() as todo}
+  {@const modify = modifyTodo.for(todo.id)}
+  <form {...modify}>
+    <!-- second .as() arg renders existing data into the input -->
+    <input {...modify.fields.description.as('text', todo.description)} />
+    <button disabled={!!modify.pending}>save changes</button>
+  </form>
+{/each}\`}</code></pre>
+
+  <h3>Multiple submit buttons</h3>
+  <pre class="code"><code>{\`// schema gets a field for the button value:
+// action: v.picklist(['login', 'register'])
+<form {...loginOrRegister}>
+  <input {...loginOrRegister.fields.username.as('text')} />
+  <!-- leading underscore = never sent back in value() repopulation -->
+  <input {...loginOrRegister.fields._password.as('password')} />
+
+  <button {...loginOrRegister.fields.action.as('submit', 'login')}>login</button>
+  <button {...loginOrRegister.fields.action.as('submit', 'register')}>register</button>
+</form>
+// handler: async ({ username, _password, action }) => {
+//   if (action === 'login') { ... } else { ... }
+// }\`}</code></pre>
 </section>
 
 <section>

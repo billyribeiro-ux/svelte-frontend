@@ -261,7 +261,8 @@ jobs:
     </section>
   {:else if activeTab === 'e2e'}
     <section>
-      <h2>E2E Critical Path Tests</h2>
+      <h2>E2E Critical Path Tests + axe Gate</h2>
+      <p>The same Playwright suite carries the a11y gate: <code>@axe-core/playwright</code> scans every key page and any violation fails the run.</p>
       <pre><code>{e2eCode}</code></pre>
     </section>
   {:else if activeTab === 'lighthouse'}
