@@ -144,7 +144,7 @@ This lesson covers use:enhance with and without a callback, loading states, conf
 </script>
 
 <main>
-  <h1>use:enhance</h1>
+  <h1>use:enhance &amp; Remote form()</h1>
 
   <section>
     <h2>1. The One-Line Upgrade</h2>
@@ -463,7 +463,7 @@ export const loginOrRegister = form(
         <tr><td><code>form</code> prop / <code>page.form</code></td><td><code>x.result</code> (ephemeral, typed from the handler's return)</td></tr>
         <tr><td>repopulating <code>value={'{form?.title}'}</code> by hand</td><td><code>x.fields.title.as('text')</code> emits name/value/aria-invalid</td></tr>
         <tr><td><code>formaction="?/register"</code></td><td><code>x.fields.action.as('submit', 'register')</code></td></tr>
-        <tr><td>custom <code>SubmitFunction</code> callback</td><td><code>x.enhance(async (form) =&gt; { … await form.submit() … })</code></td></tr>
+        <tr><td>custom <code>SubmitFunction</code> callback</td><td><code>x.enhance(async (form) =&gt; {'{ … await form.submit() … }'})</code></td></tr>
         <tr><td><code>invalidateAll()</code> after success (everything refetches)</td><td>single-flight mutations — handler refreshes exactly the queries that changed (lesson 13-5)</td></tr>
         <tr><td>works today, stable API</td><td>requires <code>kit.experimental.remoteFunctions</code> + <code>experimental.async</code></td></tr>
       </tbody>
