@@ -184,14 +184,14 @@ jobs:
         with: { node-version: 20, cache: pnpm }
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps \${{ matrix.project }}
+      - run: pnpm exec playwright install --with-deps \\\${{ matrix.project }}
 
-      - run: pnpm exec playwright test --project=\${{ matrix.project }}
+      - run: pnpm exec playwright test --project=\\\${{ matrix.project }}
 
       - uses: actions/upload-artifact@v4
-        if: \${{ failure() }}
+        if: \\\${{ failure() }}
         with:
-          name: playwright-report-\${{ matrix.project }}
+          name: playwright-report-\\\${{ matrix.project }}
           path: playwright-report/\`;
 </script>
 

@@ -170,7 +170,7 @@ jobs:
       - run: pnpm package
       - run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}\`;
+          NODE_AUTH_TOKEN: \\\${{ secrets.NPM_TOKEN }}\`;
 </script>
 
 <main>

@@ -214,8 +214,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps \${{ matrix.browser }}
-      - run: pnpm exec playwright test --project=\${{ matrix.browser }}
+      - run: pnpm exec playwright install --with-deps \\\${{ matrix.browser }}
+      - run: pnpm exec playwright test --project=\\\${{ matrix.browser }}
 
   lighthouse:
     runs-on: ubuntu-latest

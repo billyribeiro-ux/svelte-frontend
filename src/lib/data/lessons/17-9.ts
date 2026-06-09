@@ -17,12 +17,15 @@ const lesson: LessonData = {
 
 SvelteKit enforces this at the bundler level: importing $env/static/private from client code is a BUILD ERROR. Files under src/lib/server/ are similarly locked down — you cannot import them from anywhere client-reachable. Together these prevent accidental leaks.
 
-The transport hook (new in SvelteKit 2) lets you send NON-serializable values across the server/client boundary from load functions. Date, Map, Set, BigInt, custom classes — anything that JSON.stringify would lose — can round-trip via transport. You define encode (serialize) and decode (deserialize) for each type.`,
+The transport hook — a UNIVERSAL hook exported from src/hooks.js, since it must run on both server and client — lets you send NON-serializable values across the server/client boundary. Date, Map, Set, BigInt, custom classes — anything that JSON.stringify would lose — can round-trip via transport. You define encode (serialize; return a falsy value for "not my type") and decode (deserialize) for each type.
+
+PE7-critical: transport is not just for load functions and form actions. Remote functions (lesson 17-3) serialize their arguments AND return values with devalue, and devalue consults your transport hook — so a query() can return a rich domain class (Money, Vector, your Result type) and the component receives a real instance, fully typed, on the client.`,
 	objectives: [
 		'Use $env/static/private and $env/static/public for build-time config',
 		'Use $env/dynamic/* for runtime env vars under adapter-node or edge',
 		"Lock server-only code in src/lib/server/ so it can't leak to the client",
-		'Configure the transport hook to send Date, Map, Set, and custom classes',
+		'Configure the universal transport hook (src/hooks.js) to send Date, Map, Set, and custom classes',
+		'Know that transport also serializes remote-function arguments and return values',
 		'Understand why PUBLIC_ prefix matters and when to use dynamic vs static'
 	],
 	files: [
@@ -248,7 +251,12 @@ export const load = async () => {
   let { data } = $props();
   console.log(data.now instanceof Date);     // true
   console.log(data.price.format());          // "EUR 42.99"
-</script>\`
+</script>
+
+// The same transporters apply to REMOTE FUNCTIONS: query/form/
+// command arguments and return values go through devalue, which
+// uses this hook — so getPrice() can resolve to a Money instance
+// on the client, methods and all.\`
   };
 </script>
 

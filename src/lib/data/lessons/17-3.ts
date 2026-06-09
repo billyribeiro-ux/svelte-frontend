@@ -524,8 +524,27 @@ export const getTime = query.live(async function* () {
   }
 });
 
+// SSR: await getTime() resolves with the FIRST yielded value,
+// which is serialized and reused during hydration.
+// Client: stays connected while actively used; multiple
+// consumers share one connection; disconnects when unused.
+
 // In template: <p>{await getTime()}</p>
-// Exposes .connected and .reconnect() for connection management\`}</code></pre>
+// <p>connected: {time.connected}</p>
+// <button onclick={() => time.reconnect()}>Reconnect</button>
+// On drop: passive reconnect w/ exponential backoff, active
+// reconnect when navigator.onLine flips to true.
+// No refresh() — live queries are self-updating.
+
+// Imperative consumption: instances are async-iterable.
+// Only the LATEST pending value is kept (not an event log).
+for await (const value of getTime()) {
+  console.log(value);
+  if (done) break;
+}
+
+// NEVER cache live responses in a service worker — exclude
+// responses with Cache-Control: no-store.\`}</code></pre>
 
   <h3>prerender — Build-Time Static Data</h3>
   <pre class="code"><code>{\`// data.remote.ts
@@ -534,7 +553,29 @@ export const getPosts = prerender(async () => {
 });
 
 // Data is fetched at build time and cached on CDN.
-// Can be used on otherwise-dynamic pages for partial prerendering.\`}</code></pre>
+// Can be used on otherwise-dynamic pages for partial prerendering.
+// Options: { inputs: () => ['a', 'b'] } pre-builds arguments;
+// { dynamic: true } keeps the function in the server bundle so
+// non-prerendered arguments still work at runtime.\`}</code></pre>
+
+  <h3>Validation failures &amp; the wire format</h3>
+  <pre class="code"><code>{\`// Bad arguments (attackers, stale deployments) => generic 400.
+// Customize via the handleValidationError server hook:
+// src/hooks.server.ts
+export function handleValidationError({ event, issues }) {
+  return { message: 'Nice try.' }; // must match App.Error
+}
+
+// Opt out of validation entirely (you'd better be sure):
+export const getStuff = query('unchecked', async ({ id }: { id: string }) => {
+  // bad actors can call this with anything
+});
+
+// Arguments & return values are serialized with devalue —
+// Date, Map, Set, BigInt work out of the box, and your own
+// classes work via the transport hook in src/hooks.js
+// (see lesson 17-9). PE7 tip: transport is what lets a query
+// return a rich domain object across the wire.\`}</code></pre>
 </section>
 
 <section>
