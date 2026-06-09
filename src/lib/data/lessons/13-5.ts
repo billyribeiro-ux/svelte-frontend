@@ -92,7 +92,7 @@ This lesson ties modules 12 and 13 together: actions mutate, redirects and inval
 </script>
 
 <main>
-  <h1>Redirects & Post-Action Loading</h1>
+  <h1>Redirects, Invalidation &amp; Single-Flight Mutations</h1>
 
   <section>
     <h2>1. redirect(303) — Post/Redirect/Get</h2>

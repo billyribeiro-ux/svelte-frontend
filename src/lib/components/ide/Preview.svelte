@@ -89,7 +89,7 @@
 	}
 
 	.ready-icon {
-		color: var(--accent);
+		color: var(--accent-text);
 		margin-bottom: var(--space-sm);
 	}
 

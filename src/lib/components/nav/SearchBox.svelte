@@ -155,7 +155,7 @@
 		padding: var(--space-xs) var(--space-sm);
 		font-size: 11px;
 		font-weight: 600;
-		color: var(--accent);
+		color: var(--accent-text);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 	}

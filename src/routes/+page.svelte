@@ -73,7 +73,7 @@
 	}
 
 	.accent {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.hero-subtitle {
@@ -106,7 +106,7 @@
 	.stat-number {
 		font-size: 32px;
 		font-weight: 700;
-		color: var(--accent);
+		color: var(--accent-text);
 		font-family: var(--font-mono);
 	}
 
@@ -170,7 +170,7 @@
 	.phase-badge {
 		font-size: 11px;
 		font-weight: 600;
-		color: var(--accent);
+		color: var(--accent-text);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 	}

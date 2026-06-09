@@ -100,7 +100,7 @@
 	}
 
 	.accent {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.theme-toggle {

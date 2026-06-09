@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { LessonFile } from '$lib/types';
 	import { Splitpanes, Pane } from 'svelte-splitpanes';
 	import FileTabs from './FileTabs.svelte';
@@ -33,15 +34,21 @@
 	let containerError = $state<string | null>(null);
 	let workingFiles = $state<LessonFile[]>([]);
 
-	// Load lesson files and boot WebContainer when files change
+	// Load lesson files and boot WebContainer when the lesson changes.
+	// Only `files`/`lessonId` are tracked dependencies — everything else runs
+	// untracked so that reading `workingFiles` back (in loadLesson/bootContainer)
+	// doesn't register it as a dependency of this effect and loop forever.
 	$effect(() => {
-		if (files.length > 0) {
-			const saved = lessonId ? loadSavedCode(lessonId) : null;
-			workingFiles = saved ?? files.map((f) => ({ ...f }));
+		if (files.length === 0) return;
+		const currentFiles = files;
+		const currentLessonId = lessonId;
+		untrack(() => {
+			const saved = currentLessonId ? loadSavedCode(currentLessonId) : null;
+			workingFiles = saved ?? currentFiles.map((f) => ({ ...f }));
 			loadLesson(workingFiles);
 			activeFileIndex = 0;
 			bootContainer(workingFiles);
-		}
+		});
 	});
 
 	let activeFile = $derived(workingFiles[activeFileIndex]);

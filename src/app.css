@@ -42,14 +42,16 @@
 	--bg-hover: #3c3c3c;
 	--bg-active: #094771;
 
-	/* Text */
+	/* Text — all values WCAG AA (≥4.5:1) against --bg-secondary #252526 */
 	--text-primary: #cccccc;
-	--text-secondary: #858585;
-	--text-muted: #5a5a5a;
+	--text-secondary: #9d9d9d;
+	--text-muted: #8f8f8f;
 	--text-bright: #e0e0e0;
 
-	/* Accent — Svelte orange */
+	/* Accent — Svelte orange. --accent for fills/large UI; --accent-text is
+	   the AA-compliant variant for small text on dark backgrounds (5.4:1). */
 	--accent: #ff3e00;
+	--accent-text: #ff6a3c;
 	--accent-hover: #ff5722;
 	--accent-soft: rgba(255, 62, 0, 0.15);
 
@@ -77,11 +79,12 @@
 	/* Text */
 	--text-primary: #1a1a2e;
 	--text-secondary: #4a4a6a;
-	--text-muted: #8a8aa0;
+	--text-muted: #6e6e8a;
 	--text-bright: #000000;
 
-	/* Accent — Svelte orange (stays the same) */
+	/* Accent — Svelte orange. --accent-text darkened for AA on light bg. */
 	--accent: #ff3e00;
+	--accent-text: #d63300;
 	--accent-hover: #e03500;
 	--accent-soft: rgba(255, 62, 0, 0.1);
 
