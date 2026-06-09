@@ -158,8 +158,9 @@ await invalidate('app:posts');
 // Or re-run every load function on the current page
 await invalidateAll();
 
-// Available in SvelteKit 2.x: re-run load fns in ALL open tabs
-// (via BroadcastChannel). Great for cross-tab sync after mutations.
+// refreshAll(): refresh every ACTIVE remote-function query
+// (SvelteKit 2.27+) AND re-run the current page's load functions.
+// Pass { includeLoadFunctions: false } to refresh only queries.
 await refreshAll();\`,
 
     preload: \`import { preloadCode, preloadData } from '$app/navigation';

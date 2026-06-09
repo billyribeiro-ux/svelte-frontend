@@ -272,6 +272,38 @@ await invalidateAll();\`}</pre>
   </section>
 
   <section>
+    <h2>Shallow Routing — pushState() & page.state</h2>
+    <p>
+      Sometimes you want a history entry <em>without</em> a navigation: open a photo in a
+      modal, but let the back button (or a mobile swipe) close it. That's
+      <strong>shallow routing</strong> — <code>pushState()</code> /
+      <code>replaceState()</code> from <code>$app/navigation</code> write history entries
+      whose state shows up reactively on <code>page.state</code>.
+    </p>
+    <pre>{\`<script lang="ts">
+  import { pushState } from '$app/navigation';
+  import { page } from '$app/state';
+  import Modal from './Modal.svelte';
+
+  function showHelp() {
+    // first arg '' = keep the current URL (or pass a new one)
+    pushState('', { showHelp: true });
+  }
+</script>
+
+{#if page.state.showHelp}
+  <!-- back button / history.back() closes the modal -->
+  <Modal onclose={() => history.back()}>...</Modal>
+{/if}\`}</pre>
+    <p class="callout">
+      Type <code>page.state</code> by declaring <code>App.PageState</code> in
+      <code>app.d.ts</code>. For the classic "photo page as a modal over the feed"
+      pattern you'll also want <code>preloadData()</code> to fetch the route's load data
+      without navigating. Full treatment — including snapshots — in Module 17 Lesson 6.
+    </p>
+  </section>
+
+  <section>
     <h2>Detecting App Updates</h2>
     <label class="auth-toggle">
       <input type="checkbox" bind:checked={updateAvailable} />

@@ -12,13 +12,16 @@ const lesson: LessonData = {
 
 In Svelte, you opt into TypeScript by adding lang="ts" to your script tag: <script lang="ts">. Everything else stays the same — runes, reactivity, templates — but now you get type safety, autocomplete, and refactoring confidence.
 
-This is your first TypeScript lesson. We'll start with the basics: annotating variables, function parameters, return types, arrays, and typed $state. You'll also see real errors that TypeScript would catch if you broke the contract — the "why" behind every annotation.`,
+This is your first TypeScript lesson. We'll start with the basics: annotating variables, function parameters, return types, arrays, and typed $state. You'll also see real errors that TypeScript would catch if you broke the contract — the "why" behind every annotation.
+
+A note on configuration, because it shapes everything that follows: TypeScript is only as honest as its compiler flags. SvelteKit projects ship with **"strict": true** — keep it on, always. The flag professionals add on top is **noUncheckedIndexedAccess**: with it, arr[i] is typed T | undefined instead of T, forcing you to handle the miss (with ?., ?? or a length check) — which is exactly what can happen at runtime. Pair it with the modern .at(-1) for "last element" access and a whole class of "cannot read properties of undefined" production crashes disappears at compile time. At scale, teams that enable these flags late pay a painful migration tax; start strict and stay strict.`,
 	objectives: [
 		'Add lang="ts" to a Svelte component script tag',
 		'Annotate variables with basic types: string, number, boolean',
 		'Type function parameters and return values',
 		'Use typed arrays and the generic $state<T>() syntax',
-		'Understand type inference: when you can omit annotations'
+		'Understand type inference: when you can omit annotations',
+		'Know the strict-mode flags that matter: strict everywhere, plus noUncheckedIndexedAccess for honest array access'
 	],
 	files: [
 		{

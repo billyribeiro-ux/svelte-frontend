@@ -32,6 +32,8 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
+  import { untrack } from 'svelte';
+
   // ---------------------------------------------------------------
   // {#await} — Svelte's built-in Promise renderer
   //
@@ -139,18 +141,20 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
 
   $effect(() => {
     const t = ++token;
-    inFlight++;
+    // untrack: we WRITE inFlight here but must not DEPEND on it,
+    // or the effect would re-run itself forever
+    untrack(() => inFlight++);
     slowAdd(a, b).then((result) => {
       // synchronized updates: the OLD sum stays on screen until
-      // the await resolves — never a half-updated UI
+      // the async work resolves — never a half-updated UI
       if (t === token) sum = result;
-      inFlight--;
+      inFlight--; // async callback — runs outside tracking
     });
   });
 </script>
 
 <main>
-  <h1>Streaming, {'{#await}'} & Parallel Loading</h1>
+  <h1>Streaming, {'{#await}'} & Await Expressions</h1>
 
   <section>
     <h2>1. The {'{#await}'} Block</h2>

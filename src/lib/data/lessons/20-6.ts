@@ -8,14 +8,15 @@ const lesson: LessonData = {
 		module: 20,
 		lessonIndex: 6
 	},
-	description: `Before shipping your capstone you need a full quality gate: Vitest unit tests for pure utilities, rune modules, and components; Playwright E2E tests for the critical user flows; Lighthouse audits that enforce Performance ≥ 90, Accessibility ≥ 95, Best Practices ≥ 90, and SEO = 100. All three run in CI on every pull request so nothing ships without passing.
+	description: `Before shipping your capstone you need a full quality gate: Vitest unit tests for pure utilities, rune modules, and components; Playwright E2E tests for the critical user flows; an axe accessibility gate (@axe-core/playwright) that fails on any violation; and Lighthouse audits that enforce Performance ≥ 90, Accessibility ≥ 95, Best Practices ≥ 90, and SEO = 100. All of it runs in CI on every pull request so nothing ships without passing.
 
 This lesson pulls together everything from Module 19's testing lessons and shows you the test suite layout, a realistic CI pipeline, and a pre-deploy checklist you can actually ship against.`,
 	objectives: [
 		'Structure unit tests, component tests, and E2E tests in one project',
 		'Write tests that cover each critical user flow of the capstone',
 		'Configure Lighthouse CI with per-category score assertions',
-		'Build a complete CI pipeline: lint → check → unit → e2e → lighthouse',
+		'Gate CI on accessibility with @axe-core/playwright — zero violations',
+		'Build a complete CI pipeline: lint → check → unit → e2e + axe → lighthouse',
 		'Work through a pre-deploy checklist with zero outstanding issues'
 	],
 	files: [
@@ -32,6 +33,7 @@ This lesson pulls together everything from Module 19's testing lessons and shows
     { id: 'lint',     label: 'pnpm lint passes', done: false, required: true },
     { id: 'unit',     label: 'All unit tests pass (pnpm test:unit)', done: false, required: true },
     { id: 'e2e',      label: 'All E2E tests pass on Chromium + Firefox + WebKit', done: false, required: true },
+    { id: 'axe',      label: 'axe a11y suite passes — zero violations', done: false, required: true },
     { id: 'build',    label: 'pnpm build succeeds with no warnings', done: false, required: true },
     { id: 'preview',  label: 'pnpm preview smoke-tested manually', done: false, required: true },
     { id: 'lh-perf',  label: 'Lighthouse Performance ≥ 90', done: false, required: true },
@@ -107,6 +109,7 @@ describe('cart', () => {
 
   const e2eCode = \`// e2e/critical-paths.spec.ts
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 test.describe('critical user flows', () => {
   test('homepage loads and nav works', async ({ page }) => {
@@ -139,6 +142,16 @@ test.describe('critical user flows', () => {
     const res = await request.get('/sitemap.xml');
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('xml');
+  });
+
+  test('a11y gate — zero axe violations', async ({ page }) => {
+    for (const path of ['/', '/features', '/blog']) {
+      await page.goto(path);
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+        .analyze();
+      expect(results.violations).toEqual([]);
+    }
   });
 });\`;
 

@@ -3,7 +3,7 @@ import type { LessonData } from '$lib/types';
 const lesson: LessonData = {
 	meta: {
 		id: '17-1',
-		title: 'Hooks: handle, handleError, init',
+		title: 'Hooks: handle, handleFetch, handleError, init, reroute & Observability',
 		phase: 5,
 		module: 17,
 		lessonIndex: 1
@@ -11,6 +11,10 @@ const lesson: LessonData = {
 	description: `SvelteKit hooks are middleware functions that intercept requests and responses at the server level. The handle hook runs on every request, letting you modify the request, add data to event.locals (shared state for the request lifetime), protect routes, and transform responses.
 
 handleError catches unexpected errors and lets you log them or return user-friendly error messages. The init hook runs once when the server starts, perfect for initializing database connections or configuration. Multiple handle functions can be composed with sequence() for clean middleware chains — each handler wraps the next, so the order you list them is the order their pre-work runs (and the reverse order their post-work runs, like nested onion layers).
+
+handleFetch intercepts every server-side event.fetch — rewrite public API URLs to internal addresses during SSR, or manually forward cookies when your app and API live on sibling subdomains (SvelteKit can't infer which parent-domain cookies belong to the API). The universal hooks file src/hooks.js adds reroute — translate incoming pathnames to different routes (i18n URLs like /de/ueber-uns -> /de/about) without changing the address bar; since 2.18 it can be async and gets a fetch. reroute must be pure and idempotent: SvelteKit caches its result per URL. (The other universal hook, transport, is covered in lesson 17-9.)
+
+Finally, observability (kit 2.31+, experimental): SvelteKit can emit OpenTelemetry spans for handle (and each sequence() member), server/universal load, form actions, and remote functions. Enable kit.experimental.tracing.server and kit.experimental.instrumentation.server, then put your tracing SDK setup in src/instrumentation.server.ts — it's guaranteed to run before any application code. Inside handlers, getRequestEvent().tracing gives you the root and current spans to annotate with attributes.
 
 Beyond the basic hooks, handle can also transform the rendered HTML via resolve()'s transformPageChunk option — useful for injecting tokens, CSP nonces, or theme classes into the SSR output. Client-side, hooks.client.ts exports its own handleError for catching errors in client navigation and lifecycle code.
 
@@ -20,7 +24,11 @@ As of svelte@5.54, svelte.config.js supports function forms for css, runes, and 
 		'Attach shared request data using event.locals (typed via App.Locals)',
 		'Compose multiple handlers with sequence() for modular middleware',
 		'Transform rendered HTML with resolve({ transformPageChunk })',
+		'Rewrite/augment server-side fetches with handleFetch (SSR rerouting, sibling-subdomain cookies)',
 		'Use handleError for centralized server & client error logging',
+		'Translate URLs to routes with the universal reroute hook (pure, cached, async since 2.18)',
+		'Instrument the server with src/instrumentation.server.ts and OpenTelemetry tracing',
+		'Annotate event.tracing.root/current spans with custom attributes',
 		'Configure svelte.config.js with function-form compiler options (svelte@5.54)'
 	],
 	files: [
@@ -44,7 +52,7 @@ As of svelte@5.54, svelte.config.js supports function forms for css, runes, and 
   }
 
   let requests: { event: RequestEvent; result: ResolveResult; middleware: string[] }[] = $state([]);
-  type TabKey = 'handle' | 'sequence' | 'locals' | 'transform' | 'error' | 'client' | 'init' | 'config';
+  type TabKey = 'handle' | 'sequence' | 'locals' | 'transform' | 'fetch' | 'error' | 'client' | 'init' | 'reroute' | 'otel' | 'config';
   let showCode: TabKey = $state('handle');
 
   // Simulate handle hook
@@ -317,6 +325,108 @@ export const init: ServerInit = async () => {
   console.log('Server initialized');
 };\`,
 
+    fetch: \`// src/hooks.server.ts — intercept server-side event.fetch
+// Runs for fetches made in endpoints, load, actions, handle,
+// handleError and reroute. Two canonical jobs:
+import type { HandleFetch } from '@sveltejs/kit';
+
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+  // 1. During SSR, skip the public internet — hit the API directly
+  if (request.url.startsWith('https://api.yourapp.com/')) {
+    request = new Request(
+      request.url.replace('https://api.yourapp.com/', 'http://localhost:9999/'),
+      request
+    );
+  }
+
+  // 2. Sibling subdomains (www.my-domain.com -> api.my-domain.com):
+  // parent-domain cookies are NOT forwarded automatically, because
+  // SvelteKit can't know which domain the cookie belongs to.
+  if (request.url.startsWith('https://api.my-domain.com/')) {
+    request.headers.set('cookie', event.request.headers.get('cookie') ?? '');
+  }
+
+  return fetch(request);
+};
+
+// Credentials model: same-origin fetches forward cookie/authorization
+// unless credentials: 'omit'; cross-origin only for true subdomains.\`,
+
+    reroute: \`// src/hooks.js — UNIVERSAL hook (runs on server AND client)
+// Maps an incoming pathname to a different route. The address bar
+// and event.url are unchanged — only route selection is affected.
+import type { Reroute } from '@sveltejs/kit';
+
+const translated: Record<string, string> = {
+  '/en/about': '/en/about',
+  '/de/ueber-uns': '/de/about',
+  '/fr/a-propos': '/fr/about'
+};
+
+export const reroute: Reroute = ({ url }) => {
+  if (url.pathname in translated) {
+    return translated[url.pathname]; // params derived from THIS path
+  }
+};
+
+// Since 2.18 reroute may be async and receives a fetch:
+export const reroute: Reroute = async ({ url, fetch }) => {
+  if (url.pathname === '/api/reroute') return;
+  const api = new URL('/api/reroute', url);
+  api.searchParams.set('pathname', url.pathname);
+  const result = await fetch(api).then((r) => r.json());
+  return result.pathname;
+};
+
+// CONTRACT: reroute must be pure + idempotent — SvelteKit caches
+// the result per unique URL on the client. Keep it fast: it runs
+// before every navigation. (src/hooks.js also exports transport —
+// custom type serialization — see lesson 17-9.)\`,
+
+    otel: \`// Observability (kit 2.31+, experimental): OpenTelemetry spans
+// for handle (+ sequence members), server/universal load on the
+// server, form actions, and remote functions.
+
+// svelte.config.js
+export default {
+  kit: {
+    experimental: {
+      tracing: { server: true },
+      instrumentation: { server: true }
+    }
+  }
+};
+
+// src/instrumentation.server.ts — guaranteed to run BEFORE any
+// application code is imported (adapter permitting).
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
+import { createAddHookMessageChannel } from 'import-in-the-middle';
+import { register } from 'node:module';
+
+const { registerOptions } = createAddHookMessageChannel();
+register('import-in-the-middle/hook.mjs', import.meta.url, registerOptions);
+
+new NodeSDK({
+  serviceName: 'my-sveltekit-app',
+  traceExporter: new OTLPTraceExporter(),
+  instrumentations: [getNodeAutoInstrumentations()]
+}).start();
+
+// Annotate the built-in spans from anywhere server-side:
+import { getRequestEvent } from '$app/server';
+
+async function authenticate() {
+  const user = await getAuthenticatedUser();
+  const event = getRequestEvent();
+  event.tracing.root.setAttribute('userId', user.id);    // handle span
+  event.tracing.current.setAttribute('cacheHit', true);  // nearest span
+}
+
+// Tracing has real overhead — consider dev/preview-only rollouts.
+// View locally with Jaeger at localhost:16686.\`,
+
     config: \`// svelte.config.js — function-form options (svelte@5.54)
 // Options can now be functions called per-file, giving you a
 // single source of truth for conditional compilation.
@@ -382,7 +492,7 @@ export default {
 <section>
   <h2>Hook Examples</h2>
   <div class="code-tabs">
-    {#each ['handle', 'sequence', 'locals', 'transform', 'error', 'client', 'init', 'config'] as tab (tab)}
+    {#each ['handle', 'sequence', 'locals', 'transform', 'fetch', 'error', 'client', 'init', 'reroute', 'otel', 'config'] as tab (tab)}
       <button class:active={showCode === tab} onclick={() => (showCode = tab as TabKey)}>
         {tab === 'error'
           ? 'handleError'
@@ -392,6 +502,10 @@ export default {
           ? 'svelte.config.js'
           : tab === 'transform'
           ? 'transformPageChunk'
+          : tab === 'fetch'
+          ? 'handleFetch'
+          : tab === 'otel'
+          ? 'observability'
           : tab}
       </button>
     {/each}

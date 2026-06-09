@@ -10,7 +10,9 @@ const lesson: LessonData = {
 	},
 	description: `The browser gives you dozens of APIs beyond the DOM — you can detect window size, online/offline status, scroll position, preferred color scheme, user geolocation, element visibility, and much more.
 
-Svelte makes it easy to turn these browser signals into reactive state: use <code>$effect</code> to subscribe to events, store the value in <code>$state</code>, and the rest of your component reacts automatically. Always remember to return a cleanup function from the effect so you don't leak event listeners or observers.
+Svelte makes it easy to turn these browser signals into reactive state: use <code>$effect</code> to subscribe to events, store the value in <code>$state</code>, and the rest of your component reacts automatically. Always remember to return a cleanup function from the effect so you don't leak event listeners or observers. Bridging an external event source into reactivity is one of the few *legitimate* jobs for <code>$effect</code> — you're connecting a non-Svelte system to Svelte.
+
+Before you hand-roll these bridges everywhere, know that Svelte ships them ready-made: <code>svelte/reactivity/window</code> exports reactive <code>innerWidth</code>, <code>innerHeight</code>, <code>scrollY</code>, <code>online</code> and friends; <code>MediaQuery</code> from <code>svelte/reactivity</code> wraps <code>matchMedia</code>; and <code>createSubscriber</code> is the general-purpose primitive for wrapping *any* external source so it only subscribes while something is actually listening. In this lesson you build the bridges by hand — once — so you understand exactly what those helpers do. In production code, prefer the built-ins: they're lazily subscribed, shared between consumers, and impossible to forget to clean up.
 
 In this lesson you'll build a live dashboard that tracks window dimensions, online status, scroll position, media queries, element visibility (IntersectionObserver), element size changes (ResizeObserver), and more.`,
 	objectives: [
@@ -19,7 +21,8 @@ In this lesson you'll build a live dashboard that tracks window dimensions, onli
 		'Track scroll position and use it to show/hide UI elements',
 		'Use matchMedia to react to dark mode / reduced motion preferences',
 		'Use IntersectionObserver to detect when elements enter the viewport',
-		'Use ResizeObserver to detect when a specific element changes size'
+		'Use ResizeObserver to detect when a specific element changes size',
+		'Know the production-grade built-ins: svelte/reactivity/window, MediaQuery, and createSubscriber'
 	],
 	files: [
 		{

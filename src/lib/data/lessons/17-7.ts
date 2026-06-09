@@ -15,7 +15,7 @@ The three knobs:
 2) invalidate(urlOrKey) re-runs matching loads on the current page without a full navigation.
 3) invalidateAll() re-runs every load on the current page (the big hammer).
 
-SvelteKit 2 adds refreshAll() which broadcasts an invalidation across browser tabs via BroadcastChannel — great for cross-tab consistency after a mutation. This lesson shows how to wire all three into a typical CRUD workflow.
+SvelteKit 2.27+ adds refreshAll(), which refreshes every ACTIVE remote-function query and (by default) also re-runs the current page's load functions — pass { includeLoadFunctions: false } to touch only the remote queries. It's the bridge between the old invalidation world and the new remote-functions world. This lesson shows how to wire all of these into a typical CRUD workflow.
 
 The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.
 
@@ -24,7 +24,7 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
 		'Declare a dependency key with depends() in load functions',
 		'Invalidate a single key with invalidate()',
 		"Fall back to invalidateAll() when you don't know which load to refresh",
-		'Use refreshAll() for cross-tab synchronization in SvelteKit 2',
+		'Use refreshAll() to refresh active remote-function queries plus current-page loads',
 		'Combine invalidation with form actions for optimistic + authoritative updates'
 	],
 	files: [
@@ -85,7 +85,7 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
   }
 
   function refreshAll(): void {
-    addLog('invalidate', 'refreshAll() — broadcast to all tabs');
+    addLog('invalidate', 'refreshAll() — remote queries + current-page loads');
     invalidateAll();
   }
 
@@ -189,27 +189,27 @@ export const actions = {
 // 3. Invalidates the page
 // 4. Passes the result back as \\\`form\\\`\`,
 
-    refresh: \`// refreshAll() — SvelteKit 2 cross-tab sync
+    refresh: \`// refreshAll() — SvelteKit 2.27+
 import { refreshAll } from '$app/navigation';
 
-// When the user mutates data in one tab, broadcast the
-// invalidation to ALL open tabs of your app via
-// BroadcastChannel. Every tab re-runs its load fns.
+// Refreshes EVERY active remote-function query (query/query.batch
+// instances currently in use on the page) AND re-runs the current
+// page's load functions. The big hammer for the remote-functions era.
 async function saveSettings(data: Settings) {
   await fetch('/api/settings', { method: 'PUT', body: JSON.stringify(data) });
   await refreshAll();
 }
 
-// Each tab listens automatically — no setup needed.
-// Great for:
-// - Admin dashboards open in multiple tabs
-// - Cart state across checkout tabs
-// - Logging users out of all tabs when one logs out
-// - Keeping draft editors in sync
+// Only refresh remote queries, leave load functions alone:
+await refreshAll({ includeLoadFunctions: false });
 
-// NOTE: the broadcast is local to the same origin.
-// Server-triggered invalidation (e.g. via SSE) needs
-// extra wiring — see realtime patterns in module 14.\`
+// Prefer targeted refreshes when you know what changed:
+//   await getPosts().refresh();          // one query instance
+//   await invalidate('app:cart');        // one load dependency
+// ...and prefer SINGLE-FLIGHT mutations (lesson 17-3) over any
+// client-side refresh: a form/command handler can call
+// getPosts().refresh() on the server so fresh data rides back
+// on the mutation response — zero extra round-trips.\`
   };
 </script>
 
@@ -311,8 +311,8 @@ async function saveSettings(data: Settings) {
       Prefix keys with an app or feature name (<code>app:cart</code>) to avoid collisions as the codebase grows.
     </li>
     <li>
-      <strong>refreshAll() is cross-tab only</strong>
-      It broadcasts to other tabs via BroadcastChannel; use <code>invalidate()</code>/<code>invalidateAll()</code> within the current tab.
+      <strong>refreshAll() also hits remote-function queries</strong>
+      It refreshes every active <code>query()</code> instance and re-runs current-page loads — use <code>{'{ includeLoadFunctions: false }'}</code> to scope it, or targeted <code>invalidate()</code>/<code>myQuery().refresh()</code> when you know what changed.
     </li>
   </ul>
 </section>

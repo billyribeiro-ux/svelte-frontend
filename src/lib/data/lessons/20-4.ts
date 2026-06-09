@@ -8,12 +8,14 @@ const lesson: LessonData = {
 		module: 20,
 		lessonIndex: 4
 	},
-	description: `SvelteKit's page architecture connects routes, layouts, load functions, form actions, and error boundaries into a single coherent data flow. +layout.server.ts runs on the server and loads data shared across every nested route. +layout.svelte consumes that data. +page.server.ts loads page-specific data and defines form actions. +page.svelte is the leaf that renders it. +error.svelte catches anything that throws along the way.
+	description: `SvelteKit's page architecture connects routes, layouts, data, and error boundaries into one coherent flow — and you architect it with two data stacks. The modern stack is remote functions: query(), form(), and prerender() declared in a .remote.ts file, called from any component with await expressions inside <svelte:boundary> — typed end-to-end, progressively enhanced out of the box, no prop-drilling from a load function. The compatibility path is load functions and form actions: +layout.server.ts for shared data, +page.server.ts for page data and actions, use:enhance for progressive enhancement. Both are first-class; load remains the right default when data must ship in the first HTML response for SEO.
 
-This lesson wires all five file types together for a realistic example: an authenticated dashboard with nested routes, shared user data, typed load functions, and progressively-enhanced form actions.`,
+This lesson wires both stacks together for a realistic example: an authenticated dashboard with nested routes, shared user data, a remote-function data layer for project lists and mutations, typed load functions where SEO demands it, and +error.svelte plus <svelte:boundary> catching whatever throws.`,
 	objectives: [
+		'Architect the data layer with remote functions: query(), form(), and prerender() in .remote.ts files',
+		'Render async data with await expressions inside <svelte:boundary>, with pending and failed snippets',
 		'Load shared data in +layout.server.ts and consume it in +layout.svelte',
-		'Define route-specific load functions in +page.server.ts',
+		'Define route-specific load functions in +page.server.ts — the compatibility path for SEO-critical data',
 		'Implement form actions with progressive enhancement and use:enhance',
 		'Handle errors with +error.svelte boundaries',
 		'Compose nested layouts for authenticated vs marketing routes'
@@ -22,12 +24,13 @@ This lesson wires all five file types together for a realistic example: an authe
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  type Tab = 'flow' | 'layout-server' | 'layout' | 'page-server' | 'page' | 'action' | 'error';
+  type Tab = 'flow' | 'remote' | 'layout-server' | 'layout' | 'page-server' | 'page' | 'action' | 'error';
   let activeTab = $state<Tab>('flow');
 
   // Data-flow diagram nodes
   type FlowNode = { id: string; label: string; kind: 'server' | 'shared' | 'client'; emits: string };
   const flow: FlowNode[] = [
+    { id: '0', label: 'data.remote.ts',     kind: 'server', emits: 'query/form/prerender — the modern data layer, callable from any component' },
     { id: '1', label: '+layout.server.ts', kind: 'server', emits: 'auth user, theme preference' },
     { id: '2', label: '+layout.ts',         kind: 'shared', emits: 'derived user permissions' },
     { id: '3', label: '+layout.svelte',     kind: 'client', emits: 'shell, nav, slot children' },
@@ -36,6 +39,71 @@ This lesson wires all five file types together for a realistic example: an authe
     { id: '6', label: '+page.svelte',       kind: 'client', emits: 'the UI the user sees' },
     { id: '7', label: '+error.svelte',      kind: 'client', emits: 'renders if anything throws' }
   ];
+
+  const remoteCode = \`// src/routes/(app)/projects/data.remote.ts
+// The modern data layer (kit.experimental.remoteFunctions: true)
+import * as v from 'valibot';
+import { query, form, getRequestEvent } from '$app/server';
+import { redirect } from '@sveltejs/kit';
+
+// query() — a typed read, callable from ANY component.
+// The argument is validated on the server with a schema.
+export const getProjects = query(v.number(), async (page) => {
+  const { locals } = getRequestEvent();
+  return locals.db.projects.list({
+    userId: locals.user.id,
+    page,
+    perPage: 20
+  });
+});
+
+// form() — a typed mutation. Progressive enhancement is built in:
+// spread it onto a native <form> and it works without JavaScript.
+export const createProject = form(
+  v.object({ name: v.pipe(v.string(), v.minLength(1)) }),
+  async ({ name }) => {
+    const { locals } = getRequestEvent();
+    const project = await locals.db.projects.create({
+      name,
+      userId: locals.user.id
+    });
+    redirect(303, '/projects/' + project.id);
+  }
+);\`;
+
+  const remotePageCode = \`<!-- src/routes/(app)/projects/+page.svelte — modern stack -->
+<script lang="ts">
+  import { getProjects, createProject } from './data.remote';
+  import Card from '$lib/components/Card.svelte';
+<\\/script>
+
+<h1>Projects</h1>
+
+<!-- form() spreads onto a native <form>; no use:enhance needed -->
+<form {...createProject}>
+  <input name="name" placeholder="New project" />
+  <button>Create</button>
+</form>
+
+<!-- await expressions in markup, wrapped in a boundary -->
+<svelte:boundary>
+  <div class="grid">
+    {#each await getProjects(1) as project (project.id)}
+      <Card href={'/projects/' + project.id}>
+        <h3>{project.name}</h3>
+      </Card>
+    {/each}
+  </div>
+
+  {#snippet pending()}
+    <p>Loading projects…</p>
+  {/snippet}
+
+  {#snippet failed(error, reset)}
+    <p>Could not load projects.</p>
+    <button onclick={reset}>Retry</button>
+  {/snippet}
+</svelte:boundary>\`;
 
   const layoutServerCode = \`// src/routes/(app)/+layout.server.ts
 import { redirect } from '@sveltejs/kit';
@@ -226,10 +294,11 @@ export const actions: Actions = {
 
 <main>
   <h1>Page Architecture & Data</h1>
-  <p class="subtitle">Layout → page → component data flow</p>
+  <p class="subtitle">Remote functions (modern) + the load chain (compatibility)</p>
 
   <nav class="tabs" aria-label="Sections">
     <button class:active={activeTab === 'flow'} onclick={() => (activeTab = 'flow')}>Flow</button>
+    <button class:active={activeTab === 'remote'} onclick={() => (activeTab = 'remote')}>Remote (modern)</button>
     <button class:active={activeTab === 'layout-server'} onclick={() => (activeTab = 'layout-server')}>+layout.server</button>
     <button class:active={activeTab === 'layout'} onclick={() => (activeTab = 'layout')}>+layout.svelte</button>
     <button class:active={activeTab === 'page-server'} onclick={() => (activeTab = 'page-server')}>+page.server</button>
@@ -241,7 +310,11 @@ export const actions: Actions = {
   {#if activeTab === 'flow'}
     <section>
       <h2>Data Flow</h2>
-      <p>Data cascades down from layout.server to page.svelte. Each file has a specific role.</p>
+      <p>
+        Two stacks, one architecture. Remote functions (top) are the modern data layer — any
+        component can call them. The load chain below remains the compatibility path and the
+        right default for SEO-critical first-paint data.
+      </p>
       <ol class="flow-list">
         {#each flow as node, i (node.id)}
           <li class="flow-node {node.kind}">
@@ -261,6 +334,25 @@ export const actions: Actions = {
         <span class="leg client">client hydration</span>
       </div>
     </section>
+  {:else if activeTab === 'remote'}
+    <section>
+      <h2>Remote Functions — the modern data layer</h2>
+      <p>
+        Declare typed server functions in a <code>.remote.ts</code> file and call them from any
+        component. <code>query()</code> reads, <code>form()</code> mutates with built-in
+        progressive enhancement, <code>prerender()</code> bakes static data at build time.
+        No load-function prop drilling.
+      </p>
+      <pre><code>{remoteCode}</code></pre>
+
+      <h3>Consume with await expressions + &lt;svelte:boundary&gt;</h3>
+      <p>
+        Await the query directly in markup. The boundary owns the async lifecycle:
+        <code>pending</code> renders while the promise is in flight, <code>failed</code> catches
+        a rejection and hands you <code>reset</code> for retries.
+      </p>
+      <pre><code>{remotePageCode}</code></pre>
+    </section>
   {:else if activeTab === 'layout-server'}
     <section>
       <h2>+layout.server.ts — shared data</h2>
@@ -275,8 +367,8 @@ export const actions: Actions = {
     </section>
   {:else if activeTab === 'page-server'}
     <section>
-      <h2>+page.server.ts — route data + actions</h2>
-      <p>Load page-specific data. Export <code>actions</code> for form handlers — they run on the server and return JSON to the client.</p>
+      <h2>+page.server.ts — route data + actions (compatibility path)</h2>
+      <p>Load page-specific data. Export <code>actions</code> for form handlers — they run on the server and return JSON to the client. Still the right default when the data must be in the first HTML response for SEO.</p>
       <pre><code>{pageServerCode}</code></pre>
     </section>
   {:else if activeTab === 'page'}

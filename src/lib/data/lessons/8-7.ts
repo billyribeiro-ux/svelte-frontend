@@ -12,11 +12,14 @@ const lesson: LessonData = {
 
 ReturnType<typeof fn> extracts the return type from a function — useful when you want to type a variable based on what a function returns without duplicating the type definition. Paired with typeof, you can also derive types from values and objects.
 
-Declaration files (.d.ts) like app.d.ts let you add custom type information to your project: extending global types (especially SvelteKit's App namespace for App.Locals, App.Error, App.PageData), declaring ambient modules, and typing environment variables. This lesson closes Module 8 by pulling together everything you've learned.`,
+Declaration files (.d.ts) like app.d.ts let you add custom type information to your project: extending global types (especially SvelteKit's App namespace for App.Locals, App.Error, App.PageData), declaring ambient modules, and typing environment variables.
+
+One last modern tool to file away: **using declarations** (explicit resource management — standard in current TypeScript, Node, and evergreen browsers). Any value with a [Symbol.dispose]() method can be declared with "using db = openConnection()" — its dispose method runs automatically when the block exits, even on exceptions. It's try/finally cleanup baked into a declaration, and "await using" pairs with Symbol.asyncDispose for async teardown. You'll meet it mostly in server code — file handles, DB transactions, locks — where forgotten cleanup is a classic production leak. This lesson closes Module 8 by pulling together everything you've learned.`,
 	objectives: [
 		'Use satisfies to validate values without widening their types',
 		'Extract function return types with ReturnType<typeof fn>',
 		'Derive types from values using typeof',
+		'Recognise using / await using declarations (Symbol.dispose) for automatic resource cleanup',
 		'Understand what app.d.ts is for and how to extend SvelteKit App types'
 	],
 	files: [

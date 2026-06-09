@@ -12,12 +12,20 @@ const lesson: LessonData = {
 
 This is especially useful because native Map, Set, Date, and URL objects use method-based mutation (like .set(), .add(), .setMonth()) rather than property assignment, which $state's proxy system can't automatically detect. These reactive built-ins bridge that gap. MediaQuery exposes a reactive \`.current\` boolean that tracks CSS media queries live, perfect for responsive logic in script code.
 
-A common workflow is to pair SvelteURLSearchParams with $effect to keep application filter state in sync with the URL — bookmarkable, shareable, and browser-back-friendly.`,
+A common workflow is to pair SvelteURLSearchParams with $effect to keep application filter state in sync with the URL — bookmarkable, shareable, and browser-back-friendly.
+
+Two more svelte/reactivity tools complete the picture:
+
+• createSubscriber(start) is the building block for connecting ANY external event-based source (WebSocket, IntersectionObserver, matchMedia, devicePixelRatio) to Svelte's reactivity. It returns a subscribe() function; call it inside a getter, and when that getter is read inside an effect, your start callback runs with an update function — call update() to re-run the consuming effects. Cleanup is reference-counted: start runs once for the first subscriber, teardown runs when the last effect is destroyed, and nothing at all happens outside effects. MediaQuery itself is implemented with it.
+
+• svelte/reactivity/window exports ready-made reactive window values — innerWidth, innerHeight, scrollX, scrollY, online, devicePixelRatio — each exposing a .current property (undefined on the server). They replace <svelte:window bind:...> boilerplate in .svelte.ts modules where special elements aren't available.`,
 	objectives: [
 		'Use SvelteMap and SvelteSet for reactive key-value and unique collection state',
 		'Track time-based state changes with SvelteDate',
 		'Manage reactive URL state with SvelteURL and SvelteURLSearchParams',
 		'Track responsive breakpoints and user preferences with MediaQuery',
+		'Bridge external event sources into reactivity with createSubscriber()',
+		'Read reactive window values from svelte/reactivity/window (.current, SSR-undefined)',
 		'Build a standalone filter UI backed by SvelteURLSearchParams',
 		'Understand why native Map/Set/Date need reactive wrappers in Svelte'
 	],
@@ -25,7 +33,33 @@ A common workflow is to pair SvelteURLSearchParams with $effect to keep applicat
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  import { SvelteMap, SvelteSet, SvelteDate, SvelteURL, SvelteURLSearchParams, MediaQuery } from 'svelte/reactivity';
+  import { SvelteMap, SvelteSet, SvelteDate, SvelteURL, SvelteURLSearchParams, MediaQuery, createSubscriber } from 'svelte/reactivity';
+  import { innerWidth, scrollY, online } from 'svelte/reactivity/window';
+  import { on } from 'svelte/events';
+
+  // ─── createSubscriber — wire ANY external source into reactivity ───
+  // Pattern: subscribe() inside a getter. When the getter is read in
+  // an effect, \`start\` runs once and update() re-runs the readers.
+  // Teardown is reference-counted across all consuming effects.
+  class PointerTracker {
+    #x = 0;
+    #y = 0;
+    #subscribe = createSubscriber((update) => {
+      const off = on(window, 'pointermove', (e) => {
+        this.#x = e.clientX;
+        this.#y = e.clientY;
+        update(); // re-run every effect that read \`current\`
+      });
+      return () => off(); // runs when the LAST effect is destroyed
+    });
+
+    get current(): { x: number; y: number } {
+      this.#subscribe(); // reactive only when read inside an effect
+      return { x: this.#x, y: this.#y };
+    }
+  }
+
+  const pointer = new PointerTracker();
 
   // MediaQuery — reactive media query matching
   const isMobile = new MediaQuery('max-width: 768px');
@@ -171,6 +205,52 @@ A common workflow is to pair SvelteURLSearchParams with $effect to keep applicat
     </div>
   </div>
   <p class="meta">Resize the browser or toggle system dark mode to see changes.</p>
+</section>
+
+<section>
+  <h2>createSubscriber — external sources, reactivity-native</h2>
+  <p>
+    <code>PointerTracker</code> wraps a plain <code>pointermove</code> listener
+    with <code>createSubscriber</code>. Reading <code>pointer.current</code>
+    below (template = effect) starts the listener; if nothing read it, no
+    listener would ever be attached.
+  </p>
+  <div class="mq-status">
+    <div class="mq-row">
+      <span>pointer.current</span>
+      <strong class="active">({pointer.current.x}, {pointer.current.y})</strong>
+    </div>
+  </div>
+  <p class="meta">
+    start runs once for the first subscriber; teardown runs when the last
+    consuming effect is destroyed. This is exactly how MediaQuery is built.
+  </p>
+</section>
+
+<section>
+  <h2>svelte/reactivity/window — zero-boilerplate window state</h2>
+  <p>
+    Reactive versions of window values, importable anywhere — including
+    <code>.svelte.ts</code> modules where <code>&lt;svelte:window&gt;</code>
+    can't go. Each has a <code>.current</code> that is
+    <code>undefined</code> during SSR.
+  </p>
+  <div class="mq-status">
+    <div class="mq-row">
+      <span>innerWidth.current</span>
+      <strong class="active">{innerWidth.current ?? 'undefined (SSR)'}</strong>
+    </div>
+    <div class="mq-row">
+      <span>scrollY.current</span>
+      <strong class="active">{Math.round(scrollY.current ?? 0)}</strong>
+    </div>
+    <div class="mq-row">
+      <span>online.current</span>
+      <strong class:active={online.current} class:inactive={!online.current}>
+        {online.current ? 'online' : 'offline'}
+      </strong>
+    </div>
+  </div>
 </section>
 
 <section>
