@@ -14,14 +14,17 @@ Three methods form the core toolkit: \`Object.keys(obj)\` gives you an array of 
 
 On top of those, the \`in\` operator checks whether an object has a given property (safer than checking \`obj[key] !== undefined\`). And \`delete obj[key]\` removes a property. Together, these let you build dynamic UIs where users can add and remove fields at runtime.
 
-This lesson takes you from simple key-listing through to a live, editable dashboard of student scores — complete with bar charts, averages, and dynamic add/remove.`,
+Two modern additions round out the toolkit. \`Object.fromEntries()\` rebuilds an object from \`[key, value]\` pairs — the reverse of \`entries()\` — letting you filter and map *objects* the way you do arrays. And \`Object.groupBy(list, item => key)\` (ES2024) groups a list into an object of buckets in one line — the modern replacement for the reduce-into-an-object boilerplate you'll see in older codebases (its sibling \`Map.groupBy\` returns a Map when your keys aren't strings).
+
+This lesson takes you from simple key-listing through to a live, editable dashboard of student scores — complete with bar charts, averages, dynamic add/remove, and a grade-band grouping powered by Object.groupBy.`,
 	objectives: [
 		'Use Object.keys(), Object.values(), and Object.entries() to inspect objects',
 		'Iterate over object properties using {#each Object.entries()}',
 		'Check for property existence with the "in" operator',
 		'Add and remove properties dynamically (and trigger reactivity)',
 		'Compute aggregates (sum, avg, min, max) from object values',
-		'Use Object.fromEntries() to build an object from pairs'
+		'Use Object.fromEntries() to build an object from pairs',
+		'Group a list into buckets with Object.groupBy (ES2024) instead of reduce boilerplate'
 	],
 	files: [
 		{
@@ -108,7 +111,24 @@ This lesson takes you from simple key-listing through to a live, editable dashbo
   );
 
   // ============================================================
-  // EXAMPLE 5 — Helper for bar colors based on score
+  // EXAMPLE 5 — Object.groupBy: bucket a list in one line (ES2024)
+  // ------------------------------------------------------------
+  // Before 2024 you'd write a reduce-into-an-object for this.
+  // Object.groupBy takes (list, item => bucketKey) and returns
+  // { bucketKey: [items...] }. Here: subjects grouped by band.
+  // ============================================================
+  function getBand(score) {
+    if (score >= 90) return 'excellent';
+    if (score >= 80) return 'good';
+    return 'needs work';
+  }
+
+  const byBand = $derived(
+    Object.groupBy(Object.entries(scores), ([, score]) => getBand(score))
+  );
+
+  // ============================================================
+  // EXAMPLE 6 — Helper for bar colors based on score
   // ============================================================
   function getBarColor(value) {
     if (value >= 90) return '#4ec9b0';  // teal — excellent
@@ -193,6 +213,22 @@ This lesson takes you from simple key-listing through to a live, editable dashbo
   </ul>
 </section>
 
+<section>
+  <h2>7. Object.groupBy — buckets in one line</h2>
+  <p class="hint-line">
+    <code>Object.groupBy(Object.entries(scores), ([, s]) =&gt; getBand(s))</code>
+    — no reduce boilerplate needed.
+  </p>
+  {#each Object.entries(byBand) as [band, members] (band)}
+    <div class="band">
+      <strong class="band-name">{band}</strong>
+      <span class="band-members">
+        {members.map(([subject, score]) => subject + ' (' + score + ')').join(', ')}
+      </span>
+    </div>
+  {/each}
+</section>
+
 <style>
   h1 { color: #ff3e00; font-family: sans-serif; margin-bottom: 16px; }
   h2 { font-size: 16px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
@@ -222,6 +258,10 @@ This lesson takes you from simple key-listing through to a live, editable dashbo
   .input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
   input { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; }
   input[type="number"] { width: 70px; }
+  .hint-line { color: #999; font-size: 12px; }
+  .band { background: #f8f8f8; border-radius: 6px; padding: 8px 12px; margin: 4px 0; font-size: 13px; }
+  .band-name { color: #ff3e00; text-transform: capitalize; margin-right: 8px; }
+  .band-members { color: #555; }
   .exists { color: #4ec9b0; font-weight: 600; }
   .missing { color: #f44747; font-style: italic; }
   button {

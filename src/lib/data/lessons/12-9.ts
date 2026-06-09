@@ -3,7 +3,7 @@ import type { LessonData } from '$lib/types';
 const lesson: LessonData = {
 	meta: {
 		id: '12-9',
-		title: 'Streaming, {#await} & Parallel Loading',
+		title: 'Streaming, {#await} & Await Expressions',
 		phase: 4,
 		module: 12,
 		lessonIndex: 9
@@ -14,13 +14,19 @@ On the page side, Svelte's {#await} block handles all three states — pending, 
 
 This lesson covers {#await} in detail and shows how to wire it to streamed load data for a fast, resilient user experience.
 
+**The modern async story (Svelte 5.36+ / SvelteKit 2.27+).** With \`compilerOptions.experimental.async\` enabled, you can use \`await\` *directly* in components — at the top level of \`<script>\`, inside \`$derived(...)\`, and right in the markup (\`{await add(a, b)}\`, \`{#each await getPosts() as post}\`). Pending UI comes from wrapping content in a \`<svelte:boundary>\` with a \`pending\` snippet (shown on first render), and \`$effect.pending()\` tells you when *subsequent* async updates are in flight. Updates are synchronized: the UI never shows a half-updated state, and independent await expressions run concurrently. Paired with remote functions' \`query()\`, this is the modern data path — load functions and {#await} remain the bread-and-butter for route-level data, but a PE7 engineer reaches for await expressions + boundaries for component-scoped async.
+
 The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Render promise states with {#await}/{:then}/{:catch}',
 		'Use the {#await expr then value} short form when you do not need a pending state',
 		'Return unawaited Promises from a load function to stream them',
 		'Display a skeleton shell immediately and fill widgets as data arrives',
-		'Handle streamed errors gracefully without crashing the page'
+		'Handle streamed errors gracefully without crashing the page',
+		'Use await expressions in markup and $derived (experimental.async, Svelte 5.36+)',
+		'Provide pending UI with <svelte:boundary> and its pending snippet',
+		'Track in-flight async updates with $effect.pending() and understand synchronized updates',
+		'Recognize remote query() + await as the modern component-scoped data path'
 	],
 	files: [
 		{
@@ -115,6 +121,32 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
       related: wait(2200, [{ id: 99, name: 'Related A' }])
     };
   }
+
+  // Demo 3 — SIMULATED await-expression semantics.
+  // The real thing ({await add(a, b)} in markup) needs
+  // compilerOptions.experimental.async, which this playground
+  // doesn't enable — so we reproduce the observable behaviour
+  // (synchronized updates + $effect.pending) with $state/$effect.
+  let a: number = $state(1);
+  let b: number = $state(2);
+  let sum: number = $state(3);
+  let inFlight: number = $state(0); // what $effect.pending() reports
+  let token: number = 0;
+
+  function slowAdd(x: number, y: number): Promise<number> {
+    return new Promise((r) => setTimeout(() => r(x + y), 600));
+  }
+
+  $effect(() => {
+    const t = ++token;
+    inFlight++;
+    slowAdd(a, b).then((result) => {
+      // synchronized updates: the OLD sum stays on screen until
+      // the await resolves — never a half-updated UI
+      if (t === token) sum = result;
+      inFlight--;
+    });
+  });
 </script>
 
 <main>
@@ -263,6 +295,129 @@ export const load: PageServerLoad = async ({ locals }) => {
 {/await}\`}</pre>
   </section>
 
+  <section class="modern">
+    <h2>5. The Modern Path: await Expressions (Svelte 5.36+)</h2>
+    <p class="hint">
+      With the <code>experimental.async</code> compiler option, <code>await</code> works
+      directly in markup, in <code>$derived(...)</code>, and at the top level of
+      <code>&lt;script&gt;</code> — no <code>{'{#await}'}</code> ceremony needed.
+    </p>
+    <pre>{\`// svelte.config.js — opt in (flag removed in Svelte 6)
+export default {
+  compilerOptions: {
+    experimental: { async: true }
+  }
+};\`}</pre>
+    <pre>{\`<script lang="ts">
+  let a = $state(1);
+  let b = $state(2);
+
+  async function add(x: number, y: number) {
+    await new Promise((f) => setTimeout(f, 500));
+    return x + y;
+  }
+
+  // await also works inside $derived:
+  // let total = $derived(await add(a, b));
+</\${''}script>
+
+<input type="number" bind:value={a}>
+<input type="number" bind:value={b}>
+
+<!-- await right in the markup -->
+<p>{a} + {b} = {await add(a, b)}</p>
+
+<!-- and in each blocks (e.g. with a remote query) -->
+{#each await getPosts() as post (post.id)}
+  <h2>{post.title}</h2>
+{/each}\`}</pre>
+    <p class="hint">
+      <strong>Synchronized updates:</strong> when an await expression depends on state,
+      the UI keeps showing the <em>old</em> value until the async work completes — you
+      never see <code>2 + 2 = 3</code>. Independent await expressions run
+      <strong>concurrently</strong>; sequential <code>$derived(await ...)</code> pairs
+      trigger an <code>await_waterfall</code> warning.
+    </p>
+  </section>
+
+  <section class="modern">
+    <h2>6. Pending UI: &lt;svelte:boundary&gt; + $effect.pending()</h2>
+    <pre>{\`<svelte:boundary>
+  <!-- shown once everything inside has resolved -->
+  <p>{a} + {b} = {await add(a, b)}</p>
+
+  {#snippet pending()}
+    <!-- shown while the boundary FIRST loads -->
+    <p>crunching the numbers...</p>
+  {/snippet}
+
+  {#snippet failed(error, reset)}
+    <p>oops: {String(error)}</p>
+    <button onclick={reset}>retry</button>
+  {/snippet}
+</svelte:boundary>
+
+<!-- SUBSEQUENT updates don't re-show pending().
+     Detect them with $effect.pending(): -->
+{#if $effect.pending()}
+  <span class="spinner">updating…</span>
+{/if}\`}</pre>
+
+    <p class="hint">
+      <strong>Live simulation</strong> — drag the sliders. The sum keeps its old value
+      while the (artificially slow) async work runs, and the "updating…" badge plays the
+      role of <code>$effect.pending()</code>:
+    </p>
+    <div class="demo">
+      <label>a = {a} <input type="range" min="0" max="10" bind:value={a} /></label>
+      <label>b = {b} <input type="range" min="0" max="10" bind:value={b} /></label>
+      <p class="ok">
+        {a} + {b} = <strong>{sum}</strong>
+        {#if inFlight > 0}
+          <span class="pending">updating… ({inFlight} in flight)</span>
+        {/if}
+      </p>
+    </div>
+  </section>
+
+  <section class="modern">
+    <h2>7. Remote query() — the Modern Data Path</h2>
+    <p class="hint">
+      Streaming load functions shine for route-level data. For component-scoped data,
+      SvelteKit 2.27+ remote functions pair <code>query()</code> with await expressions —
+      callable from any component, validated, deduplicated, and refreshable.
+    </p>
+    <pre>{\`// src/routes/blog/data.remote.ts
+import * as v from 'valibot';
+import { query } from '$app/server';
+import * as db from '$lib/server/database';
+
+export const getPosts = query(async () => db.listPosts());
+export const getPost = query(v.string(), async (slug) => db.getPost(slug));\`}</pre>
+    <pre>{\`<!-- src/routes/blog/+page.svelte -->
+<script lang="ts">
+  import { getPosts } from './data.remote';
+</\${''}script>
+
+<svelte:boundary>
+  <ul>
+    {#each await getPosts() as post (post.slug)}
+      <li><a href="/blog/{post.slug}">{post.title}</a></li>
+    {/each}
+  </ul>
+  {#snippet pending()}<p>loading posts…</p>{/snippet}
+</svelte:boundary>
+
+<button onclick={() => getPosts().refresh()}>
+  Check for new posts
+</button>\`}</pre>
+    <p class="hint">
+      Requires <code>kit.experimental.remoteFunctions</code> +
+      <code>compilerOptions.experimental.async</code>. Full coverage (query.batch,
+      query.live, form, command, single-flight mutations) in Module 17 Lesson 3.
+    </p>
+  </section>
+
   <section>
     <h2>When to Stream vs await</h2>
     <table>
@@ -321,6 +476,14 @@ export const load: PageServerLoad = async ({ locals }) => {
         <strong>Stream fields independently</strong>
         Returning <code>&#123; a: slowA(), b: slowB() &#125;</code> lets each resolve on its own — the slower one doesn't block the faster.
       </li>
+      <li>
+        <strong>pending() shows once; $effect.pending() covers the rest</strong>
+        A boundary's <code>pending</code> snippet only renders while the boundary first loads — subsequent updates keep the old UI, so surface them with <code>$effect.pending()</code>.
+      </li>
+      <li>
+        <strong>Await expressions are still experimental</strong>
+        They require <code>compilerOptions.experimental.async</code> (flag removed in Svelte 6) and details may change outside semver-major releases — but they are the direction of travel; learn them now.
+      </li>
     </ul>
   </section>
 </main>
@@ -334,6 +497,9 @@ export const load: PageServerLoad = async ({ locals }) => {
   .button-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
   button { padding: 0.5rem 1rem; cursor: pointer; }
   .demo { padding: 1rem; background: #fafafa; border-radius: 4px; margin-bottom: 0.75rem; }
+  .demo label { display: block; font-size: 0.85rem; margin-bottom: 0.4rem; }
+  .demo input[type="range"] { width: 100%; }
+  .modern { background: #eff6ff; border-color: #93c5fd; border-left: 4px solid #3b82f6; }
   .pending { color: #1565c0; font-style: italic; }
   .ok { color: #2e7d32; }
   .error { color: #c62828; }

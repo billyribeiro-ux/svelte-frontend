@@ -14,11 +14,14 @@ Why does that matter? Because in modern UI code, **immutability** is a powerful 
 
 There's one critical gotcha beginners must understand: \`{ ...obj }\` creates a **shallow** copy. Primitive values (strings, numbers, booleans) are duplicated, but nested objects and arrays are **shared by reference**. If you change a nested item through either the original or the copy, you'll see it in both. This lesson shows you exactly when that bites.
 
-By the end of this lesson, you'll be comfortable copying arrays, merging objects, adding items without mutation, and avoiding the shallow-copy trap.`,
+When you genuinely need a fully independent copy, the modern answer is the built-in **\`structuredClone(obj)\`** — a real deep copy that handles nested objects, arrays, Dates, Maps, and Sets (it can't clone functions, and you'll see the old \`JSON.parse(JSON.stringify(obj))\` hack in legacy code — avoid it, it silently drops Dates, \`undefined\`, and more). One Svelte 5 wrinkle to plant now: \`$state\` values are proxies, so clone a *snapshot* — \`structuredClone($state.snapshot(value))\` — more on that in lesson 7-4. **At scale**, deep-cloning large objects on every update is a real cost; prefer shallow spread + targeted updates, and reach for structuredClone only at boundaries (saving drafts, sending to workers, undo history).
+
+By the end of this lesson, you'll be comfortable copying arrays, merging objects, adding items without mutation, deep-copying with structuredClone, and avoiding the shallow-copy trap.`,
 	objectives: [
 		'Use the spread operator to copy arrays and objects',
 		'Merge multiple objects with spread and understand override order',
 		'Understand the difference between shallow and deep copying',
+		'Use structuredClone() for true deep copies (and know why JSON.parse(JSON.stringify()) is legacy)',
 		'Add and remove items from arrays immutably using spread',
 		'Override specific properties when creating new state',
 		'Use rest parameters in functions for variable-length arguments'
@@ -104,6 +107,17 @@ By the end of this lesson, you'll be comfortable copying arrays, merging objects
     const fresh = ['reading', 'coding'];
     original = { name: 'Alice', hobbies: fresh };
     shallowCopy = { name: 'Alice', hobbies: fresh };
+  }
+
+  function makeDeepCopy() {
+    // structuredClone() is the modern built-in DEEP copy: every
+    // nested object and array is duplicated, nothing is shared.
+    // $state values are proxies, so we clone a plain snapshot.
+    // (The old JSON.parse(JSON.stringify(x)) hack drops Dates,
+    // undefined, Maps, Sets — don't use it in new code.)
+    shallowCopy = structuredClone($state.snapshot(original));
+    // From now on, adding a hobby to original will NOT appear
+    // in the copy — the link is fully severed.
   }
 
   // ============================================================
@@ -219,11 +233,14 @@ By the end of this lesson, you'll be comfortable copying arrays, merging objects
   <div class="buttons">
     <button onclick={changeOriginalName}>Change Original Name</button>
     <button onclick={addHobbyToOriginal}>Add Hobby to Original</button>
+    <button onclick={makeDeepCopy}>Deep Copy (structuredClone)</button>
     <button onclick={resetDemo}>Reset</button>
   </div>
   <p class="note">
     Names diverge (primitives are copied). Hobbies stay in sync
-    (nested arrays are shared by reference).
+    (nested arrays are shared by reference) — until you click
+    <strong>Deep Copy</strong>: <code>structuredClone()</code> severs the link,
+    and new hobbies on the original no longer appear in the copy.
   </p>
 </section>
 
@@ -280,6 +297,7 @@ By the end of this lesson, you'll be comfortable copying arrays, merging objects
   p { color: #444; font-size: 14px; margin: 4px 0; }
   strong { color: #222; }
   .note { color: #999; font-size: 12px; font-style: italic; }
+  code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; font-style: normal; }
   .input-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   input { padding: 6px 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px; flex: 1; min-width: 140px; }
   ul { list-style: none; padding: 0; }

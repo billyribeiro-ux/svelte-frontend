@@ -14,10 +14,13 @@ This pattern is powerful for modelling domain objects with encapsulated reactive
 
 Reactive classes replace the old writable-store pattern in Svelte 5. Instead of writing stores that expose subscribe/set/update, you write a plain TypeScript class with runes inside. The class is typed, introspectable, composable, and works with any reactive context — component markup, $derived chains, $effect bodies, or other classes.
 
+One JavaScript gotcha matters here: \`this\`. Passing a regular method as an event handler (onclick={todo.toggle}) rebinds \`this\` to the element, silently breaking the mutation. Either wrap it in an inline arrow (onclick={() => todo.toggle()}) or — the pattern this lesson uses for Todo.toggle — declare the method as an arrow-function class field, which captures the instance permanently and can be passed around freely.
+
 A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Declare reactive class fields using $state() in class definitions',
 		'Create class methods that mutate reactive state',
+		'Use arrow-function class fields so methods keep `this` when passed as handlers',
 		'Use $derived inside classes for computed properties',
 		'Compose multiple reactive classes together (Cart contains CartItem[])',
 		'Integrate reactive class instances with Svelte component templates'
@@ -51,9 +54,12 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
       this.createdAt = new Date();
     }
 
-    toggle(): void {
+    // Arrow-function field: \`this\` is captured at construction, so
+    // the method can be passed directly as an event handler
+    // (onchange={todo.toggle}) without rebinding to the element.
+    toggle = (): void => {
       this.done = !this.done;
-    }
+    };
 
     cyclePriority(): void {
       const order: Todo['priority'][] = ['low', 'medium', 'high'];
@@ -248,10 +254,11 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
     {#each list.filtered as todo (todo)}
       <li class:done={todo.done}>
         <label>
+          <!-- safe to pass directly: toggle is an arrow-function field -->
           <input
             type="checkbox"
             checked={todo.done}
-            onchange={() => todo.toggle()}
+            onchange={todo.toggle}
           />
           <span class="text">{todo.text}</span>
         </label>

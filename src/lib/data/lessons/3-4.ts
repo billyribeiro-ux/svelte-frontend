@@ -10,9 +10,9 @@ const lesson: LessonData = {
 	},
 	description: `This lesson gathers three closely-related topics that trip up even experienced JavaScript developers: **sorting**, **reducing**, and **knowing which array methods mutate**. They're bundled because the confusion comes from a single root cause — array methods have inconsistent contracts. Some return new arrays (\`map\`, \`filter\`, \`slice\`), some mutate the original and return it (\`sort\`, \`reverse\`, \`push\`, \`splice\`), and some do both (\`splice\` mutates AND returns removed items).
 
-**Sorting** requires a comparator function that returns a number: negative means "a comes first", positive means "b comes first", zero means "leave them". The classic mistake is writing \`arr.sort()\` with no comparator on a list of numbers — it sorts *lexicographically*, so 10 comes before 2. Always pass a comparator. And remember: \`.sort()\` mutates. In 2026 we have the non-mutating alternative \`toSorted()\`, but spreading into a copy (\`[...arr].sort(...)\`) is still the most common pattern.
+**Sorting** requires a comparator function that returns a number: negative means "a comes first", positive means "b comes first", zero means "leave them". The classic mistake is writing \`arr.sort()\` with no comparator on a list of numbers — it sorts *lexicographically*, so 10 comes before 2. Always pass a comparator. And remember: \`.sort()\` mutates. The modern default is the non-mutating \`toSorted()\` (ES2023, universally supported by now) — same comparator, returns a **new** array, original untouched. Its siblings are \`toReversed()\`, \`toSpliced()\`, and \`with()\`. You'll still see the older spread-then-sort idiom (\`[...arr].sort(...)\`) all over existing codebases, so learn to read it — but write \`toSorted()\` in new code, especially inside \`$derived\`, where mutating a dependency is a bug.
 
-**Reduce** is the Swiss army knife of array methods. Signature: \`arr.reduce((accumulator, current) => newAccumulator, initialValue)\`. It walks the array, carrying an accumulator forward and letting you update it on each step. Sum, max, average — but also grouping into objects, flattening nested arrays, building indexes. Any "many values into one result" operation is a reduce.
+**Reduce** is the Swiss army knife of array methods. Signature: \`arr.reduce((accumulator, current) => newAccumulator, initialValue)\`. It walks the array, carrying an accumulator forward and letting you update it on each step. Sum, max, average — but also grouping into objects, flattening nested arrays, building indexes. Any "many values into one result" operation is a reduce. One big exception: for the very common "group items by key" task, modern JavaScript has a dedicated tool — \`Object.groupBy(items, item => item.category)\` (ES2024). It replaces the reduce-into-an-object boilerplate with one self-documenting line; we show both side by side below so you can read legacy code *and* write the modern version.
 
 **Mutation** is where Svelte 5 and the runes system really shine. In older reactive frameworks, you had to reassign arrays to trigger updates. In Svelte 5, a \`$state\` array is a deep-reactive proxy — so \`items.push(x)\` just works. You still need to understand which methods mutate for debugging and for non-reactive contexts, but the mental load is lighter than it used to be.
 
@@ -20,10 +20,10 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
 	objectives: [
 		'Sort arrays with custom comparator functions including localeCompare for strings',
 		'Use .reduce() for sums, averages, min/max, and object aggregation',
-		'Group array items into categories using reduce with an object accumulator',
-		'Distinguish mutating methods (sort, push, pop, splice) from non-mutating ones (map, filter, slice)',
+		'Group array items with Object.groupBy and recognize the legacy reduce-into-an-object pattern',
+		'Distinguish mutating methods (sort, push, pop, splice) from their immutable twins (toSorted, toReversed, toSpliced, with)',
 		'Leverage Svelte 5 deep reactivity with in-place array mutations on $state arrays',
-		'Apply the [...arr].sort() idiom to sort without modifying the original'
+		'Default to toSorted() in new code — especially inside $derived — and read [...arr].sort() in older code'
 	],
 	files: [
 		{
@@ -54,10 +54,13 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
   //   negative  → a comes first
   //   positive  → b comes first
   //   zero      → keep order
-  // .sort() MUTATES — so we spread first to keep items untouched.
-  // (Modern alternative: items.toSorted(...) returns a new array.)
+  // .toSorted() (ES2023) takes the same comparator as .sort() but
+  // returns a NEW array — items stays untouched. That matters here:
+  // we're inside $derived, and mutating a dependency from a derived
+  // is a bug. (Legacy codebases do [...items].sort(...) instead —
+  // same result, two steps.)
   const sorted = $derived(
-    [...items].sort((a, b) => {
+    items.toSorted((a, b) => {
       let result;
       if (sortBy === 'name')         result = a.name.localeCompare(b.name);
       else if (sortBy === 'price')   result = a.price - b.price;
@@ -84,14 +87,20 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
   );
 
   // --- reduce for non-numeric aggregation: build an object ---
-  // Group items by category — a classic "reduce to an object" pattern.
-  const byCategory = $derived(
+  // Group items by category — the classic "reduce to an object"
+  // pattern you'll find in every pre-2024 codebase.
+  const byCategoryLegacy = $derived(
     items.reduce((groups, item) => {
       if (!groups[item.category]) groups[item.category] = [];
       groups[item.category].push(item);
       return groups;
     }, {})
   );
+
+  // --- The modern one-liner: Object.groupBy (ES2024) ---
+  // Same result, self-documenting, no accumulator bookkeeping.
+  // (Map.groupBy exists too, when your keys aren't strings.)
+  const byCategory = $derived(Object.groupBy(items, (item) => item.category));
 
   // --- reduce to find min/max ---
   const mostExpensive = $derived(
@@ -122,6 +131,7 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
 
   function removeFirst() {
     // .splice(start, deleteCount) MUTATES in place.
+    // Immutable twin: items = items.toSpliced(0, 1) — new array, same edit.
     if (items.length > 0) items.splice(0, 1);
   }
 
@@ -136,8 +146,9 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
   }
 
   // --- slice: non-mutating, returns a portion ---
+  // toSorted + slice chain cleanly: no intermediate copy needed.
   const topThree = $derived(
-    [...items].sort((a, b) => b.price - a.price).slice(0, 3)
+    items.toSorted((a, b) => b.price - a.price).slice(0, 3)
   );
 </script>
 
@@ -159,9 +170,9 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
       {#each sorted as item (item.id)}
         <tr>
           <td>{item.name}</td>
-          <td>\\\${item.price}</td>
+          <td>\${item.price}</td>
           <td>{item.quantity}</td>
-          <td class="subtotal">\\\${item.price * item.quantity}</td>
+          <td class="subtotal">\${item.price * item.quantity}</td>
         </tr>
       {/each}
     </tbody>
@@ -183,18 +194,24 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
   <h2>3. reduce — Totals</h2>
   <div class="stats">
     <div class="stat"><span>Total Items</span><strong>{totalItems}</strong></div>
-    <div class="stat"><span>Total Cost</span><strong>\\\${totalCost}</strong></div>
-    <div class="stat"><span>Avg Price</span><strong>\\\${averagePrice.toFixed(2)}</strong></div>
+    <div class="stat"><span>Total Cost</span><strong>\${totalCost}</strong></div>
+    <div class="stat"><span>Avg Price</span><strong>\${averagePrice.toFixed(2)}</strong></div>
   </div>
 </section>
 
 <section>
   <h2>4. reduce — Most Expensive</h2>
-  <p>{mostExpensive.name} at <strong>\\\${mostExpensive.price}</strong></p>
+  <p>{mostExpensive.name} at <strong>\${mostExpensive.price}</strong></p>
 </section>
 
 <section>
-  <h2>5. reduce into an Object — Group by Category</h2>
+  <h2>5. Grouping — Object.groupBy vs reduce</h2>
+  <p class="hint">
+    Rendered from <code>Object.groupBy(items, i =&gt; i.category)</code> — one line.
+    The legacy reduce version (<code>byCategoryLegacy</code> in the script) produces
+    {Object.keys(byCategoryLegacy).length} identical group(s); read it so you can
+    recognize the pattern in older code.
+  </p>
   {#each Object.entries(byCategory) as [cat, list] (cat)}
     <div class="group">
       <h3>{cat} ({list.length})</h3>
@@ -211,7 +228,7 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
   <h2>6. slice — Top 3 Most Expensive</h2>
   <ol>
     {#each topThree as item (item.id)}
-      <li>{item.name} — \\\${item.price}</li>
+      <li>{item.name} — \${item.price}</li>
     {/each}
   </ol>
 </section>
@@ -223,6 +240,7 @@ Key pitfalls: sorting numbers without a comparator, calling \`.sort()\` on data 
   section { margin-bottom: 22px; font-family: sans-serif; }
   p { color: #444; font-size: 14px; margin: 4px 0; }
   .hint { color: #999; font-size: 12px; font-style: italic; }
+  code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; font-style: normal; }
   strong { color: #222; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { text-align: left; padding: 8px; border-bottom: 2px solid #eee; color: #666; font-size: 11px; text-transform: uppercase; }

@@ -8,13 +8,20 @@ const lesson: LessonData = {
 		module: 15,
 		lessonIndex: 4
 	},
-	description: `Async Svelte ships a fork() primitive for concurrent, speculative work. A "fork" is an async branch that runs alongside the current view without blocking it. You can later commit() the fork to swap in its result, or discard() it to throw the work away.
+	description: `Async Svelte ships a fork() primitive (svelte 5.42+, imported from 'svelte') for concurrent, speculative work. The real signature matters — get it right in interviews and code review:
 
-The canonical use case is hover-to-preload: as soon as the user hovers a link, fork the fetch for that page; if they click, commit; if they move away, discard. Because the fork never blocked the current render, there's no flash of loading state — the new content appears instantly when committed.
+  import { fork } from 'svelte';
+  let pending: Fork | null = null;
+  pending ??= fork(() => { open = true; });  // run state changes speculatively
+  pending.commit();                           // apply the forked branch
+  pending.discard();                          // or throw it away
 
-fork() is part of the experimental async Svelte release. This lesson simulates the API so you can explore the mental model today.`,
+fork(fn) runs the state changes made inside fn in an isolated branch: any await expressions that the new state triggers start working IMMEDIATELY, but nothing is shown until you commit(). The canonical use case is hover-to-preload: on pointerenter, fork the state change that would reveal the new view (kicking off its async work); on click, commit — content appears with near-zero latency; on pointerleave, discard. This is the primitive frameworks like SvelteKit use to implement preloading on navigation intent.
+
+The interactive demo below SIMULATES the runtime behaviour (speculative fetch, commit, discard) with plain promises so it runs without the experimental.async flag — the real handle-based API is shown alongside it.`,
 	objectives: [
-		'Understand fork/commit/discard as a concurrency primitive',
+		"Know the real API: fork(fn) from 'svelte' returns a Fork with commit() and discard()",
+		'Understand that forked state changes run async work eagerly but invisibly until commit',
 		'Implement hover-to-preload navigation with near-zero perceived latency',
 		'Discard in-flight forks when user intent changes',
 		'Reason about cancellation and race conditions with concurrent branches'
@@ -24,8 +31,24 @@ fork() is part of the experimental async Svelte release. This lesson simulates t
 			filename: 'App.svelte',
 			content: `<script lang="ts">
   // ─────────────────────────────────────────────────────────────
-  // Simulated fork/commit/discard. Real async Svelte exposes these
-  // as part of its concurrency model; the API shapes here match.
+  // Simulated fork/commit/discard.
+  //
+  // REAL API (svelte 5.42+, requires experimental.async):
+  //
+  //   import { fork, type Fork } from 'svelte';
+  //
+  //   let pending: Fork | null = null;
+  //   function preload() {
+  //     // state changes inside fn run in an isolated branch;
+  //     // async work they trigger starts NOW, invisibly
+  //     pending ??= fork(() => { open = true; });
+  //   }
+  //   pending.commit();   // apply the branch (instant — work done)
+  //   pending.discard();  // throw the branch away
+  //
+  // The functions below model that behaviour with plain promises
+  // (fork-per-article instead of a Fork handle) so the demo runs
+  // without the experimental flag.
   // ─────────────────────────────────────────────────────────────
 
   interface Article {
@@ -277,6 +300,44 @@ fork() is part of the experimental async Svelte release. This lesson simulates t
   {/if}
 </section>
 
+<section class="real-api">
+  <h3>The real fork() API (from the docs)</h3>
+  <pre><code>{\`<script>
+  import { fork } from 'svelte';
+  import Menu from './Menu.svelte';
+
+  let open = \$state(false);
+
+  /** @type {import('svelte').Fork | null} */
+  let pending = null;
+
+  function preload() {
+    // run the state change speculatively — async work inside
+    // the {#if open} branch starts immediately, invisibly
+    pending ??= fork(() => { open = true; });
+  }
+
+  function discard() {
+    pending?.discard();
+    pending = null;
+  }
+</\` + \`script>
+
+<button
+  onpointerenter={preload}
+  onpointerleave={discard}
+  onclick={() => {
+    pending?.commit();   // no-op if pending didn't exist
+    pending = null;
+    open = true;         // fallback when there was no fork
+  }}
+>open menu</button>
+
+{#if open}
+  <Menu onclose={() => open = false} />
+{/if}\`}</code></pre>
+</section>
+
 <style>
   h1 { color: #2d3436; }
   .callout {
@@ -332,6 +393,10 @@ fork() is part of the experimental async Svelte release. This lesson simulates t
 
   .log { background: #2d3436; color: #dfe6e9; padding: 0.75rem 1rem; border-radius: 8px; max-height: 170px; overflow: auto; }
   .log h3 { color: #74b9ff; }
+  .real-api { margin-top: 1rem; background: #2d3436; color: #dfe6e9; padding: 0.75rem 1rem; border-radius: 8px; }
+  .real-api h3 { color: #74b9ff; margin: 0 0 0.5rem; font-size: 0.95rem; }
+  .real-api pre { margin: 0; overflow-x: auto; }
+  .real-api code { font-size: 0.76rem; line-height: 1.5; font-family: ui-monospace, monospace; }
   .entry { font-family: ui-monospace, monospace; font-size: 0.76rem; padding: 0.1rem 0; }
   .empty { color: #636e72; font-size: 0.82rem; }
 </style>`,

@@ -3,7 +3,7 @@ import type { LessonData } from '$lib/types';
 const lesson: LessonData = {
 	meta: {
 		id: '13-4',
-		title: 'use:enhance',
+		title: 'use:enhance & Remote form()',
 		phase: 4,
 		module: 13,
 		lessonIndex: 4
@@ -14,14 +14,19 @@ use:enhance is the SvelteKit action (the Svelte-action kind, not the form-action
 
 This lesson covers use:enhance with and without a callback, loading states, confirmation dialogs, and the reset:false option for keeping user input after a failed submit.
 
-> **SvelteKit 2.27+:** Remote functions introduce \\\`form()\\\` from \\\`$app/server\\\` — a modern alternative to form actions + \\\`use:enhance\\\`. Remote forms use Standard Schema validation (Zod/Valibot), generate type-safe field helpers, and support single-flight mutations that refresh queries in the same request. See Module 17 Lesson 3 for full coverage.`,
+**The modern path: remote \`form()\` (SvelteKit 2.27+).** Everything use:enhance bolts on by hand — progressive enhancement, repopulation, loading states, per-field errors — comes built in with the remote \`form()\` function from \`$app/server\`. You declare a Standard Schema (Zod 4 / Valibot), spread the form object onto a \`<form>\` element (\`<form {...createPost}>\`), and get a typed *fields API*: \`fields.title.as('text')\` emits name/type/value/aria-invalid attributes, \`fields.title.issues()\` returns validation messages, \`validate()\` runs validation on every input, \`preflight(schema)\` blocks invalid submissions client-side, and \`invalid()\`/\`issue\` let the server handler reject programmatically. Multiple submit buttons become \`fields.action.as('submit', 'login')\`. Mutations refresh queries in a single flight instead of a blanket invalidateAll. The migration story is mechanical — this lesson teaches use:enhance for the (large) installed base of form actions, then maps every concept onto its remote-form equivalent so you can write new forms the modern way.`,
 	objectives: [
 		'Add use:enhance to upgrade a classic form to fetch-based submission',
 		'Customize behaviour with an enhance callback and a result handler',
 		'Show a per-form loading state while submitting',
 		'Add a confirmation dialog inside the enhance callback',
 		'Use reset:false to keep user input on failure',
-		'Understand the SubmitFunction signature and its result types'
+		'Understand the SubmitFunction signature and its result types',
+		'Declare a remote form() with a Standard Schema (Zod 4 / Valibot) and spread it onto <form>',
+		'Use the fields API: .as(type), issues(), validate(), allIssues() and preflight()',
+		'Reject programmatically in the handler with invalid() and the typed issue helper',
+		'Handle multiple submit buttons with fields.action.as("submit", value)',
+		'Migrate a form-action + use:enhance form to remote form() step by step'
 	],
 	files: [
 		{
@@ -95,6 +100,46 @@ This lesson covers use:enhance with and without a callback, loading states, conf
       return;
     }
     deleteCount++;
+  }
+
+  // ---------------------------------------------------------------
+  // SIMULATED remote form() fields API.
+  // The real thing needs a SvelteKit server (this playground is
+  // client-only), so we reproduce the observable behaviour:
+  // issues() appear per field once touched, aria-invalid is set,
+  // and validate() runs on every input.
+  // ---------------------------------------------------------------
+  interface Issue {
+    message: string;
+  }
+
+  let rfTitle: string = $state('');
+  let rfContent: string = $state('');
+  let rfTouched: { title: boolean; content: boolean } = $state({ title: false, content: false });
+  let rfSubmitted: boolean = $state(false);
+  let rfPending: boolean = $state(false);
+  let rfResult: string = $state('');
+
+  // what createPost.fields.title.issues() would return
+  const rfTitleIssues: Issue[] = $derived(
+    (rfTouched.title || rfSubmitted) && rfTitle.trim() === ''
+      ? [{ message: 'Title must not be empty' }]
+      : []
+  );
+  const rfContentIssues: Issue[] = $derived(
+    (rfTouched.content || rfSubmitted) && rfContent.trim().length < 10
+      ? [{ message: 'Content must be at least 10 characters' }]
+      : []
+  );
+
+  async function rfSubmit(e: SubmitEvent): Promise<void> {
+    e.preventDefault();
+    rfSubmitted = true;
+    if (rfTitle.trim() === '' || rfContent.trim().length < 10) return; // preflight blocks
+    rfPending = true;
+    await new Promise((r) => setTimeout(r, 600));
+    rfPending = false;
+    rfResult = 'Published "' + rfTitle + '" (result is ephemeral, like createPost.result)';
   }
 </script>
 
@@ -260,6 +305,177 @@ return async ({ result }) => {
   }
 };\`}</pre>
   </section>
+
+  <section class="modern">
+    <h2>7. The Modern Path: Remote form() (SvelteKit 2.27+)</h2>
+    <p class="hint">
+      A remote <code>form()</code> bundles everything above — progressive enhancement,
+      repopulation, per-field errors, loading state — behind a typed, schema-validated API.
+      Declare it once in a <code>.remote.ts</code> file:
+    </p>
+    <pre>{\`// src/routes/blog/data.remote.ts
+import * as v from 'valibot';
+import { redirect, invalid } from '@sveltejs/kit';
+import { form } from '$app/server';
+import * as db from '$lib/server/database';
+
+export const createPost = form(
+  v.object({
+    title: v.pipe(v.string(), v.nonEmpty('Title must not be empty')),
+    content: v.pipe(v.string(), v.minLength(10, 'At least 10 characters'))
+  }),
+  async ({ title, content }, issue) => {
+    const slug = title.toLowerCase().replace(/ /g, '-');
+
+    if (await db.slugExists(slug)) {
+      // programmatic validation — typed, throws like redirect()
+      invalid(issue.title('A post with this title already exists'));
+    }
+
+    await db.createPost({ slug, title, content });
+    redirect(303, '/blog/' + slug);
+  }
+);\`}</pre>
+    <p class="hint">
+      ...then spread it onto a <code>&lt;form&gt;</code>. The <strong>fields API</strong>
+      replaces hand-written name attributes, repopulation and error rendering:
+    </p>
+    <pre>{\`<script lang="ts">
+  import { createPost } from '../data.remote';
+</\${''}script>
+
+<!-- works without JS; progressively enhanced automatically -->
+<form {...createPost} oninput={() => createPost.validate()}>
+  <label>
+    Title
+    <!-- emits type, name, value and aria-invalid -->
+    <input {...createPost.fields.title.as('text')} />
+  </label>
+  {#each createPost.fields.title.issues() as issue (issue.message)}
+    <p class="issue">{issue.message}</p>
+  {/each}
+
+  <label>
+    Content
+    <textarea {...createPost.fields.content.as('text')}></textarea>
+  </label>
+  {#each createPost.fields.content.issues() as issue (issue.message)}
+    <p class="issue">{issue.message}</p>
+  {/each}
+
+  <button disabled={!!createPost.pending}>
+    {createPost.pending ? 'Publishing…' : 'Publish!'}
+  </button>
+</form>\`}</pre>
+    <p class="hint">
+      Block invalid submissions client-side with a <strong>preflight</strong> schema
+      (<code>&lt;form {'{...createPost.preflight(schema)}'}&gt;</code>), list every problem
+      with <code>fields.allIssues()</code>, and customise submission with
+      <code>createPost.enhance(async (form) =&gt; {'{ await form.submit(); form.element.reset(); }'})</code>.
+    </p>
+  </section>
+
+  <section class="modern">
+    <h2>8. Multiple Submit Buttons — as('submit', value)</h2>
+    <p class="hint">
+      The form-actions <code>formaction="?/register"</code> trick becomes a typed field:
+    </p>
+    <pre>{\`// $lib/auth.remote.ts
+export const loginOrRegister = form(
+  v.object({
+    username: v.string(),
+    _password: v.string(),   // leading _ = never echoed back to the client
+    action: v.picklist(['login', 'register'])
+  }),
+  async ({ username, _password, action }) => {
+    if (action === 'login') { /* ... */ } else { /* ... */ }
+  }
+);
+
+// +page.svelte
+<form {...loginOrRegister}>
+  <input {...loginOrRegister.fields.username.as('text')} />
+  <input {...loginOrRegister.fields._password.as('password')} />
+
+  <button {...loginOrRegister.fields.action.as('submit', 'login')}>login</button>
+  <button {...loginOrRegister.fields.action.as('submit', 'register')}>register</button>
+</form>\`}</pre>
+  </section>
+
+  <section class="modern">
+    <h2>9. Try It — simulated fields API</h2>
+    <p class="hint">
+      This playground is client-only, so here is a faithful simulation: issues appear per
+      field once you touch it (or submit), exactly like
+      <code>fields.title.issues()</code> with <code>validate()</code> wired to
+      <code>oninput</code>. Content needs 10+ characters.
+    </p>
+    <form onsubmit={rfSubmit} class="real">
+      <label>
+        Title
+        <input
+          name="title"
+          bind:value={rfTitle}
+          onblur={() => (rfTouched.title = true)}
+          aria-invalid={rfTitleIssues.length > 0}
+          class:invalid={rfTitleIssues.length > 0}
+        />
+      </label>
+      {#each rfTitleIssues as issue (issue.message)}
+        <p class="issue">{issue.message}</p>
+      {/each}
+
+      <label>
+        Content
+        <textarea
+          name="content"
+          rows="3"
+          bind:value={rfContent}
+          onblur={() => (rfTouched.content = true)}
+          aria-invalid={rfContentIssues.length > 0}
+          class:invalid={rfContentIssues.length > 0}
+        ></textarea>
+      </label>
+      {#each rfContentIssues as issue (issue.message)}
+        <p class="issue">{issue.message}</p>
+      {/each}
+
+      <button disabled={rfPending}>
+        {rfPending ? 'Publishing…' : 'Publish!'}
+      </button>
+      {#if rfResult}
+        <div class="banner ok">{rfResult}</div>
+      {/if}
+    </form>
+  </section>
+
+  <section class="modern">
+    <h2>10. Migration Map: Form Actions → Remote form()</h2>
+    <table>
+      <thead>
+        <tr><th>Form actions + use:enhance</th><th>Remote form()</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>export const actions</code> in +page.server.ts</td><td><code>export const x = form(schema, handler)</code> in a .remote.ts file</td></tr>
+        <tr><td><code>&lt;form method="POST" action="?/save" use:enhance&gt;</code></td><td><code>&lt;form {'{...x}'}&gt;</code> — method, action and enhancement included</td></tr>
+        <tr><td>manual <code>request.formData()</code> parsing + <code>fail(400, …)</code></td><td>Standard Schema validates first; <code>issues()</code> populate automatically</td></tr>
+        <tr><td>server-side edge cases via <code>fail()</code></td><td><code>invalid(issue.field('message'))</code> — typed, throws like redirect()</td></tr>
+        <tr><td><code>form</code> prop / <code>page.form</code></td><td><code>x.result</code> (ephemeral, typed from the handler's return)</td></tr>
+        <tr><td>repopulating <code>value={'{form?.title}'}</code> by hand</td><td><code>x.fields.title.as('text')</code> emits name/value/aria-invalid</td></tr>
+        <tr><td><code>formaction="?/register"</code></td><td><code>x.fields.action.as('submit', 'register')</code></td></tr>
+        <tr><td>custom <code>SubmitFunction</code> callback</td><td><code>x.enhance(async (form) =&gt; { … await form.submit() … })</code></td></tr>
+        <tr><td><code>invalidateAll()</code> after success (everything refetches)</td><td>single-flight mutations — handler refreshes exactly the queries that changed (lesson 13-5)</td></tr>
+        <tr><td>works today, stable API</td><td>requires <code>kit.experimental.remoteFunctions</code> + <code>experimental.async</code></td></tr>
+      </tbody>
+    </table>
+    <p class="hint">
+      <strong>When to choose which (June 2026):</strong> existing apps full of form actions
+      are fine — don't rewrite for the sake of it. For new mutation surfaces, reach for
+      remote <code>form()</code> first: you get validation, typing, field plumbing and
+      single-flight refreshes for free, and it degrades without JavaScript just like a
+      classic action. Full API in Module 17 Lesson 3.
+    </p>
+  </section>
 </main>
 
 <style>
@@ -273,6 +489,10 @@ return async ({ result }) => {
   .real label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.9rem; }
   .real input { padding: 0.45rem; font-family: inherit; font-size: 0.9rem; border: 1px solid #bbb; border-radius: 3px; }
   .real input.invalid { border-color: #c62828; background: #fff5f5; }
+  .real textarea { padding: 0.45rem; font-family: inherit; font-size: 0.9rem; border: 1px solid #bbb; border-radius: 3px; }
+  .real textarea.invalid { border-color: #c62828; background: #fff5f5; }
+  .issue { color: #c62828; font-size: 0.8rem; margin: -0.3rem 0 0; }
+  .modern { background: #eff6ff; border-color: #93c5fd; border-left: 4px solid #3b82f6; }
   .real button { align-self: flex-start; padding: 0.5rem 1rem; cursor: pointer; background: #1565c0; color: white; border: none; border-radius: 4px; }
   .real button.danger { background: #c62828; }
   .real button:disabled { opacity: 0.7; cursor: wait; }

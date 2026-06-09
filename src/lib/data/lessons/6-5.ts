@@ -14,11 +14,14 @@ If you find yourself reading reactive state inside <code>$effect</code> and writ
 
 Think of it this way: <code>$derived</code> = "this value is computed from those values". <code>$effect</code> = "when those values change, do something outside Svelte". Mixing them produces the anti-patterns below.
 
+Burn in the full catalog of "you probably don't need an effect" alternatives: **computing a value** → <code>$derived</code> / <code>$derived.by</code>; **two-way syncing a value** → <code>$bindable</code> props or function bindings (<code>bind:value={get, set}</code>) — never a pair of effects writing each other; **wiring up a DOM or third-party library** → an <code>{@attach ...}</code> attachment, which re-runs like an effect but is scoped to its element and cleans up automatically; **subscribing to an external event source** → <code>createSubscriber</code> from <code>svelte/reactivity</code> (or the prebuilt <code>MediaQuery</code> and <code>svelte/reactivity/window</code> helpers); **logging when values change** → <code>$inspect</code> / <code>$inspect.trace</code>, which are dev-only and strip from production builds. What's left for <code>$effect</code>? Genuinely external one-way side effects: <code>document.title</code>, canvas drawing, timers, analytics. **At scale this matters**: every effect is a hidden edge in your data-flow graph — codebases with dozens of state-syncing effects become impossible to reason about, while the same logic as deriveds stays a pure, traceable tree.
+
 The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Identify the anti-pattern: setting $state inside $effect to sync values',
 		'Refactor five common anti-patterns into correct $derived form',
 		'Know the rule: $derived for computation, $effect for external side effects',
+		'Memorise the alternatives catalog: $derived for computation, function bindings/$bindable for two-way sync, @attach for DOM libraries, createSubscriber for external sources, $inspect for debugging',
 		'Recognise when you DO need an effect (DOM, network, timers, persistence)'
 	],
 	files: [
@@ -249,6 +252,45 @@ $effect(() =&gt; {'{'}
   with <code>$derived</code>. If you end up needing the escape hatch, you'll know.
 </div>
 
+<section class="catalog">
+  <h2>The "you probably don't need $effect" catalog</h2>
+  <p class="catalog-intro">
+    Before writing <code>$effect(...)</code>, check this table. Each row is a tool
+    purpose-built for the job — simpler, synchronous where possible, and self-cleaning.
+  </p>
+  <table>
+    <thead>
+      <tr><th>You want to…</th><th>Reach for</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Compute a value from other state</td>
+        <td><code>$derived</code> / <code>$derived.by</code></td>
+      </tr>
+      <tr>
+        <td>Keep two values in sync (parent &harr; child, model &harr; view)</td>
+        <td><code>$bindable</code> props, or function bindings <code>bind:value={'{'}get, set{'}'}</code></td>
+      </tr>
+      <tr>
+        <td>Set up a DOM node or third-party library (charts, maps, editors)</td>
+        <td><code>{'{@attach ...}'}</code> attachments — element-scoped, auto-cleanup</td>
+      </tr>
+      <tr>
+        <td>Subscribe to an external event source (sockets, media queries, window state)</td>
+        <td><code>createSubscriber</code> from <code>svelte/reactivity</code>, or prebuilt helpers like <code>MediaQuery</code> and <code>svelte/reactivity/window</code></td>
+      </tr>
+      <tr>
+        <td>Log / debug when values change</td>
+        <td><code>$inspect</code> and <code>$inspect.trace</code> — dev-only, stripped in production</td>
+      </tr>
+      <tr>
+        <td>Genuinely push state out to the world (document.title, canvas, analytics, timers)</td>
+        <td><code>$effect</code> — the escape hatch, with a cleanup return</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
 <section class="pitfalls">
   <h2>Common Pitfalls & Pro Tips</h2>
   <ul class="pitfall-list">
@@ -347,6 +389,12 @@ $effect(() =&gt; {'{'}
     border-radius: 0 8px 8px 0;
     margin-top: 1.5rem;
   }
+
+  .catalog { background: #f0f9ff; border: 2px solid #38bdf8; }
+  .catalog-intro { font-size: 0.85rem; color: #555; margin: 0 0 0.5rem; }
+  .catalog table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; border-radius: 6px; }
+  .catalog th, .catalog td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #e0f2fe; vertical-align: top; }
+  .catalog th { background: #e0f2fe; color: #075985; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
 
   .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
   .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }

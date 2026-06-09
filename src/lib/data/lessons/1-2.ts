@@ -14,12 +14,15 @@ Arrays are everywhere in real apps. Every list you see in a UI — search result
 
 Before Svelte 5, mutating arrays with methods like \`.push()\` or \`.splice()\` didn't always trigger reactivity — you had to reassign the whole array. In Svelte 5, \`$state\` arrays have **deep reactivity**: \`.push()\`, \`.pop()\`, \`.splice()\`, and even modifying items by index all "just work".
 
+One modern habit to build from day one: every mutating method now has an **immutable twin** (ES2023). \`.sort()\` mutates in place — \`.toSorted()\` returns a new sorted array. Likewise \`.reverse()\` → \`.toReversed()\`, \`.splice()\` → \`.toSpliced()\`, and index assignment → \`.with(i, value)\`. Mutation is fine for local \`$state\`, but the immutable versions are what you'll reach for inside \`$derived\` (never mutate inside a derived!), when the array is shared between components, or when you need the original order preserved. **At scale**, accidental mutation of shared arrays is one of the most common sources of "why did that other list change?" bugs — immutable methods make the data flow obvious.
+
 In this lesson you'll build three increasingly realistic examples: a simple string list, a list of objects (todos), and a mini shopping list with totals. Along the way you'll learn the most common array methods and patterns you'll use every day.
 
 A "Try It Yourself" section at the bottom gives you three hands-on challenges to practice what you just learned.`,
 	objectives: [
 		'Create and initialize arrays with $state',
 		'Use .push(), .pop(), .splice(), and index assignment to modify arrays reactively',
+		'Know the immutable twins — toSorted(), toReversed(), toSpliced(), with() — and when to prefer them',
 		'Iterate over arrays with {#each} blocks (with and without keys)',
 		'Filter, map, and reduce arrays using $derived for computed values',
 		'Handle empty-list states with {:else}',
@@ -59,13 +62,21 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
   }
 
   function sortFruits() {
-    // .sort() sorts the array IN PLACE (mutates)
+    // .sort() sorts the array IN PLACE (mutates). That's fine for
+    // local $state, but remember the immutable twin from ES2023:
+    //   const copy = fruits.toSorted();  // NEW array, original untouched
+    // Same pairs: .reverse() ↔ .toReversed(), .splice() ↔ .toSpliced()
     fruits.sort();
   }
 
   function reverseFruits() {
     fruits.reverse();
   }
+
+  // The immutable version in action: a $derived view of the same
+  // data, alphabetically sorted, WITHOUT touching fruits itself.
+  // (Never mutate inside $derived — always use the toX() methods.)
+  const alphabetical = $derived(fruits.toSorted());
 
   // ============================================================
   // EXAMPLE 2 — An array of objects (a todo list)
@@ -160,6 +171,12 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
       <li class="empty">No fruits! Add some above.</li>
     {/each}
   </ul>
+  {#if fruits.length > 0}
+    <p class="note">
+      Alphabetical view via <code>fruits.toSorted()</code> (original order untouched):
+      <strong>{alphabetical.join(', ')}</strong>
+    </p>
+  {/if}
 </section>
 
 <section>
@@ -267,6 +284,8 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
   .cart .qty { display: flex; align-items: center; gap: 6px; }
   .cart .qty button { padding: 2px 8px; font-size: 12px; }
   .cart .subtotal { font-weight: 600; color: #ff3e00; text-align: right; }
+  .note { color: #777; font-size: 12.5px; margin-top: 8px; }
+  .note code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
   .total { margin-top: 12px; font-size: 16px; text-align: right; }
   .total strong { color: #ff3e00; font-size: 20px; }
   .practice {

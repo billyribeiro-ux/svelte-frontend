@@ -10,6 +10,8 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit gives you three rendering strategies — SSR (Server-Side Rendering), prerendering (static generation at build time), and CSR (Client-Side Rendering) — and you can mix them per route. The key architectural decision is matching each route to the right strategy: prerender blog posts for maximum speed, SSR search pages for dynamic content, and CSR for authenticated dashboards that don't need SEO.
 
+Two page options refine the prerender story: the entries() generator tells the crawler which dynamic routes ([slug]) to prerender, and prerender = 'auto' prerenders the listed pages while keeping the route in the server manifest so the long tail still SSRs. For data rather than pages, remote prerender() functions (from $app/server) compute results at build time and serve them as static assets — static data on otherwise dynamic pages, an underused SEO tool. One caution: streaming SSR (returning unawaited promises from a server load) is great for UX but streamed content is invisible to crawlers that do not wait — never stream anything you need indexed.
+
 SEO note (kit@2.54+): when you enable experimental.handleRenderingErrors in svelte.config.js, SSR rendering errors are caught and routed to the nearest +error.svelte page instead of producing a generic 500 response. This means your crawlable error pages can contain proper metadata, headings, and navigation — a significant SEO win for high-traffic sites where occasional render failures are inevitable.
 
 This lesson teaches you to think architecturally about rendering, using SvelteKit's +page.ts exports to configure each route optimally. You will work through a decision tree, map every route in a sample app, and see exactly how prerender / ssr / csr exports compose across layouts and pages.`,
@@ -18,6 +20,9 @@ This lesson teaches you to think architecturally about rendering, using SvelteKi
 		'Configure per-route rendering in SvelteKit using +page.ts exports',
 		'Design a mixed rendering architecture for a real application',
 		'Understand the SEO implications of each rendering approach',
+		"Prerender dynamic routes with entries() and the prerender = 'auto' long-tail pattern",
+		'Weigh streaming SSR against SEO: never stream content that must be indexed',
+		'Serve build-time data with remote prerender() functions from $app/server',
 		'Enable experimental.handleRenderingErrors for crawlable error pages',
 		'Trace how +layout.ts and +page.ts exports compose across nested routes'
 	],
@@ -185,6 +190,57 @@ export async function load({ url }) {
   const results = await searchProducts(query);
   return { results, query };
 }\`;
+
+  const entriesExample = \`// src/routes/blog/[slug]/+page.server.ts
+import type { EntryGenerator } from './$types';
+
+// 'auto' = prerender the entries below, but KEEP the route in
+// the server manifest so unlisted slugs still SSR on demand.
+// Prerender the popular head, server-render the long tail.
+export const prerender = 'auto';
+
+export const entries: EntryGenerator = async () => {
+  const posts = await getPopularPosts();
+  return posts.map((p) => ({ slug: p.slug }));
+};
+
+// Without entries(), the prerenderer only finds pages it can
+// crawl from <a> elements. Dynamic routes nobody links to
+// silently fall out of the static build.\`;
+
+  const streamingExample = \`// Streaming SSR vs SEO — the tradeoff
+// src/routes/products/[id]/+page.server.ts
+export async function load({ params }) {
+  return {
+    // awaited: part of the first HTML response.
+    // Crawlers see it. Put indexable content here.
+    product: await getProduct(params.id),
+
+    // unawaited promise: streams in after the shell renders.
+    // Great for INP/TTFB, but crawlers that do not wait for
+    // the stream may never see it. Reviews are fine to stream;
+    // the product title, description and price are NOT.
+    reviews: getReviews(params.id)
+  };
+}\`;
+
+  const remotePrerenderExample = \`// src/lib/data.remote.ts — remote functions (experimental)
+// kit.experimental.remoteFunctions: true in svelte.config.js
+import { prerender } from '$app/server';
+
+// Runs at BUILD time. The result ships as a static asset and is
+// served from the CDN — zero runtime cost, even on SSR pages.
+// Static data on a dynamic page: an underused SEO + perf tool.
+export const getNavCategories = prerender(async () => {
+  const categories = await db.categories.list();
+  return categories.map((c) => ({ slug: c.slug, title: c.title }));
+});
+
+// Any component can call it with an await expression:
+//   {#each await getNavCategories() as cat (cat.slug)}
+//     <a href="/c/{cat.slug}">{cat.title}</a>
+//   {/each}
+// wrapped in <svelte:boundary> with a pending snippet.\`;
 </script>
 
 <main>
@@ -284,6 +340,34 @@ export async function load({ url }) {
   <section class="code-example">
     <h2>SvelteKit Configuration</h2>
     <pre><code>{layoutExample}</code></pre>
+  </section>
+
+  <section class="code-example">
+    <h2>entries() + prerender = 'auto'</h2>
+    <p>
+      Dynamic routes need <code>entries()</code> so the prerenderer knows which parameter values
+      exist. <code>'auto'</code> gives you the hybrid: prerender the popular pages, SSR the rest.
+    </p>
+    <pre><code>{entriesExample}</code></pre>
+  </section>
+
+  <section class="code-example">
+    <h2>Streaming SSR vs SEO</h2>
+    <p>
+      Streamed promises improve perceived performance but arrive <em>after</em> the initial HTML.
+      The PE7 rule: await anything a crawler must index; stream only below-the-fold extras.
+    </p>
+    <pre><code>{streamingExample}</code></pre>
+  </section>
+
+  <section class="code-example">
+    <h2>Remote prerender() Functions</h2>
+    <p>
+      Pages are not the only thing you can prerender. A remote <code>prerender()</code> function
+      computes its result at build time and serves it statically — perfect for nav menus,
+      category lists, and other shared data on otherwise dynamic pages.
+    </p>
+    <pre><code>{remotePrerenderExample}</code></pre>
   </section>
 
   <section class="decision-walker">

@@ -10,19 +10,22 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit apps are deployed using adapters — plugins that transform your built application for a specific hosting platform. adapter-auto detects your platform; adapter-static generates a fully prerendered site; adapter-node produces a long-running Node.js server; adapter-vercel, adapter-cloudflare, adapter-netlify target their respective serverless and edge platforms. Your choice depends on whether you need SSR, long-running processes, edge locations, or just a static bundle on a CDN.
 
-The deployment workflow is simple: pnpm build compiles your app, pnpm preview runs the production build locally, then you push to your hosting platform. Environment variables are configured per platform, split between \`$env/static/private\` (built-in) and \`$env/dynamic/private\` (runtime).`,
+The deployment workflow is simple: pnpm build compiles your app, pnpm preview runs the production build locally, then you push to your hosting platform. Environment variables are configured per platform, split between \`$env/static/private\` (built-in) and \`$env/dynamic/private\` (runtime).
+
+Production is not done when the deploy succeeds — you need to see what the server is doing. SvelteKit (2.31+) can emit OpenTelemetry spans for handle, load functions, form actions, and remote functions; src/instrumentation.server.ts is the guaranteed-first place to wire up your tracing SDK. Turn it on with the kit.experimental.tracing and kit.experimental.instrumentation flags.`,
 	objectives: [
 		'Compare adapter-auto, -static, -node, -vercel, -cloudflare, -netlify',
 		'Choose the right adapter based on SSR, edge, and runtime requirements',
 		'Configure environment variables and distinguish static vs dynamic access',
 		'Run a production build locally with pnpm build && pnpm preview',
-		'Deploy a SvelteKit app to Vercel, Cloudflare Pages, or a Node server'
+		'Deploy a SvelteKit app to Vercel, Cloudflare Pages, or a Node server',
+		'Wire production observability: OpenTelemetry spans + instrumentation.server.ts'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
-  type Tab = 'adapters' | 'wizard' | 'env' | 'build' | 'platforms';
+  type Tab = 'adapters' | 'wizard' | 'env' | 'build' | 'platforms' | 'observability';
   let activeTab = $state<Tab>('adapters');
 
   type Adapter = {
@@ -205,6 +208,40 @@ CMD ["node", "build"]\`
   };
 
   let platformTab = $state<'vercel' | 'cloudflare' | 'node'>('vercel');
+
+  const otelCode = \`// svelte.config.js — emit OpenTelemetry spans (kit 2.31+)
+export default {
+  kit: {
+    experimental: {
+      tracing: { server: true },        // spans for handle, load,
+      instrumentation: { server: true } // actions, remote functions
+    }
+  }
+};
+
+// src/instrumentation.server.ts — guaranteed to run BEFORE app code
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
+
+const sdk = new NodeSDK({
+  serviceName: 'acme-app',
+  traceExporter: new OTLPTraceExporter(),
+  instrumentations: [getNodeAutoInstrumentations()]
+});
+
+sdk.start();
+
+// Annotate SvelteKit's built-in spans from anywhere on the server
+import { getRequestEvent } from '$app/server';
+
+function tagRequest(userId: string) {
+  const event = getRequestEvent();
+  event.tracing.root.setAttribute('userId', userId);
+}
+
+// Tracing has overhead. Decide deliberately: many teams run it
+// in preview/staging always, and sample (e.g. 10%) in production.\`;
 </script>
 
 <main>
@@ -217,6 +254,7 @@ CMD ["node", "build"]\`
     <button class:active={activeTab === 'env'} onclick={() => (activeTab = 'env')}>Env Vars</button>
     <button class:active={activeTab === 'build'} onclick={() => (activeTab = 'build')}>Build</button>
     <button class:active={activeTab === 'platforms'} onclick={() => (activeTab = 'platforms')}>Platforms</button>
+    <button class:active={activeTab === 'observability'} onclick={() => (activeTab = 'observability')}>Observability</button>
   </nav>
 
   {#if activeTab === 'adapters'}
@@ -299,7 +337,7 @@ CMD ["node", "build"]\`
       <h2>Production Build</h2>
       <pre><code>{buildCode}</code></pre>
     </section>
-  {:else}
+  {:else if activeTab === 'platforms'}
     <section>
       <h2>Platform-Specific Deploys</h2>
       <div class="plat-tabs">
@@ -308,6 +346,16 @@ CMD ["node", "build"]\`
         {/each}
       </div>
       <pre><code>{platforms[platformTab]}</code></pre>
+    </section>
+  {:else}
+    <section>
+      <h2>Production Observability</h2>
+      <p>
+        SvelteKit emits server-side OpenTelemetry spans for <code>handle</code>, load functions,
+        form actions, and remote functions. <code>src/instrumentation.server.ts</code> runs before
+        any application code, which makes it the one reliable place to start your tracing SDK.
+      </p>
+      <pre><code>{otelCode}</code></pre>
     </section>
   {/if}
 </main>

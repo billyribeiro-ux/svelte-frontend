@@ -51,23 +51,23 @@ Pitfalls: creating new function references inline on every render (usually fine,
   let logEntries  = $state([]);
 
   function log(msg) {
-    logEntries = [\\\`\\\${new Date().toLocaleTimeString()} — \\\${msg}\\\`, ...logEntries].slice(0, 10);
+    logEntries = [\`\${new Date().toLocaleTimeString()} — \${msg}\`, ...logEntries].slice(0, 10);
   }
 
   // Callback handlers for Counter children
   function handleIncrement(name, newValue) {
     totalClicks += 1;
-    lastAction = \\\`\\\${name} → \\\${newValue}\\\`;
-    log(\\\`\\\${name} incremented to \\\${newValue}\\\`);
+    lastAction = \`\${name} → \${newValue}\`;
+    log(\`\${name} incremented to \${newValue}\`);
   }
   function handleDecrement(name, newValue) {
     totalClicks += 1;
-    lastAction = \\\`\\\${name} → \\\${newValue}\\\`;
-    log(\\\`\\\${name} decremented to \\\${newValue}\\\`);
+    lastAction = \`\${name} → \${newValue}\`;
+    log(\`\${name} decremented to \${newValue}\`);
   }
   function handleReset(name) {
-    lastAction = \\\`\\\${name} reset\\\`;
-    log(\\\`\\\${name} reset to 0\\\`);
+    lastAction = \`\${name} reset\`;
+    log(\`\${name} reset to 0\`);
   }
 
   // Callback handlers for Rating children — classic "lift state up"
@@ -75,7 +75,7 @@ Pitfalls: creating new function references inline on every render (usually fine,
   let ratings = $state({ food: 0, service: 0, atmosphere: 0 });
   function handleRate(category, value) {
     ratings[category] = value;
-    log(\\\`Rated \\\${category}: \\\${value}/5\\\`);
+    log(\`Rated \${category}: \${value}/5\`);
   }
 
   const averageRating = $derived.by(() => {
@@ -224,7 +224,7 @@ Pitfalls: creating new function references inline on every render (usually fine,
     onRate = () => {}
   } = $props();
 
-  // Derived from the prop so it stays in sync if \\\`max\\\` ever changes.
+  // Derived from the prop so it stays in sync if \`max\` ever changes.
   const stars = $derived(Array.from({ length: max }, (_, i) => i + 1));
 </script>
 

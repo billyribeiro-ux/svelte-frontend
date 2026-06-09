@@ -12,11 +12,20 @@ const lesson: LessonData = {
 
 The factory pattern is the idiomatic way to pass parameters: write a function that returns the attachment handler. This keeps the outer scope clean and makes the attachment easy to reuse across components. Compared to use:action, attachments integrate with $state, work inside {#if}/{#each} without surprises, and use plain closures instead of a separate update/destroy lifecycle object.
 
+Three library-grade tools round out the module from svelte/attachments:
+
+• createAttachmentKey() returns a symbol key; put an attachment function under that key in a props object and spreading the object onto an element attaches it — the programmatic alternative to {@attach} that component/library authors use.
+• fromAction(action, () => arg) converts an existing use:action (with its update/destroy lifecycle) into an attachment, so you can migrate incrementally while keeping third-party actions.
+• Re-run control: an attachment re-runs (teardown + setup) whenever any state it reads synchronously changes. To update without recreating everything, read the changing state inside a child $effect inside the attachment — the inner effect re-runs, the outer setup does not.
+
 The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Author attachments with the factory pattern for parameterized behaviour',
 		'Compose multiple {@attach} directives on a single element',
 		'Build the canonical attach library: autofocus, tooltip, click-outside, intersection observer',
+		'Attach programmatically with createAttachmentKey() and spread props',
+		'Convert legacy actions to attachments with fromAction()',
+		'Control re-runs: read fast-changing state inside a child $effect, not the attachment body',
 		'Understand the migration path from use:action to {@attach}'
 	],
 	files: [
@@ -131,6 +140,65 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
   }
 
   // ─────────────────────────────────────────────────────────────
+  // 7. createAttachmentKey — attach via spread (library pattern)
+  // ─────────────────────────────────────────────────────────────
+  import { createAttachmentKey, fromAction } from 'svelte/attachments';
+  import type { Attachment } from 'svelte/attachments';
+
+  const highlightProps = {
+    class: 'spread-target',
+    [createAttachmentKey()]: ((el: HTMLElement) => {
+      el.textContent = 'attached via createAttachmentKey()';
+      el.style.outline = '2px dashed #6c5ce7';
+      return () => { el.style.outline = ''; };
+    }) satisfies Attachment<HTMLElement>
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 8. fromAction — reuse a legacy use:action as an attachment.
+  //    The action keeps its update/destroy lifecycle; fromAction
+  //    bridges it. Note the 2nd arg is a FUNCTION returning the
+  //    argument, so updates stay reactive.
+  // ─────────────────────────────────────────────────────────────
+  function borderAction(el: HTMLElement, color: string) {
+    el.style.border = \`3px solid \${color}\`;
+    return {
+      update(next: string) {
+        el.style.border = \`3px solid \${next}\`;
+      },
+      destroy() {
+        el.style.border = '';
+      }
+    };
+  }
+
+  let borderColor: string = $state('#e17055');
+
+  // ─────────────────────────────────────────────────────────────
+  // 9. Controlling re-runs with a child $effect.
+  //    naive: reads \`progress\` in the body → whole attachment
+  //    re-runs (teardown + setup) on every change.
+  //    smart: reads \`progress\` inside an inner $effect → only the
+  //    inner effect re-runs; setup happens once.
+  // ─────────────────────────────────────────────────────────────
+  let progress: number = $state(40);
+  let naiveSetups: number = $state(0);
+  let smartSetups: number = $state(0);
+
+  function naiveBar(el: HTMLElement): () => void {
+    naiveSetups++;                  // runs on EVERY progress change
+    el.style.width = \`\${progress}%\`; // sync read = dependency
+    return () => {};
+  }
+
+  function smartBar(el: HTMLElement): void {
+    smartSetups++; // runs once — no sync reads of reactive state
+    $effect(() => {
+      el.style.width = \`\${progress}%\`; // only this re-runs
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // Demo state
   // ─────────────────────────────────────────────────────────────
   let menuOpen: boolean = $state(false);
@@ -210,6 +278,55 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
   <h2>6. Copy to clipboard</h2>
   <p>Plain element, behaviour layered on via attachment.</p>
   <button {@attach copyOnClick('svelte@5 is amazing')}>Copy "svelte@5 is amazing"</button>
+</section>
+
+<section>
+  <h2>7. createAttachmentKey — attach via spread</h2>
+  <p>
+    The attachment lives under a symbol key inside a plain props object;
+    spreading the object onto the element attaches it. This is how libraries
+    ship attachments without exposing <code>{'{@attach}'}</code> in their API.
+  </p>
+  <div {...highlightProps}>placeholder (replaced on mount)</div>
+</section>
+
+<section>
+  <h2>8. fromAction — legacy action, modern syntax</h2>
+  <p>
+    <code>borderAction</code> is an old-school <code>use:action</code> with
+    update/destroy. <code>fromAction(action, () =&gt; arg)</code> wraps it as an
+    attachment — change the colour and the action's <code>update</code> runs.
+  </p>
+  <div class="from-action-box" {@attach fromAction(borderAction, () => borderColor)}>
+    bordered by a converted action
+  </div>
+  <div class="row">
+    <button onclick={() => borderColor = '#e17055'}>orange</button>
+    <button onclick={() => borderColor = '#00b894'}>green</button>
+    <button onclick={() => borderColor = '#0984e3'}>blue</button>
+  </div>
+</section>
+
+<section>
+  <h2>9. Controlling re-runs with a child $effect</h2>
+  <p>
+    Drag the slider. The naive attachment reads <code>progress</code> in its
+    body, so the <em>whole attachment</em> re-runs each change. The smart one
+    reads it inside a child <code>$effect</code> — setup runs once.
+  </p>
+  <label class="slider-row">
+    progress
+    <input type="range" min="0" max="100" bind:value={progress} />
+    {progress}%
+  </label>
+  <div class="bar-track">
+    <div class="bar naive" {@attach naiveBar}></div>
+  </div>
+  <p class="setup-count">naive setups: <strong>{naiveSetups}</strong></p>
+  <div class="bar-track">
+    <div class="bar smart" {@attach smartBar}></div>
+  </div>
+  <p class="setup-count">smart setups: <strong>{smartSetups}</strong> (stays at 1)</p>
 </section>
 
 <section class="legacy">
@@ -307,6 +424,20 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
     border-radius: 6px; font-size: 0.78rem;
   }
   code { background: #eef; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .from-action-box {
+    padding: 0.75rem 1rem; background: white; border-radius: 8px;
+    margin-bottom: 0.5rem; font-size: 0.9rem; transition: border-color 0.15s;
+  }
+  .slider-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 0.5rem; }
+  .slider-row input { flex: 1; }
+  .bar-track {
+    height: 14px; background: #dfe6e9; border-radius: 7px;
+    overflow: hidden; margin-bottom: 0.25rem;
+  }
+  .bar { height: 100%; border-radius: 7px; }
+  .bar.naive { background: #e17055; }
+  .bar.smart { background: #00b894; }
+  .setup-count { font-size: 0.8rem; color: #636e72; margin: 0 0 0.6rem; }
   .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
   .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
   .pitfall-list { list-style: none; padding: 0; margin: 0; }

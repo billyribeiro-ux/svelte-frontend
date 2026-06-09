@@ -235,7 +235,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
     </li>
     <li>
       <strong>3.</strong> Compute a <code>factorial</code> of <code>count</code> using <code>$derived.by</code> with a loop. Guard against negative numbers.
-      <span class="hint">Hint: <code>$derived.by(() =&gt; { let r = 1; for (let i = 2; i &lt;= count; i++) r *= i; return r; })</code>.</span>
+      <span class="hint">Hint: <code>$derived.by(() =&gt; &#123; let r = 1; for (let i = 2; i &lt;= count; i++) r *= i; return r; &#125;)</code>.</span>
     </li>
   </ol>
 </section>

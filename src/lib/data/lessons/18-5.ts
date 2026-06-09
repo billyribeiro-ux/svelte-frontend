@@ -10,13 +10,14 @@ const lesson: LessonData = {
 	},
 	description: `Core Web Vitals (CWV) are Google's key metrics for page experience: Largest Contentful Paint (LCP) measures loading speed, Interaction to Next Paint (INP) measures responsiveness, and Cumulative Layout Shift (CLS) measures visual stability. The March 2026 update introduced holistic site-wide CWV evaluation — poor pages can drag down your entire domain.
 
-Measuring with Lighthouse and Chrome DevTools, then optimizing images, fonts, layout, and JavaScript execution are essential skills for shipping performant SvelteKit applications.
+Measuring with Lighthouse and Chrome DevTools, then optimizing images, fonts, layout, and JavaScript execution are essential skills for shipping performant SvelteKit applications. For images — usually the biggest LCP and CLS lever — the PE7 way is @sveltejs/enhanced-img: it emits AVIF/WebP <picture> markup, generates per-device sizes, and sets intrinsic width/height automatically so layout never shifts.
 
 This lesson provides a visual simulator for each metric, a Lighthouse-style scoring widget, SvelteKit-specific optimization recipes, and a breakdown of the March 2026 site-wide holistic metric.`,
 	objectives: [
 		'Define LCP, INP, and CLS and their passing thresholds',
 		'Measure CWV using Lighthouse and Chrome DevTools Performance tab',
 		'Apply optimization techniques for LCP, INP, and CLS in SvelteKit',
+		'Optimize images with @sveltejs/enhanced-img (AVIF/WebP, srcset, automatic width/height)',
 		'Understand site-wide CWV evaluation from the March 2026 update',
 		'Identify common SvelteKit pitfalls that hurt CWV scores'
 	],
@@ -48,7 +49,7 @@ This lesson provides a visual simulator for each metric, a Lighthouse-style scor
       fixes: [
         'Preload hero images with <link rel="preload">',
         'Use SvelteKit prerender for static routes',
-        'Serve images as AVIF/WebP with srcset',
+        'Serve images via @sveltejs/enhanced-img (AVIF/WebP + srcset)',
         'Remove render-blocking third-party scripts',
         'Upgrade to HTTP/3 and a CDN at the edge'
       ]
@@ -80,7 +81,7 @@ This lesson provides a visual simulator for each metric, a Lighthouse-style scor
       description:
         'Sum of layout shift scores as content moves around during loading. Lower is better.',
       fixes: [
-        'Always specify width and height on <img> elements',
+        'Use <enhanced:img> — it sets width/height automatically; do the same on plain <img>',
         'Reserve space for ads and embeds with CSS aspect-ratio',
         'Use font-display: optional to avoid FOIT/FOUT shifts',
         'Avoid inserting content above existing content',
@@ -146,17 +147,23 @@ This lesson provides a visual simulator for each metric, a Lighthouse-style scor
   ].join('\\n');
 
   const imageExample = [
-    '<!-- Responsive image with explicit dimensions -->',
-    '<img',
-    '  src="/hero-800.avif"',
-    '  srcset="/hero-400.avif 400w, /hero-800.avif 800w, /hero-1600.avif 1600w"',
-    '  sizes="(max-width: 768px) 100vw, 800px"',
-    '  width="800"',
-    '  height="450"',
-    '  alt="Hero image"',
-    '  loading="eager"',
+    '<!-- The PE7 way: @sveltejs/enhanced-img -->',
+    '<!-- vite.config.ts: enhancedImages() BEFORE sveltekit() -->',
+    '<script lang="ts">',
+    "  import hero from '$lib/assets/hero.jpg?enhanced';",
+    '</' + 'script>',
+    '',
+    '<enhanced:img',
+    '  src={hero}',
+    '  sizes="min(1280px, 100vw)"',
     '  fetchpriority="high"',
-    '/>'
+    '  alt="Hero image"',
+    '/>',
+    '',
+    '<!-- At build time this becomes a <picture> with AVIF/WebP',
+    '     sources, a srcset per device size, and intrinsic',
+    '     width/height — LCP and CLS handled in one tag.',
+    '     Supply the source at 2x resolution for HiDPI screens. -->'
   ].join('\\n');
 
   const inpExample = [
@@ -281,7 +288,7 @@ This lesson provides a visual simulator for each metric, a Lighthouse-style scor
     <h2>Image Preload (LCP)</h2>
     <pre><code>{preloadExample}</code></pre>
 
-    <h2>Responsive Image (LCP + CLS)</h2>
+    <h2>Enhanced Images (LCP + CLS)</h2>
     <pre><code>{imageExample}</code></pre>
 
     <h2>Break Long Tasks (INP)</h2>

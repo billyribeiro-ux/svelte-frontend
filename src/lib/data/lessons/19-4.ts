@@ -8,7 +8,7 @@ const lesson: LessonData = {
 		module: 19,
 		lessonIndex: 4
 	},
-	description: `Vitest is the default test runner for SvelteKit — fast, ESM-native, and powered by Vite so tests use the same transform pipeline as your app. You test three kinds of code: plain utilities, reactive .svelte.ts modules (runes inside them work because Vitest runs them through the Svelte plugin), and components via @testing-library/svelte with the mount() renderer.
+	description: `Vitest 4 is the default test runner for SvelteKit — fast, ESM-native, and powered by Vite so tests use the same transform pipeline as your app. You test three kinds of code: plain utilities, reactive .svelte.ts modules (runes inside them work because Vitest runs them through the Svelte plugin — use flushSync to settle derivations), and components via @testing-library/svelte with the mount() renderer. Note for upgraders: Vitest 4 removed the old workspace option — multi-environment setups now use test.projects.
 
 Tests use the familiar describe/it/expect pattern. Mocks are created with vi.fn() for spies and vi.mock() for modules. A good unit suite gives you confidence to refactor — you change implementation, not tests.`,
 	objectives: [
@@ -100,7 +100,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [sveltekit()],
   test: {
-    workspace: [
+    // Vitest 4: 'projects' replaces the removed 'workspace' option
+    projects: [
       {
         extends: './vite.config.ts',
         test: {

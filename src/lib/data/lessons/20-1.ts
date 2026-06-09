@@ -8,13 +8,16 @@ const lesson: LessonData = {
 		module: 20,
 		lessonIndex: 1
 	},
-	description: `Every production app starts with a plan. Before writing a line of code you map out five things: the component tree (reusable UI building blocks), the route structure (URLs and nested layouts), the state strategy (which runes live where), the render strategy per route (prerender, SSR, or CSR), and the SEO plan (titles, OG tags, JSON-LD). Planning up front saves weeks of refactoring later — you will know which components are shared, which routes need server data, which state crosses layout boundaries, and which pages must be crawlable.
+	description: `Every production app starts with a plan. Before writing a line of code you map out five things: the component tree (reusable UI building blocks), the route structure (URLs and nested layouts), the state and data strategy (which runes live where, and how data reaches the page), the render strategy per route (prerender, SSR, or CSR), and the SEO plan (titles, OG tags, JSON-LD). Planning up front saves weeks of refactoring later — you will know which components are shared, which routes need server data, which state crosses layout boundaries, and which pages must be crawlable.
+
+The data layer decision matters most: the modern stack is remote functions (query, form, prerender) called with await expressions inside <svelte:boundary> — typed end-to-end, callable from any component. Load functions remain the compatibility path, and the right default when data is SEO-critical and must be in the first HTML response. Decide per data source now, not mid-build.
 
 This first capstone lesson gives you a template to fill in for your own app. Work through the interactive planner; by the end you will have a concrete architecture you can start building in lesson 20-2.`,
 	objectives: [
 		'Sketch a component tree mapping UI blocks to reusable Svelte components',
 		'Map a route structure with nested layouts and groups',
 		'Pick a state strategy: component-local, context, global rune module',
+		'Architect the data layer: remote functions + await + boundaries as the modern stack, load functions as the compatibility path',
 		'Choose a render strategy per route: prerender, SSR, CSR',
 		'Draft a per-route SEO plan covering title, description and OG tags'
 	],
@@ -92,6 +95,15 @@ This first capstone lesson gives you a template to fill in for your own app. Wor
     { name: 'Auth user',             kind: 'context', example: 'setContext("auth", user)' },
     { name: 'Cart items',            kind: 'module',  example: '$lib/state/cart.svelte.ts' },
     { name: 'Active tab in a widget',kind: 'local',   example: 'let tab = $state("overview")' }
+  ];
+
+  // ============ Data strategy ============
+  type DataRow = { source: string; approach: string; why: string };
+  const dataStrategy: DataRow[] = [
+    { source: 'Nav categories, footer links', approach: 'prerender() remote fn', why: 'Computed at build time, served static from the CDN' },
+    { source: 'Project lists, dashboards',    approach: 'query() + await in markup', why: 'Typed end-to-end, callable from any component, boundary-wrapped' },
+    { source: 'Mutations (create, delete)',   approach: 'form() remote fn', why: 'Progressive enhancement and validation built in' },
+    { source: 'SEO-critical page data',       approach: 'load() in +page.server.ts', why: 'Compatibility path — guarantees data in the first HTML response' }
   ];
 
   // ============ SEO plan ============
@@ -176,6 +188,26 @@ This first capstone lesson gives you a template to fill in for your own app. Wor
               <td>{s.name}</td>
               <td><span class="kind kind-{s.kind}">{s.kind}</span></td>
               <td><code>{s.example}</code></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+
+      <h3>Data Strategy</h3>
+      <p>
+        The modern stack: remote functions (<code>query</code>, <code>form</code>,
+        <code>prerender</code>) called with await expressions inside
+        <code>&lt;svelte:boundary&gt;</code>. Load functions remain the compatibility path —
+        still the right call when data must be in the first HTML response for SEO.
+      </p>
+      <table class="state-table">
+        <thead><tr><th>Data source</th><th>Approach</th><th>Why</th></tr></thead>
+        <tbody>
+          {#each dataStrategy as d (d.source)}
+            <tr>
+              <td>{d.source}</td>
+              <td><code>{d.approach}</code></td>
+              <td>{d.why}</td>
             </tr>
           {/each}
         </tbody>
@@ -486,6 +518,15 @@ This first capstone lesson gives you a template to fill in for your own app. Wor
     { name: 'Active tab in a widget',kind: 'local',   example: 'let tab = $state("overview")' }
   ];
 
+  // ============ Data strategy ============
+  type DataRow = { source: string; approach: string; why: string };
+  const dataStrategy: DataRow[] = [
+    { source: 'Nav categories, footer links', approach: 'prerender() remote fn', why: 'Computed at build time, served static from the CDN' },
+    { source: 'Project lists, dashboards',    approach: 'query() + await in markup', why: 'Typed end-to-end, callable from any component, boundary-wrapped' },
+    { source: 'Mutations (create, delete)',   approach: 'form() remote fn', why: 'Progressive enhancement and validation built in' },
+    { source: 'SEO-critical page data',       approach: 'load() in +page.server.ts', why: 'Compatibility path — guarantees data in the first HTML response' }
+  ];
+
   // ============ SEO plan ============
   interface SeoRow {
     route: string;
@@ -574,6 +615,26 @@ This first capstone lesson gives you a template to fill in for your own app. Wor
               <td>{s.name}</td>
               <td><span class="kind kind-{s.kind}">{s.kind}</span></td>
               <td><code>{s.example}</code></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+
+      <h3>Data Strategy</h3>
+      <p>
+        The modern stack: remote functions (<code>query</code>, <code>form</code>,
+        <code>prerender</code>) called with await expressions inside
+        <code>&lt;svelte:boundary&gt;</code>. Load functions remain the compatibility path —
+        still the right call when data must be in the first HTML response for SEO.
+      </p>
+      <table class="state-table">
+        <thead><tr><th>Data source</th><th>Approach</th><th>Why</th></tr></thead>
+        <tbody>
+          {#each dataStrategy as d (d.source)}
+            <tr>
+              <td>{d.source}</td>
+              <td><code>{d.approach}</code></td>
+              <td>{d.why}</td>
             </tr>
           {/each}
         </tbody>

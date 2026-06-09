@@ -65,7 +65,7 @@ Pitfalls: forgetting \`event.preventDefault()\` on arrow keys (they scroll the p
   let searchResult = $state('');
   function handleSearchKeydown(event) {
     if (event.key === 'Enter') {
-      searchResult = \\\`Searched for: "\\\${searchQuery}"\\\`;
+      searchResult = \`Searched for: "\${searchQuery}"\`;
     }
   }
 

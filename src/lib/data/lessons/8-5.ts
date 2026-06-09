@@ -12,11 +12,15 @@ const lesson: LessonData = {
 
 When you write function first<T>(arr: T[]): T | undefined, TypeScript infers T from the argument. Call first([1, 2, 3]) and T becomes number. Call first(['a', 'b']) and T becomes string. Same function, fully type-safe.
 
-The unknown type is the safe alternative to any. Unlike any, unknown forces you to check the type before using it — making it perfect for catch blocks, JSON parsing results, and data from external sources. If any is "trust me," unknown is "prove it."`,
+The unknown type is the safe alternative to any. Unlike any, unknown forces you to check the type before using it — making it perfect for catch blocks, JSON parsing results, and data from external sources. If any is "trust me," unknown is "prove it."
+
+Two modern refinements worth knowing as you level up. **const type parameters** — function pick<const T>(...) — tell TypeScript to infer the *narrowest* literal type for an argument, so pick(['sm', 'md']) infers readonly ['sm', 'md'] instead of string[], without callers having to write "as const". And **NoInfer<T>** marks a parameter position as "don't use this to infer T": in createSelect<T>(options: T[], initial: NoInfer<T>), the options drive inference and the initial value is merely *checked* against it — so createSelect(['a', 'b'], 'z') errors instead of silently widening T to string. Both show up constantly in well-typed library APIs; at scale they're the difference between an API that catches caller mistakes and one that quietly accepts them.`,
 	objectives: [
 		'Write generic functions with type parameters like <T>',
 		'Understand type inference: TypeScript figures out T from arguments',
 		'Use constraints (T extends X) to require certain capabilities',
+		'Know when const type parameters (<const T>) preserve literal inference without "as const"',
+		'Use NoInfer<T> to exclude a parameter from inference so bad arguments error at the call site',
 		'Use unknown instead of any for type-safe error handling'
 	],
 	files: [

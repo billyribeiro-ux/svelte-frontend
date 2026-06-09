@@ -48,7 +48,7 @@ Pitfalls: forgetting \`preventDefault()\` on form submit (the page reloads and y
 
   let log = $state([]);
   function addLog(msg) {
-    log = [\\\`\\\${new Date().toLocaleTimeString()} — \\\${msg}\\\`, ...log].slice(0, 20);
+    log = [\`\${new Date().toLocaleTimeString()} — \${msg}\`, ...log].slice(0, 20);
   }
   function clearLog() { log = []; }
 
@@ -69,7 +69,7 @@ Pitfalls: forgetting \`preventDefault()\` on form submit (the page reloads and y
     // Without preventDefault, the form would reload the page.
     event.preventDefault();
     const data = new FormData(event.target);
-    formResult = \\\`Submitted: \\\${data.get('username')} / \\\${data.get('email')}\\\`;
+    formResult = \`Submitted: \${data.get('username')} / \${data.get('email')}\`;
     addLog('Form submitted (page reload prevented)');
   }
 
@@ -83,7 +83,7 @@ Pitfalls: forgetting \`preventDefault()\` on form submit (the page reloads and y
   // target = what was clicked (could be a child); currentTarget = listener owner
   let targetInfo = $state('(click a child)');
   function handleContainer(event) {
-    targetInfo = \\\`target=\\\${event.target.tagName}, currentTarget=\\\${event.currentTarget.tagName}\\\`;
+    targetInfo = \`target=\${event.target.tagName}, currentTarget=\${event.currentTarget.tagName}\`;
   }
 
   // --- Example 5: Card with action buttons — real-world pattern ---
@@ -95,22 +95,22 @@ Pitfalls: forgetting \`preventDefault()\` on form submit (the page reloads and y
   ];
   function handleCardClick(card) {
     selectedCard = card.id;
-    addLog(\\\`Card selected: \\\${card.title}\\\`);
+    addLog(\`Card selected: \${card.title}\`);
   }
   function handleCardAction(event, action, card) {
     // Crucial: stop the card's click handler from firing too.
     event.stopPropagation();
-    addLog(\\\`Action "\\\${action}" on \\\${card.title}\\\`);
+    addLog(\`Action "\${action}" on \${card.title}\`);
   }
 
   // --- Example 6: Event delegation ---
   let lastDelegatedItem = $state(null);
-  const items = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, name: \\\`Item \\\${i + 1}\\\` }));
+  const items = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, name: \`Item \${i + 1}\` }));
   function handleListClick(event) {
     const li = event.target.closest('[data-id]');
     if (!li) return;
     lastDelegatedItem = li.dataset.id;
-    addLog(\\\`Delegated click: item \\\${li.dataset.id}\\\`);
+    addLog(\`Delegated click: item \${li.dataset.id}\`);
   }
 </script>
 

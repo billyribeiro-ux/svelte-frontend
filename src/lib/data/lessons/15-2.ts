@@ -10,13 +10,25 @@ const lesson: LessonData = {
 	},
 	description: `A single thrown error in a component can bring down an entire page. <svelte:boundary> is Svelte 5's error fence: errors raised while rendering its children, or inside $effect callbacks within them, are caught and turned into a fallback UI.
 
-The boundary accepts a failed snippet that receives (error, reset). Calling reset() destroys the current instance of the children and recreates them — a clean slate. Boundaries compose naturally: wrap each widget in its own boundary for per-widget recovery, then wrap the whole region in a final safety net. Combined with your own retry counters and error reporting, this is the building block for resilient, production-grade UIs.`,
+The boundary accepts a failed snippet that receives (error, reset). Calling reset() destroys the current instance of the children and recreates them — a clean slate. Boundaries compose naturally: wrap each widget in its own boundary for per-widget recovery, then wrap the whole region in a final safety net.
+
+The full boundary API has four parts, and a PE7 engineer should know all of them:
+
+• failed(error, reset) — fallback UI when an error is caught.
+• onerror(error, reset) — a callback for reporting the error to a service, or for hoisting error/reset OUT of the boundary so surrounding UI can drive recovery. If onerror itself throws, the parent boundary takes over.
+• pending — shown while await expressions inside the boundary are first resolving (async Svelte). It appears only on first render; later async updates are detected with $effect.pending() instead.
+• transformError — a server-side render(...) option (SvelteKit will expose it via handleError): it maps a render-time error to a JSON-serializable, sanitized object used to render and hydrate the failed snippet during SSR. Without it, boundaries do nothing on the server and the whole render fails.
+
+Remember the boundary's limits: errors in event handlers, setTimeout, or other async work outside the render/effect graph are NOT caught.`,
 	objectives: [
 		'Wrap risky subtrees in <svelte:boundary> to prevent total crashes',
 		'Render error UI via the failed snippet with access to error and reset',
+		'Report and hoist errors with the onerror callback (error/reset outside the boundary)',
+		'Show first-load placeholders with the pending snippet for await expressions',
+		'Sanitize SSR boundary errors with the transformError render option',
 		'Implement retry counters and max-attempt logic before giving up',
 		'Nest boundaries so independent widgets can fail and recover in isolation',
-		'Catch both render-time and effect-time errors'
+		'Know what boundaries do NOT catch: event handlers, timeouts, detached async work'
 	],
 	files: [
 		{
@@ -68,6 +80,25 @@ The boundary accepts a failed snippet that receives (error, reset). Calling rese
       throw new Error('Operation failed — intermittent error');
     }
     return 'success on attempt ' + (retryCount + 1);
+  }
+
+  // Widget E — onerror: hoist error/reset OUT of the boundary
+  let hoistedError: Error | null = $state(null);
+  let hoistedReset: (() => void) = $state(() => {});
+  let reportedTo: string[] = $state([]);
+  let crashE: boolean = $state(false);
+
+  function onerrorE(error: unknown, reset: () => void): void {
+    // 1. report to your error-tracking service
+    reportedTo = [...reportedTo, \`sentry: \${error instanceof Error ? error.message : String(error)}\`].slice(-3);
+    // 2. hoist error + reset so UI OUTSIDE the boundary can recover it
+    hoistedError = error instanceof Error ? error : new Error(String(error));
+    hoistedReset = reset;
+  }
+
+  function widgetE(): string {
+    if (crashE) throw new Error('Widget E exploded (caught by onerror)');
+    return 'Widget E healthy';
   }
 </script>
 
@@ -179,6 +210,68 @@ The boundary accepts a failed snippet that receives (error, reset). Calling rese
   </svelte:boundary>
 </div>
 
+<!-- onerror: error handling OUTSIDE the boundary -->
+<section class="nested">
+  <h2>onerror — report &amp; hoist error/reset</h2>
+  <p class="hint">
+    The boundary below has <strong>no failed snippet</strong> — instead its
+    <code>onerror</code> callback reports the error and hands
+    <code>error</code>/<code>reset</code> to the surrounding UI.
+  </p>
+  <svelte:boundary onerror={onerrorE}>
+    <div class="card">
+      <p class="display">{widgetE()}</p>
+      <button onclick={() => crashE = true}>Crash widget E</button>
+    </div>
+  </svelte:boundary>
+
+  {#if hoistedError}
+    <div class="card error">
+      <p><strong>Recovered outside the boundary:</strong> {hoistedError.message}</p>
+      <button onclick={() => { crashE = false; hoistedError = null; hoistedReset(); }}>
+        Fix &amp; reset from out here
+      </button>
+    </div>
+  {/if}
+  {#if reportedTo.length > 0}
+    <ul class="report-log">
+      {#each reportedTo as r, i (i)}
+        <li>{r}</li>
+      {/each}
+    </ul>
+  {/if}
+</section>
+
+<!-- pending + transformError reference (async / SSR features) -->
+<section class="nested">
+  <h2>pending &amp; transformError — the async/SSR half of the API</h2>
+  <pre class="api-ref"><code>{\`<!-- pending: shown while awaits inside resolve for the FIRST time -->
+<svelte:boundary>
+  <p>{await delayed('hello!')}</p>
+
+  {#snippet pending()}
+    <p>loading…</p>
+  {/snippet}
+
+  {#snippet failed(error, reset)}
+    <button onclick={reset}>oops! try again</button>
+  {/snippet}
+</svelte:boundary>
+<!-- later async updates: use \\\$effect.pending(), not pending -->
+
+// transformError: server-side. Boundaries are inert during SSR
+// unless render() gets a transformError that sanitizes the error
+// into a JSON-serializable object for the failed snippet:
+const { head, body } = await render(App, {
+  transformError: (error) => {
+    console.error(error);                  // full error stays server-side
+    return { message: 'An error occurred!' }; // sanitized for the client
+  }
+});
+// mount()/hydrate() accept transformError too; SvelteKit will wire
+// this up via the handleError hook.\`}</code></pre>
+</section>
+
 <!-- Outer "last resort" boundary wrapping an inner one -->
 <section class="nested">
   <h2>Nested: inner catches, outer is last resort</h2>
@@ -260,6 +353,16 @@ The boundary accepts a failed snippet that receives (error, reset). Calling rese
   .nested { margin-top: 1.5rem; padding: 1rem; background: #fff8e1; border-radius: 10px; }
   .nested h2 { margin: 0 0 0.5rem; color: #b8860b; font-size: 1rem; }
   .hint { font-size: 0.82rem; color: #7c5a00; }
+  .report-log {
+    list-style: none; margin: 0.5rem 0 0; padding: 0.5rem 0.75rem;
+    background: #2d3436; color: #ffeaa7; border-radius: 6px;
+    font-family: ui-monospace, monospace; font-size: 0.75rem;
+  }
+  .api-ref {
+    margin: 0; padding: 0.75rem; background: #2d3436;
+    border-radius: 6px; overflow-x: auto;
+  }
+  .api-ref code { color: #dfe6e9; font-size: 0.76rem; line-height: 1.5; font-family: ui-monospace, monospace; }
   p { margin: 0.25rem 0; font-size: 0.85rem; color: #636e72; }
 </style>`,
 			language: 'svelte'

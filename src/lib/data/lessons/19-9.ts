@@ -8,12 +8,12 @@ const lesson: LessonData = {
 		module: 19,
 		lessonIndex: 9
 	},
-	description: `@sveltejs/package transforms your $lib directory into a publishable npm package. It compiles .svelte files (keeping them as .svelte for downstream compilation), generates .d.ts declaration files, and produces a clean dist/ that npm can consume. The exports field in package.json controls what consumers can import, the svelte field tells bundlers where to find source components, and peerDependencies keeps Svelte itself out of your bundle.
+	description: `@sveltejs/package transforms your $lib directory into a publishable npm package. It compiles .svelte files (keeping them as .svelte for downstream compilation), generates .d.ts declaration files, and produces a clean dist/ that npm can consume. The exports field in package.json controls what consumers can import, the svelte field tells bundlers where to find source components, peerDependencies keeps Svelte itself out of your bundle, and sideEffects tells bundlers what is safe to tree-shake — mark your CSS as side-effectful or webpack consumers will drop it.
 
 Building a component library is how you share UI across projects or publish to npm. This lesson walks the full workflow: scaffold, develop, package, version, publish.`,
 	objectives: [
 		'Scaffold a SvelteKit library project with `sv create --template library`',
-		'Configure package.json exports, svelte, and peerDependencies fields',
+		'Configure package.json exports, svelte, sideEffects, and peerDependencies fields',
 		'Run pnpm package to compile .svelte files and emit .d.ts declarations',
 		'Publish to npm with the correct access and version semantics',
 		'Consume the published library from another SvelteKit project'
@@ -64,6 +64,7 @@ Building a component library is how you share UI across projects or publish to n
   },
 
   "files": ["dist", "!dist/**/*.test.*", "!dist/**/*.spec.*"],
+  "sideEffects": ["**/*.css"],
   "svelte": "./dist/index.js",
   "types": "./dist/index.d.ts",
 
@@ -213,7 +214,7 @@ $ pnpm package          # compiles src/lib/ into dist/</code></pre>
   {:else if activeTab === 'exports'}
     <section>
       <h2>package.json</h2>
-      <p>The <code>exports</code> field declares every entry point. Bundlers resolve the <code>svelte</code> condition to get uncompiled source; TypeScript reads the <code>types</code> condition.</p>
+      <p>The <code>exports</code> field declares every entry point. Bundlers resolve the <code>svelte</code> condition to get uncompiled source; TypeScript reads the <code>types</code> condition. <code>sideEffects</code> enables aggressive tree-shaking — and marking CSS as side-effectful keeps webpack from dropping your styles.</p>
       <pre><code>{packageJson}</code></pre>
     </section>
   {:else if activeTab === 'publish'}

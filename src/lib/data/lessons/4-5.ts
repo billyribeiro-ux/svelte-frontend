@@ -40,16 +40,16 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
 
   let log = $state([]);
   function addLog(msg) {
-    log = [\\\`\\\${new Date().toLocaleTimeString()} — \\\${msg}\\\`, ...log].slice(0, 14);
+    log = [\`\${new Date().toLocaleTimeString()} — \${msg}\`, ...log].slice(0, 14);
   }
 
   // === Example 1: Event handlers are closures ===
-  // The increment() function closes over \\\`count\\\` — it can read and
+  // The increment() function closes over \`count\` — it can read and
   // modify that variable even though it's defined outside of increment.
   let count = $state(0);
   function increment() {
     count += 1;
-    addLog(\\\`Count is now \\\${count}\\\`);
+    addLog(\`Count is now \${count}\`);
   }
 
   // === Example 2: Counter factory — closures as state ===
@@ -67,14 +67,14 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
   const counterB = makeCounter(100);
   let aValue = $state(0);
   let bValue = $state(100);
-  function callA() { aValue = counterA(); addLog(\\\`counterA → \\\${aValue}\\\`); }
-  function callB() { bValue = counterB(); addLog(\\\`counterB → \\\${bValue}\\\`); }
+  function callA() { aValue = counterA(); addLog(\`counterA → \${aValue}\`); }
+  function callB() { bValue = counterB(); addLog(\`counterB → \${bValue}\`); }
 
   // === Example 3: Closure factory — configured greeters ===
   // makeGreeter returns a function with 'greeting' baked in.
   function makeGreeter(greeting) {
     return function (name) {
-      return \\\`\\\${greeting}, \\\${name}!\\\`;
+      return \`\${greeting}, \${name}!\`;
     };
   }
   const sayHello = makeGreeter('Hello');
@@ -83,18 +83,18 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
   let nameInput = $state('World');
 
   // === Example 4: Each iteration captures its own value ===
-  // In \\\`for (const btn of buttons)\\\`, each arrow function captures
-  // its own \\\`btn\\\` because \\\`const\\\` creates a new binding per iteration.
+  // In \`for (const btn of buttons)\`, each arrow function captures
+  // its own \`btn\` because \`const\` creates a new binding per iteration.
   const buttons = [
     { label: 'First',  value: 1 },
     { label: 'Second', value: 2 },
     { label: 'Third',  value: 3 }
   ];
   function handleButtonClick(btn) {
-    addLog(\\\`Clicked "\\\${btn.label}" (value \\\${btn.value})\\\`);
+    addLog(\`Clicked "\${btn.label}" (value \${btn.value})\`);
   }
 
-  // === Example 5: The classic \\\`var\\\` gotcha (why let/const matter) ===
+  // === Example 5: The classic \`var\` gotcha (why let/const matter) ===
   // With let, each iteration gets its own 'i'. With var, all timeouts
   // would log "3" because they'd share the SAME i.
   let gotchaResults = $state([]);
@@ -102,7 +102,7 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
     gotchaResults = [];
     for (let i = 0; i < 3; i++) {
       setTimeout(() => {
-        gotchaResults = [...gotchaResults, \\\`let i = \\\${i}\\\`];
+        gotchaResults = [...gotchaResults, \`let i = \${i}\`];
       }, i * 200);
     }
   }
@@ -113,7 +113,7 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
     const captured = count;  // snapshot of count RIGHT NOW
     const at = new Date().toLocaleTimeString();
     snapshots = [...snapshots, { captured, at }].slice(-5);
-    addLog(\\\`Snapshot: count was \\\${captured}\\\`);
+    addLog(\`Snapshot: count was \${captured}\`);
   }
 
   // === Example 7: $effect cleanup is a closure ===
@@ -128,12 +128,12 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
 
     // id is local to this $effect run
     const id = setInterval(() => { elapsed += 1; }, 1000);
-    addLog(\\\`Timer started (interval id captured)\\\`);
+    addLog(\`Timer started (interval id captured)\`);
 
     // Returned cleanup: a closure over 'id'
     return () => {
       clearInterval(id);
-      addLog(\\\`Timer stopped (interval cleared via closure)\\\`);
+      addLog(\`Timer stopped (interval cleared via closure)\`);
     };
   });
 
@@ -152,7 +152,7 @@ Pitfalls: the classic \`var\` in a loop bug (all handlers share the same variabl
   function generateId() {
     const newId = nextId();
     ids = [...ids, newId].slice(-8);
-    addLog(\\\`Generated id: \\\${newId}\\\`);
+    addLog(\`Generated id: \${newId}\`);
   }
 </script>
 

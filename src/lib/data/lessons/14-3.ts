@@ -3,7 +3,7 @@ import type { LessonData } from '$lib/types';
 const lesson: LessonData = {
 	meta: {
 		id: '14-3',
-		title: '$effect.pre, $effect.tracking, $effect.root',
+		title: '$effect.pre, untrack, $effect.root & $inspect.trace',
 		phase: 5,
 		module: 14,
 		lessonIndex: 3
@@ -16,17 +16,27 @@ const lesson: LessonData = {
 
 • $effect.root creates a manually-managed reactive scope outside the normal component lifecycle. Return the teardown function, call it yourself, and you've got effects that outlive — or are independent of — component mount/unmount. Essential for app-level services, global shortcut handlers, and integration code.
 
+Two more tools complete the advanced-reactivity kit:
+
+• untrack(fn) reads state WITHOUT registering it as a dependency. Use it when an effect needs the current value of something but should not re-run when that something changes — the classic example is "log B whenever A changes" without also re-running on B.
+
+• $inspect.trace() is THE reactivity debugger. Placed as the first statement inside an $effect or $derived function body, it prints (in dev) exactly which dependencies were read and which one caused the re-run — no more guessing why an effect fired.
+
 The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
 		'Use $effect.pre for scroll-preservation and pre-render measurement',
 		'Detect reactive context with $effect.tracking() for library integration',
+		'Exclude reads from dependency tracking with untrack()',
 		'Create manual, disposable reactive scopes with $effect.root',
+		'Debug re-runs with $inspect.trace() — see which dependency triggered an effect',
 		'Choose the right effect primitive for each reactive scenario'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
+  import { untrack } from 'svelte';
+
   // ─────────────────────────────────────────────────────────────
   // 1. $effect.pre — auto-scroll a chat, but ONLY if the user
   //    was already near the bottom. We must read scroll position
@@ -172,6 +182,25 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
   function bumpCounter(): void {
     serviceCounter++;
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // 4. untrack() — read state without depending on it.
+  //    This effect re-runs when \`watched\` changes, but reading
+  //    \`context\` through untrack() does NOT create a dependency.
+  // ─────────────────────────────────────────────────────────────
+
+  let watched: number = $state(0);
+  let context: string = $state('alpha');
+  let untrackLog: string[] = $state([]);
+
+  $effect(() => {
+    // dependency: watched. NOT a dependency: context (untracked).
+    const current = untrack(() => context);
+    untrackLog = [
+      \`watched=\${watched} (context was "\${current}")\`,
+      ...untrack(() => untrackLog)
+    ].slice(0, 5);
+  });
 </script>
 
 <h1>Advanced Effect Primitives</h1>
@@ -249,6 +278,53 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
   </div>
 </section>
 
+<section>
+  <h2>4. untrack() — read without depending</h2>
+  <p class="hint">
+    The effect below logs whenever <code>watched</code> changes and includes
+    the current <code>context</code> — but changing <code>context</code> alone
+    does <strong>not</strong> re-run it, because it's read via
+    <code>untrack()</code>.
+  </p>
+  <div class="row">
+    <button onclick={() => watched++}>watched++ (re-runs effect)</button>
+    <button onclick={() => context = context === 'alpha' ? 'beta' : 'alpha'}>
+      toggle context (no re-run)
+    </button>
+    <span class="pill">context = {context}</span>
+  </div>
+  <div class="service-log">
+    <h3>Effect log</h3>
+    {#if untrackLog.length === 0}
+      <p class="empty">(no runs yet)</p>
+    {:else}
+      {#each untrackLog as entry, i (i)}
+        <div class="entry">{entry}</div>
+      {/each}
+    {/if}
+  </div>
+</section>
+
+<section>
+  <h2>5. $inspect.trace() — the reactivity debugger</h2>
+  <p class="hint">
+    In development, place <code>$inspect.trace()</code> as the
+    <strong>first statement</strong> of an effect or derived to print every
+    dependency that was read — and highlight the one that caused the re-run.
+    It is stripped from production builds automatically.
+  </p>
+  <pre class="trace-ref"><code>{\`$effect(() => {
+  $inspect.trace('chat-autoscroll'); // label is optional
+
+  messages.length;        // ← console shows these reads,
+  if (autoStick && chatEl) //   flagging which one changed
+    chatEl.scrollTop = chatEl.scrollHeight;
+});
+
+// Related: $inspect(value) re-logs whenever value changes,
+// and $inspect(value).with(fn) lets you debugger; on change.\`}</code></pre>
+</section>
+
 <section class="pitfalls">
   <h2>Common Pitfalls & Pro Tips</h2>
   <ul class="pitfall-list">
@@ -275,6 +351,14 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
     <li>
       <strong>Pair $effect.root with a global registry</strong>
       For long-lived services, hold the teardown in a module-level variable so HMR and tests can dispose cleanly.
+    </li>
+    <li>
+      <strong>untrack() is for reads, not a license to write</strong>
+      Use it to drop a dependency edge; if you find yourself untracking writes to dodge loops, restructure the effect instead.
+    </li>
+    <li>
+      <strong>$inspect.trace() must be the first statement</strong>
+      The compiler requires it at the top of the effect/derived body — and it only exists in dev, so never gate logic on it.
     </li>
   </ul>
 </section>
@@ -327,6 +411,10 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
   }
   .entry { font-family: ui-monospace, monospace; font-size: 0.78rem; padding: 0.1rem 0; }
   code { background: #eef; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+  .trace-ref {
+    padding: 0.75rem; background: #2d3436; border-radius: 6px; overflow-x: auto;
+  }
+  .trace-ref code { background: transparent; color: #dfe6e9; font-size: 0.78rem; line-height: 1.5; }
   .pitfalls { background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1.5rem; }
   .pitfalls h2 { color: #78350f; margin: 0 0 0.5rem; font-size: 1rem; }
   .pitfall-list { list-style: none; padding: 0; margin: 0; }

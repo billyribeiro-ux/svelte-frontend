@@ -12,13 +12,24 @@ const lesson: LessonData = {
 
   const user = await fetchUser(id);
 
-and Svelte schedules a pending state for you. Parent components check $effect.pending() to know whether any descendant is still resolving.
+and Svelte schedules a pending state for you. Await expressions are allowed in exactly three new places: (1) the top level of a component's <script>, (2) inside $derived(...) declarations, and (3) inside markup expressions. A <svelte:boundary> with a pending snippet shows placeholder UI while the FIRST resolution is in flight; for subsequent updates the boundary stays up and $effect.pending() tells you async work is ongoing.
+
+Three semantics you must internalize for PE7:
+
+• Synchronized updates — when state feeding an await changes, the OLD UI stays until the new value resolves; Svelte never shows a half-updated view (you can opt a single read out with $state.eager, see lesson 14-2).
+• Concurrency — independent await expressions in markup run in parallel; sequential awaits in the script run like normal JS, and two $deriveds awaiting independent sources update independently after creation (expect an await_waterfall warning if you accidentally serialize them).
+• settled() (from 'svelte') — returns a promise that resolves when the current update, including async work, has been applied. Pair it with tick() to bracket "updating…" flags around async-affecting writes.
+
+Finally, hydratable(key, fn) (from 'svelte') is the SSR-safety valve: an awaited value computed during server rendering is serialized into the head and REUSED during hydration instead of being re-fetched — no double fetch, no hydration blocking, and stable values for things like Math.random(). It powers SvelteKit's remote functions under the hood, and library authors should prefix their keys.
 
 Because async Svelte requires an experimental compiler flag (experimental.async) and isn't available in every runtime, this lesson simulates the pattern with regular $state flags. The demo still teaches the mental model: declarative async dependencies, pending-aware parents, and automatic loading UI without manual bookkeeping.`,
 	objectives: [
-		'Understand the top-level await model for async components',
-		'Use $effect.pending() to detect in-flight async work',
-		'Compose pending states across nested components',
+		'Know the three places await may appear: script top level, $derived, and markup',
+		'Explain synchronized updates: stale-but-consistent UI until async work resolves',
+		'Reason about concurrency: parallel markup awaits, independent $derived updates, await_waterfall',
+		'Use <svelte:boundary> pending for first load and $effect.pending() for later updates',
+		'Await settled() to know when an async update has been fully applied',
+		'Use hydratable() so server-computed async data is reused during hydration',
 		'Show skeleton UIs while waiting for data'
 	],
 	files: [
@@ -263,6 +274,46 @@ Because async Svelte requires an experimental compiler flag (experimental.async)
 &#123;#if $effect.pending()&#125;
   &lt;Spinner /&gt;
 &#123;/if&#125;</code></pre>
+</section>
+
+<section class="code-example">
+  <h3>settled(), boundaries &amp; hydratable() — the rest of the toolkit</h3>
+  <pre><code>{\`// 1. Where await can appear
+const user = await fetchUser(id);          // script top level
+let posts = \$derived(await fetchPosts(user.id)); // inside \$derived
+// …and {await one(x)} directly in markup. Independent markup
+// awaits run in PARALLEL; serial \$deriveds that could be
+// independent trigger an await_waterfall warning.
+
+// 2. First-load placeholder: boundary pending snippet
+// <svelte:boundary>
+//   <Profile />
+//   {#snippet pending()}<Skeleton />{/snippet}
+// </svelte:boundary>
+// Later updates: {#if \$effect.pending()} <Spinner /> {/if}
+
+// 3. settled() — await the update itself
+import { tick, settled } from 'svelte';
+
+async function onclick() {
+  updating = true;
+  await tick();      // flush 'updating' before the big change
+  filter = 'all';    // triggers async deriveds
+  await settled();   // resolves when async UI work is applied
+  updating = false;
+}
+
+// 4. hydratable() — don't refetch on hydration
+import { hydratable } from 'svelte';
+
+// SSR: runs fn, serializes result into <head>.
+// Hydration: returns the serialized value instead of re-running.
+// After hydration: calls fn normally again.
+const user = await hydratable('app:user', () => getUser());
+const rand = hydratable('app:seed', () => Math.random()); // SSR-stable
+
+// Values are serialized with devalue: Map, Set, URL, BigInt and
+// even promises survive. Using CSP? Pass a nonce/hash to render().\`}</code></pre>
 </section>
 
 <style>

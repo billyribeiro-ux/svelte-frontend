@@ -12,37 +12,51 @@ const lesson: LessonData = {
 
 Universal load runs on both sides — on the server for SSR and then in the browser on client-side navigation. It's great for public data fetched from public APIs where you don't want a round trip through your own server. Server load runs exclusively on the server — it's the right choice whenever you need secrets, a database, cookies, or any server-only resource.
 
-Get this wrong and you either leak secrets to the browser or force an extra hop through your own server for no reason. This lesson gives you a decision tree, a side-by-side comparison, and five realistic scenarios with the right answer for each.
+Get this wrong and you either leak secrets to the browser or force an extra hop through your own server for no reason. This lesson gives you a decision tree, a side-by-side comparison, and six realistic scenarios with the right answer for each.
 
-> **SvelteKit 2.27+:** Remote functions (\\\`query\\\` from \\\`$app/server\\\`, exported from \\\`.remote.ts\\\` files) provide a third option: type-safe data fetching that can be called from anywhere in your component tree — not just \\\`+page.ts\\\` / \\\`+page.server.ts\\\`. They deduplicate automatically and support single-flight mutations. See Module 17 Lesson 3 for full coverage.`,
+**The third option — remote functions.** Since SvelteKit 2.27 the decision is no longer binary. A \`query()\` exported from a \`.remote.ts\` file *runs* on the server (so it can safely touch the database, cookies via \`getRequestEvent()\`, and private env vars — everything a server load can) but can be *called* from any component, not just a route. Arguments are validated with a Standard Schema (Zod 4 / Valibot), identical calls are deduplicated automatically, and \`form\`/\`command\` mutations can refresh queries in a single flight. The modern rule of thumb: **route-level \`load\` when the data defines the page** (SEO-critical content, redirects before render); **\`query()\` when the data belongs to a component** — widgets shared across pages, paginated lists, anything refreshed after mutations. The decision tree, capability matrix, and quiz below treat all three as peers; Module 17 Lesson 3 covers the full remote-functions API.`,
 	objectives: [
 		'State the fundamental rule that picks between +page.ts and +page.server.ts',
-		'Recite the capability matrix for both load types',
-		'Choose the right load type for 5 realistic scenarios',
+		'Recite the capability matrix for both load types and remote query()',
+		'Position remote functions (query from $app/server) as a first-class third option',
+		'Choose the right data-loading tool for 6 realistic scenarios',
 		'Explain the performance and security implications of each choice',
-		'Know when to use BOTH (+page.ts AND +page.server.ts) on the same route'
+		'Know when to use BOTH (+page.ts AND +page.server.ts) on the same route',
+		'Know when component-scoped data calls for query() in a .remote.ts file instead of load'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
   // ---------------------------------------------------------------
-  // THE ONE-SENTENCE RULE
+  // THE TWO-SENTENCE RULE
   //
-  //   Use +page.server.ts whenever the load NEEDS server-only
-  //   resources (DB, secrets, private files, cookies you want to
-  //   mutate, server-only APIs). Otherwise, use +page.ts.
+  //   For data that DEFINES a route: use +page.server.ts whenever
+  //   the load needs server-only resources (DB, secrets, cookies,
+  //   server-only APIs); otherwise +page.ts.
   //
-  // That's it. Everything below is just elaboration.
+  //   For data that belongs to a COMPONENT (shared widgets,
+  //   mutation-refreshed lists): use query() in a .remote.ts file.
+  //
+  // Everything below is elaboration.
   // ---------------------------------------------------------------
+
+  type Choice = 'universal' | 'server' | 'both' | 'remote';
 
   interface Scenario {
     id: number;
     title: string;
     body: string;
-    answer: 'universal' | 'server' | 'both';
+    answer: Choice;
     explanation: string;
   }
+
+  const labels: Record<Choice, string> = {
+    universal: '+page.ts',
+    server: '+page.server.ts',
+    both: 'Both',
+    remote: 'remote query()'
+  };
 
   const scenarios: Scenario[] = [
     {
@@ -84,13 +98,21 @@ Get this wrong and you either leak secrets to the browser or force an extra hop 
       answer: 'both',
       explanation:
         "Both. +layout.server.ts handles auth and cookies. +page.ts handles the public posts and can call await parent() to read the user. This is a very common SvelteKit pattern — don't collapse both into one server load unless you need to."
+    },
+    {
+      id: 6,
+      title: 'Notifications bell shown in the header of every page',
+      body: 'A bell icon in the layout needs the unread count from your database, a dropdown three levels deep needs the same data, and the count must refresh the moment the user clicks "mark all read".',
+      answer: 'remote',
+      explanation:
+        'query() in notifications.remote.ts. It runs on the server (DB access stays private), can be awaited from ANY component with zero prop drilling or route plumbing, deduplicates the bell and the dropdown into one request, and the mark-all-read form()/command() can refresh it in a single flight. Wiring this through every +layout.server.ts would couple unrelated routes to one widget.'
     }
   ];
 
   let revealed: Record<number, boolean> = $state({});
-  let guess: Record<number, 'universal' | 'server' | 'both' | undefined> = $state({});
+  let guess: Record<number, Choice | undefined> = $state({});
 
-  function pick(id: number, choice: 'universal' | 'server' | 'both'): void {
+  function pick(id: number, choice: Choice): void {
     guess[id] = choice;
     revealed[id] = true;
   }
@@ -105,10 +127,12 @@ Get this wrong and you either leak secrets to the browser or force an extra hop 
   <h1>Universal vs Server: The Decision</h1>
 
   <section class="rule">
-    <h2>The Rule in One Sentence</h2>
+    <h2>The Rule in Two Sentences</h2>
     <p class="big-rule">
-      Use <code>+page.server.ts</code> whenever the load needs server-only resources
-      (DB, secrets, private APIs, cookies). Otherwise, use <code>+page.ts</code>.
+      For data that <em>defines a route</em>: use <code>+page.server.ts</code> whenever the
+      load needs server-only resources (DB, secrets, private APIs, cookies); otherwise
+      <code>+page.ts</code>. For data that <em>belongs to a component</em> — shared widgets,
+      mutation-refreshed lists — use <code>query()</code> in a <code>.remote.ts</code> file.
     </p>
   </section>
 
@@ -120,42 +144,89 @@ Get this wrong and you either leak secrets to the browser or force an extra hop 
           <th></th>
           <th>+page.ts (universal)</th>
           <th>+page.server.ts</th>
+          <th>query() (remote)</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td>Runs on server (SSR)</td><td>yes</td><td>yes</td></tr>
-        <tr><td>Runs in browser (CSR nav)</td><td>yes</td><td>no — fetches JSON from server</td></tr>
-        <tr><td>Access params, url, fetch</td><td>yes</td><td>yes</td></tr>
-        <tr><td>Access cookies</td><td>no</td><td>yes</td></tr>
-        <tr><td>Access $env/static/private</td><td>no</td><td>yes</td></tr>
-        <tr><td>Access database directly</td><td>no</td><td>yes</td></tr>
-        <tr><td>Access locals (from hooks)</td><td>no</td><td>yes</td></tr>
-        <tr><td>Return non-serializable values</td><td>yes (functions, classes)</td><td>no — JSON-safe only</td></tr>
-        <tr><td>Extra round trip on client nav</td><td>no — calls API directly</td><td>yes — one hop to server load</td></tr>
+        <tr><td>Runs on server (SSR)</td><td>yes</td><td>yes</td><td>yes — always runs on the server</td></tr>
+        <tr><td>Runs in browser (CSR nav)</td><td>yes</td><td>no — fetches JSON from server</td><td>no — typed fetch wrapper to a generated endpoint</td></tr>
+        <tr><td>Access params, url, fetch</td><td>yes</td><td>yes</td><td>takes validated arguments instead (Standard Schema)</td></tr>
+        <tr><td>Access cookies</td><td>no</td><td>yes</td><td>yes — via getRequestEvent()</td></tr>
+        <tr><td>Access $env/static/private</td><td>no</td><td>yes</td><td>yes</td></tr>
+        <tr><td>Access database directly</td><td>no</td><td>yes</td><td>yes</td></tr>
+        <tr><td>Access locals (from hooks)</td><td>no</td><td>yes</td><td>yes — via getRequestEvent()</td></tr>
+        <tr><td>Return non-serializable values</td><td>yes (functions, classes)</td><td>no — devalue-serializable only</td><td>no — devalue-serializable only</td></tr>
+        <tr><td>Callable from</td><td>its route only</td><td>its route only</td><td>any component, anywhere</td></tr>
+        <tr><td>Re-runs on navigation</td><td>yes (tracked deps)</td><td>yes (tracked deps)</td><td>no — refresh() / single-flight mutations</td></tr>
+        <tr><td>Deduplication</td><td>per navigation</td><td>per navigation</td><td>automatic, by argument cache key</td></tr>
       </tbody>
     </table>
   </section>
 
   <section>
     <h2>Decision Tree</h2>
-    <pre>{\`Does your load touch...
+    <pre>{\`Is the data tied to ONE route — does it define the page
+(SEO content, redirects/errors before render)?
 │
-├── cookies / sessions / locals? ─────────────► +page.server.ts
-├── a database / $lib/server/*?  ─────────────► +page.server.ts
-├── private env vars / secrets?  ─────────────► +page.server.ts
-├── files on disk / the OS?       ─────────────► +page.server.ts
+├── YES → route-level load
+│     │
+│     ├── cookies / sessions / locals?  ──► +page.server.ts
+│     ├── a database / $lib/server/*?   ──► +page.server.ts
+│     ├── private env vars / secrets?   ──► +page.server.ts
+│     ├── files on disk / the OS?       ──► +page.server.ts
+│     │
+│     └── none of the above?
+│           ├── non-serializable return values
+│           │   (functions, class instances)? ──► +page.ts
+│           └── public third-party API the browser
+│               should hit directly on CSR nav? ──► +page.ts
+│               (otherwise either works — default to +page.ts)
 │
-└── none of the above?
-      │
-      ├── Does it need to return non-serializable values
-      │   (functions, class instances, component ctors)?
-      │                                    ──► +page.ts
-      │
-      └── Does it fetch a PUBLIC third-party API
-          where you want the browser to call it directly
-          on client-side navigations?
-                                          ──► +page.ts
-          (Otherwise either works — default to +page.ts.)\`}</pre>
+└── NO → the data belongs to a COMPONENT
+      (shared widgets, paginated lists, search-as-you-type,
+       anything refreshed after a mutation)
+                                        ──► query() in a .remote.ts file
+      validate arguments with a Standard Schema (Zod 4 / Valibot);
+      pair with form() / command() for single-flight mutations\`}</pre>
+  </section>
+
+  <section>
+    <h2>The Third Option: query() (Remote Functions)</h2>
+    <p>
+      A remote <code>query</code> is the modern path for component-scoped data: it always
+      runs on the server, is callable from anywhere, validates its arguments, and dedupes
+      identical calls automatically.
+    </p>
+    <pre>{\`// src/lib/data/notifications.remote.ts
+import * as v from 'valibot';
+import { query } from '$app/server';
+import { getRequestEvent } from '$app/server';
+import * as db from '$lib/server/database';
+
+export const getUnreadCount = query(async () => {
+  const { locals } = getRequestEvent();   // cookies/locals — like a server load
+  return db.unreadCount(locals.user.id);
+});
+
+export const getPosts = query(
+  v.object({ page: v.number() }),          // Standard Schema validation
+  async ({ page }) => db.posts(page)
+);\`}</pre>
+    <pre>{\`<!-- any component, at any depth — no route plumbing -->
+<script lang="ts">
+  import { getUnreadCount } from '$lib/data/notifications.remote';
+</\${''}script>
+
+<svelte:boundary>
+  <span class="badge">{await getUnreadCount()}</span>
+  {#snippet pending()}<span class="badge">…</span>{/snippet}
+</svelte:boundary>\`}</pre>
+    <div class="answer">
+      <strong>Opt-in:</strong> remote functions require
+      <code>kit.experimental.remoteFunctions: true</code> and
+      <code>compilerOptions.experimental.async: true</code> in svelte.config.js.
+      Full API — query.batch, query.live, form, command, prerender — in Module 17 Lesson 3.
+    </div>
   </section>
 
   <section>
@@ -196,13 +267,16 @@ export const load = async ({ data, fetch }) => {
           <button onclick={() => pick(s.id, 'both')} disabled={revealed[s.id]}>
             Both
           </button>
+          <button onclick={() => pick(s.id, 'remote')} disabled={revealed[s.id]}>
+            remote query()
+          </button>
         </div>
         {#if revealed[s.id]}
           <div class="answer">
             <strong>
               {guess[s.id] === s.answer ? 'Correct!' : 'Actually:'}
             </strong>
-            {s.answer === 'universal' ? '+page.ts' : s.answer === 'server' ? '+page.server.ts' : 'Both'}
+            {labels[s.answer]}
             — {s.explanation}
           </div>
         {/if}

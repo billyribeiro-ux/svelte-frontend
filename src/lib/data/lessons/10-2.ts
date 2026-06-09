@@ -20,6 +20,10 @@ You can also pass **named snippets** with \`{#snippet name()}\` blocks inside th
 
 The truly powerful pattern is **parameterised snippets as props**: a \`List\` component owns the iteration logic, while the consumer provides a snippet that says how to render each item. The generic type parameter (declared with \`<script lang="ts" generics="T">\`) flows from the list's \`items\` all the way into the snippet, giving you full type safety with zero prop drilling.
 
+Beyond \`Snippet\`, Svelte ships two more typing utilities every component author needs: \`Component<Props>\` types a *component itself* (so you can pass components as props and render them dynamically), and \`ComponentProps<typeof X>\` extracts a component's props type (perfect for wrapper components and factory functions). Together with \`Snippet\`, these three cover the whole composition type surface.
+
+Finally, a word of discipline on \`$bindable\`: it is for genuinely two-way values — the \`value\` of an input-like component, the \`open\` state of a disclosure. It is **not** a general communication channel. If the child merely *notifies* (use a callback prop), *renders* parent content (use a snippet), or *derives* from a prop (use \`$derived\`), don't make it bindable — every \`$bindable\` is an invitation for data to flow upward that future readers must chase.
+
 This lesson builds a \`Card\` component with optional \`footer\`, a generic \`List<T>\` component that accepts an \`item\` snippet, and demonstrates three different patterns of passing content from the parent.`,
 	objectives: [
 		'Pass markup as the implicit children snippet',
@@ -27,6 +31,8 @@ This lesson builds a \`Card\` component with optional \`footer\`, a generic \`Li
 		'Define optional snippet props and guard them with {#if}',
 		'Type parameterised snippets with Snippet<[T]>',
 		'Use <script lang="ts" generics="T"> to make a generic component',
+		'Type component-as-prop patterns with Component<Props> and extract props with ComponentProps<typeof X>',
+		'Apply $bindable discipline: bind only genuinely two-way values, prefer callbacks/snippets otherwise',
 		'Understand how :else inside an {#each} block interacts with optional snippets'
 	],
 	files: [
@@ -165,6 +171,64 @@ This lesson builds a \`Card\` component with optional \`footer\`, a generic \`Li
       <code>{'{#if snippet}'}</code> before rendering, or
       provide a default <code>{'{#snippet}'}</code> in the
       component itself.
+    </p>
+  </section>
+
+  <section class="notes">
+    <h2>The full typing toolkit: Component & ComponentProps</h2>
+    <p>
+      <code>Snippet</code> types <em>markup</em> passed as a prop.
+      <code>Component&lt;Props&gt;</code> types a <em>component</em> passed as a prop —
+      in Svelte 5 you render it directly with a capitalised local name.
+      <code>ComponentProps&lt;typeof X&gt;</code> extracts a component's props type:
+    </p>
+    <pre>{\`<script lang="ts">
+  import type { Component, ComponentProps } from 'svelte';
+  import Card from './Card.svelte';
+
+  // 1. Component as a prop — e.g. a pluggable icon
+  let { Icon, label }: {
+    Icon: Component<{ size?: number }>;
+    label: string;
+  } = $props();
+
+  // 2. ComponentProps — extract a component's props type.
+  //    Perfect for wrappers and factories; never duplicate
+  //    a props interface by hand.
+  type CardProps = ComponentProps<typeof Card>;
+
+  function makeCardConfig(overrides: Partial<CardProps>): CardProps {
+    return { title: 'Untitled', ...overrides } as CardProps;
+  }
+</\${''}script>
+
+<!-- capitalised, so Svelte treats it as a component -->
+<Icon size={16} />
+<span>{label}</span>\`}</pre>
+
+    <h3>$bindable discipline — when NOT to bind</h3>
+    <p>
+      A child can opt a prop into two-way flow with
+      <code>value = $bindable()</code>. Use it sparingly:
+    </p>
+    <pre>{\`// ✅ Genuinely two-way: input-like value, open/expanded state
+let { value = $bindable('') }: { value?: string } = $props();
+
+// ❌ Child only NOTIFIES the parent → use a callback prop
+let { onselect }: { onselect: (id: string) => void } = $props();
+
+// ❌ Child only RENDERS parent content → use a snippet
+let { row }: { row: Snippet<[Item]> } = $props();
+
+// ❌ Value is DERIVED from a prop → use $derived, never
+//    write a prop back to "sync" it
+const label = $derived(item.name.toUpperCase());\`}</pre>
+    <p>
+      Rules of thumb: a prop should be <code>$bindable</code> only if the component is
+      a <em>control</em> whose primary output is that value. Mutating a bound prop is
+      invisible at the call site — <code>bind:value</code> at least announces it.
+      If you find yourself binding three props on one component, you probably want
+      context (next lesson) or a state class instead.
     </p>
   </section>
 </main>

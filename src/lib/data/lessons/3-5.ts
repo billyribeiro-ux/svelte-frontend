@@ -105,7 +105,7 @@ This lesson walks through every major string method through a live text-processi
   // --- Example 9: Template literals — building strings dynamically ---
   let name = $state('Ada');
   let age  = $state(36);
-  const greeting = $derived(\\\`Hello \\\${name}, you are \\\${age} years old.\\\`);
+  const greeting = $derived(\`Hello \${name}, you are \${age} years old.\`);
 </script>
 
 <h1>String Methods</h1>

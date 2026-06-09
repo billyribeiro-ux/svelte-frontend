@@ -19,7 +19,9 @@ const lesson: LessonData = {
 
 Every keystroke calls the setter, every render calls the getter. This lets you build masked inputs, auto-formatters, and clamped fields with a single source of truth — no duplicate "raw" and "normalised" copies in state.
 
-This lesson builds six real examples: auto-trim, auto-lowercase, a phone mask, a currency mask that stores cents as an integer, a clamped number, and a "hidden prefix" tag input. Each one is something you'd ordinarily write five lines of event handling for — function bindings collapse it into three.
+Function bindings aren't limited to elements — they work on **component props** too. If a child exposes \`value = $bindable()\`, the parent can write \`bind:value={() => pin, (v) => pin = sanitize(v)}\` and validate or transform everything the child pushes up, without the child knowing or caring. And for **readonly bindings** like \`bind:clientWidth\`, the getter slot must be \`null\`: \`bind:clientWidth={null, redraw}\` turns a measurement into a callback.
+
+This lesson builds six real examples: auto-trim, auto-lowercase, a phone mask, a currency mask that stores cents as an integer, a clamped number, and a "hidden prefix" tag input — plus a PIN-pad component the parent guards with a function binding. Each one is something you'd ordinarily write five lines of event handling for — function bindings collapse it into three.
 
 The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid the traps students most often hit.`,
 	objectives: [
@@ -28,12 +30,16 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
 		'Build masked inputs (phone, currency) that store a clean value internally',
 		'Clamp numeric input into a valid range using the setter',
 		'Show a transformed display (e.g. hidden prefix) while storing the canonical form',
+		'Use function bindings on component props (bind:value={get, set} with $bindable) to guard what a child writes',
+		'Pass null as the getter for readonly bindings like bind:clientWidth={null, redraw}',
 		'Compare function bindings with the older $derived + oninput pattern'
 	],
 	files: [
 		{
 			filename: 'App.svelte',
 			content: `<script lang="ts">
+  import PinInput from './PinInput.svelte';
+
   // ============================================================
   // Function bindings (Svelte 5.9+)
   // ============================================================
@@ -101,6 +107,12 @@ The end of the lesson lists 4-6 common pitfalls and pro tips to help you avoid t
 
   // --- Tag input with # prefix --------------------------------
   let tag: string = $state('#svelte');
+
+  // --- Function binding on a COMPONENT prop -------------------
+  // PinInput exposes \`value = $bindable('')\`. The parent guards
+  // the binding: only digits, max 4, no matter what the child
+  // tries to write up.
+  let pin: string = $state('');
 
   // --- Traditional binding for comparison ---------------------
   let raw: string = $state('');
@@ -248,6 +260,45 @@ let username = $state('');
       </p>
     </section>
 
+    <section>
+      <h2>On a component prop</h2>
+      <PinInput
+        bind:value={
+          () => pin,
+          (v: string) => (pin = v.replace(/[^\\d]/g, '').slice(0, 4))
+        }
+      />
+      <p class="echo">Parent stores: <code>"{pin}"</code></p>
+      <p class="hint">
+        <code>PinInput</code> declares <code>value = $bindable('')</code>.
+        The parent's setter guards the two-way channel — digits only,
+        max four — without the child knowing. Try typing letters.
+      </p>
+    </section>
+
+    <section class="vs-derived">
+      <h2>Components &amp; readonly bindings</h2>
+      <pre>{\`<!-- Component props: same [get, set] syntax.
+     The child needs value = $bindable() — nothing else. -->
+<PinInput bind:value={
+  () => pin,
+  (v) => pin = v.replace(/[^0-9]/g, '').slice(0, 4)
+} />
+
+<!-- Readonly bindings (clientWidth, duration, ...) have no
+     "write" direction, so the GETTER slot must be null: -->
+<div bind:clientWidth={null, redraw}
+     bind:clientHeight={null, redraw}>...</div>
+
+<!-- bind:this with functions: provide the getter too, so
+     Svelte can null the reference when the node is destroyed -->
+<canvas bind:this={() => canvas, (el) => canvas = el}></canvas>\`}</pre>
+      <p class="hint">
+        Readonly bindings with a <code>null</code> getter turn measurements into
+        callbacks — handy for triggering a redraw whenever an element resizes.
+      </p>
+    </section>
+
     <section class="vs-derived">
       <h2>Why not just use $derived?</h2>
       <pre>{comparisonSnippet}</pre>
@@ -343,6 +394,71 @@ let username = $state('');
   .pitfall-list li { padding: 0.4rem 0; border-bottom: 1px dashed #fbbf24; font-size: 0.85rem; color: #78350f; }
   .pitfall-list li:last-child { border-bottom: none; }
   .pitfall-list strong { display: block; color: #92400e; margin-bottom: 0.15rem; }
+</style>`,
+			language: 'svelte'
+		},
+		{
+			filename: 'PinInput.svelte',
+			content: `<script lang="ts">
+  // A tiny PIN-pad child. It exposes ONE bindable prop and happily
+  // writes whatever the user produces — guarding the value is the
+  // PARENT's job, via a function binding.
+  let { value = $bindable('') }: { value?: string } = $props();
+
+  function press(digit: string): void {
+    // The parent's setter intercepts this write and may
+    // sanitise or reject it before it lands in parent state.
+    value = value + digit;
+  }
+
+  function clear(): void {
+    value = '';
+  }
+</script>
+
+<div class="pin">
+  <input
+    type="text"
+    inputmode="numeric"
+    placeholder="Type or use the pad"
+    bind:value
+  />
+  <div class="pad">
+    {#each ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as digit (digit)}
+      <button type="button" onclick={() => press(digit)}>{digit}</button>
+    {/each}
+    <button type="button" class="wide" onclick={clear}>clear</button>
+  </div>
+</div>
+
+<style>
+  .pin { display: flex; flex-direction: column; gap: 0.5rem; }
+  input {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    font-size: 1.1rem;
+    letter-spacing: 0.3em;
+    text-align: center;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.3rem;
+  }
+  button {
+    padding: 0.45rem 0;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  button:hover { background: #eef2ff; }
+  .wide { grid-column: span 2; color: #b91c1c; }
 </style>`,
 			language: 'svelte'
 		}

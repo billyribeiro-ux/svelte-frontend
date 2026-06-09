@@ -12,7 +12,7 @@ const lesson: LessonData = {
 
 The mental model: a regex is a tiny program that scans text and says "does this match my pattern?" or "where do matches appear?" The core vocabulary is small. **Anchors** (\`^\` start, \`$\` end) pin matches to boundaries. **Character classes** (\`\\d\` digit, \`\\w\` word, \`\\s\` whitespace, or custom \`[abc]\`) say what kind of character is allowed. **Quantifiers** (\`+\` one or more, \`*\` zero or more, \`?\` optional, \`{n,m}\` a range) say how many. **Groups** \`(...)\` let you extract or repeat parts of a match. **Alternation** \`|\` means "this OR that". **Flags** on the end modify behavior: \`/i\` is case-insensitive, \`/g\` finds all matches, \`/m\` treats \`^\` and \`$\` as line boundaries.
 
-In JavaScript you use regexes through string and RegExp methods. \`regex.test(str)\` returns a boolean — perfect for validation. \`str.match(regex)\` returns matches (with the \`/g\` flag, all of them). \`str.replace(regex, replacement)\` transforms text. \`str.split(regex)\` breaks on pattern matches. When you need to build a regex from user input, use \`new RegExp(str)\` — but remember to escape special characters first (\`.*+?^\${}()|[]\\\`), otherwise a user typing \`.\` will match *anything*.
+In JavaScript you use regexes through string and RegExp methods. \`regex.test(str)\` returns a boolean — perfect for validation. \`str.match(regex)\` returns matches (with the \`/g\` flag, all of them). \`str.replace(regex, replacement)\` transforms text. \`str.split(regex)\` breaks on pattern matches. When you need to build a regex from user input, use \`new RegExp(str)\` — but remember to escape special characters first (\`.*+?^\${}()|[]\`), otherwise a user typing \`.\` will match *anything*.
 
 The most common real uses: form validation (emails, phones, URLs, passwords), extracting data from text (finding all URLs in a document), search-and-highlight UIs, and input normalization (collapsing whitespace, stripping formatting). This lesson demonstrates all of these.
 
@@ -122,7 +122,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
     const match = p.match(/^\\(?(\\d{3})\\)?[-.\\s]?(\\d{3})[-.\\s]?(\\d{4})$/);
     if (!match) return '(invalid)';
     const [, area, first, last] = match;
-    return \\\`\\\${area}.\\\${first}.\\\${last}\\\`;
+    return \`\${area}.\${first}.\${last}\`;
   }
   const reformattedPhone = $derived(reformatPhone(phone));
 </script>

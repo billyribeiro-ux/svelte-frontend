@@ -3,7 +3,7 @@ import type { LessonData } from '$lib/types';
 const lesson: LessonData = {
 	meta: {
 		id: '13-5',
-		title: 'Redirects & Post-Action Loading',
+		title: 'Redirects, Invalidation & Single-Flight Mutations',
 		phase: 4,
 		module: 13,
 		lessonIndex: 5
@@ -12,14 +12,18 @@ const lesson: LessonData = {
 
 SvelteKit gives you redirect(303, '/somewhere') to bounce the user after a successful action. Why 303 specifically? Because it forces the browser to follow with a GET — the classic Post/Redirect/Get pattern that has prevented accidental double-submits since the 1990s. And for the cases where you stay on the same page, invalidate() / invalidateAll() re-run load functions so the page reflects the mutation.
 
-This lesson ties modules 12 and 13 together: actions mutate, redirects and invalidation refresh, and the user sees correct data.`,
+This lesson ties modules 12 and 13 together: actions mutate, redirects and invalidation refresh, and the user sees correct data.
+
+**The modern path: single-flight mutations (SvelteKit 2.27+).** Invalidation after a mutation costs two round trips — one to mutate, one to refetch — and \`invalidateAll()\` refetches *everything*, even data the mutation never touched. Remote functions fix both: inside a \`form()\` or \`command()\` handler you call \`getPosts().refresh()\` (or \`getPost(id).set(result)\` when you already have the new value) and the fresh query data rides back **in the same response** as the mutation. The client can also request refreshes — with optimistic overrides — via \`submit().updates(...)\`. Where lesson 13-4 mapped use:enhance onto remote \`form()\`, this lesson maps the invalidation story onto single-flight refreshes.`,
 	objectives: [
 		'Use redirect(303, url) inside an action to follow the POST/Redirect/GET pattern',
 		'Know why 303 (and not 301/302) is the right status',
 		'Trigger invalidateAll() after an in-place mutation to refresh load data',
 		'Use invalidate(urlOrTag) for targeted refresh',
 		'Choose between redirect, invalidate, and neither',
-		'Preserve form state (flash messages) across redirects'
+		'Preserve form state (flash messages) across redirects',
+		'Refresh queries in a single flight from a remote form()/command() handler with refresh() and set()',
+		'Request client-side refreshes (and optimistic overrides) with submit().updates(...) and withOverride'
 	],
 	files: [
 		{
@@ -32,7 +36,8 @@ This lesson ties modules 12 and 13 together: actions mutate, redirects and inval
   //   • /items/new      has an action that creates one
   //
   // After success the action runs:
-  //     throw redirect(303, '/items');
+  //     redirect(303, '/items');
+  // (redirect() throws internally — no 'throw' needed in SvelteKit 2)
   //
   // The browser follows with a GET /items, which re-runs load() —
   // and the new item is there. Classic PRG.
@@ -106,7 +111,8 @@ export const actions: Actions = {
 
     // 303 See Other — tells the browser to follow with a GET.
     // This prevents F5 from re-submitting the form.
-    throw redirect(303, '/items/' + item.id);
+    // (In SvelteKit 2, redirect() throws for you — no 'throw' keyword.)
+    redirect(303, '/items/' + item.id);
   }
 };\`}</pre>
     <div class="callout">
@@ -242,7 +248,7 @@ export const actions = {
       maxAge: 5,          // 5 seconds
       httpOnly: false     // readable from the next page's load
     });
-    throw redirect(303, '/items');
+    redirect(303, '/items');
   }
 };
 
@@ -252,6 +258,85 @@ export const load = ({ cookies }) => {
   if (flash) cookies.delete('flash', { path: '/' });
   return { flash };
 };\`}</pre>
+  </section>
+
+  <section class="modern">
+    <h2>6. The Modern Path: Single-Flight Mutations (SvelteKit 2.27+)</h2>
+    <p class="hint">
+      Invalidation costs two round trips: POST the mutation, then refetch the data.
+      And <code>invalidateAll()</code> refetches <em>everything</em> — even data the
+      mutation never touched. With remote functions, the mutation handler refreshes
+      exactly the queries that changed, and the fresh data comes back
+      <strong>in the same response</strong>:
+    </p>
+    <pre>{\`// src/routes/blog/data.remote.ts
+import * as v from 'valibot';
+import { redirect } from '@sveltejs/kit';
+import { query, form } from '$app/server';
+import * as db from '$lib/server/database';
+
+export const getPosts = query(async () => db.listPosts());
+export const getPost = query(v.string(), async (slug) => db.getPost(slug));
+
+export const createPost = form(
+  v.object({ title: v.string(), content: v.string() }),
+  async (data) => {
+    const slug = await db.createPost(data);
+
+    // Server-driven refresh: getPosts() data is recomputed on the
+    // server and shipped back WITH this response — one round trip.
+    void getPosts().refresh();
+
+    redirect(303, '/blog/' + slug);
+  }
+);
+
+export const updatePost = form(
+  v.object({ id: v.string(), title: v.string() }),
+  async (post) => {
+    const result = await db.update(post);
+
+    // Already have the new value? Skip the refetch entirely:
+    getPost(post.id).set(result);
+  }
+);\`}</pre>
+    <p class="hint">
+      The server knows which query <em>functions</em> to refresh, but not always which
+      <em>instances</em> (think <code>getPosts({'{ filter }'})</code>). The client can
+      request specific refreshes — including an <strong>optimistic override</strong>
+      shown until the real data lands:
+    </p>
+    <pre>{\`// client — inside enhance(), with form.submit():
+await form.submit().updates(
+  getPosts({ filter: 'author:ada' }).withOverride(
+    (posts) => [newPost, ...posts]   // optimistic UI
+  )
+);
+
+// server — must opt in to client-requested refreshes:
+import { requested } from '$app/server';
+
+export const createPost = form(schema, async (data) => {
+  // ...mutate...
+  await requested(getPosts, 1).refreshAll();  // limit prevents DoS
+});\`}</pre>
+    <table>
+      <thead>
+        <tr><th>Classic (actions + load)</th><th>Single-flight (remote functions)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>POST, then <code>invalidateAll()</code> refetch — 2 round trips</td><td>mutation + fresh query data in 1 response</td></tr>
+        <tr><td>refetches every load on the page</td><td>refreshes only the named queries</td></tr>
+        <tr><td>no optimistic UI without hand-rolling</td><td><code>withOverride()</code> built in</td></tr>
+        <tr><td>redirect after create? <code>redirect(303, …)</code></td><td>same — <code>redirect(303, …)</code> works in form() too</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">
+      Default behaviour if you do nothing: a successful remote <code>form</code> submission
+      invalidates all queries and loads (mirroring a full-page reload); a
+      <code>command</code> invalidates nothing. Single-flight refreshes are the deliberate
+      middle ground. Full coverage in Module 17 Lesson 3.
+    </p>
   </section>
 </main>
 
@@ -263,6 +348,7 @@ export const load = ({ cookies }) => {
   pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.8rem; }
   code { background: #e8e8e8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.82rem; }
   .callout { margin-top: 0.5rem; padding: 0.75rem 1rem; background: #fff3e0; border-left: 3px solid #ff9800; border-radius: 4px; font-size: 0.85rem; }
+  .modern { background: #eff6ff; border-color: #93c5fd; border-left: 4px solid #3b82f6; }
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; vertical-align: top; }
   th { background: #f5f5f5; }

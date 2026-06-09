@@ -78,7 +78,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
 
   // --- map: transform the filtered list into display strings ---
   const productLabels = $derived(
-    filtered.map(p => \\\`\\\${p.name} — $\\\${p.price}\\\`)
+    filtered.map(p => \`\${p.name} — $\${p.price}\`)
   );
 
   // --- find: locate a single item by id ---
@@ -104,7 +104,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
       .filter(p => p.rating >= 4.5)    // only great
       .map(p => ({                     // reshape for display
         id: p.id,
-        label: \\\`\\\${p.name} (\\\${p.rating}★)\\\`
+        label: \`\${p.name} (\${p.rating}★)\`
       }))
   );
 
@@ -148,7 +148,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
         <span class="name">{product.name}</span>
         <span class="category">{product.category}</span>
         <span class="rating">{product.rating}★</span>
-        <span class="price">\\\${product.price}</span>
+        <span class="price">\${product.price}</span>
         {#if !product.inStock}<span class="badge">Out of stock</span>{/if}
       </button>
     {:else}
@@ -162,7 +162,7 @@ A "Try It Yourself" section at the bottom gives you three hands-on challenges to
   {#if selected}
     <div class="detail">
       <p><strong>{selected.name}</strong> (index {selectedIndex} in the original array)</p>
-      <p>Category: {selected.category} · Rating: {selected.rating}★ · Price: \\\${selected.price}</p>
+      <p>Category: {selected.category} · Rating: {selected.rating}★ · Price: \${selected.price}</p>
       <p>Tags: {selected.tags.join(', ')}</p>
     </div>
   {:else}

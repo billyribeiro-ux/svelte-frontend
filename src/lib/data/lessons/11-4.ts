@@ -10,13 +10,14 @@ const lesson: LessonData = {
 	},
 	description: `SvelteKit exposes the current page as a reactive object from $app/state: page.url, page.params, page.route, page.data, page.status, and page.error. A companion navigating object tells you whether a navigation is currently in flight, and updated tells you when a new version of the app is available.
 
-From $app/navigation you get imperative tools — goto() for programmatic navigation, invalidate()/invalidateAll() to re-run load functions, and beforeNavigate/afterNavigate hooks to intercept and react to navigations. Together these form the complete client-side routing API.`,
+From $app/navigation you get imperative tools — goto() for programmatic navigation, invalidate()/invalidateAll() to re-run load functions, pushState()/replaceState() for shallow routing (history entries with state but no navigation — think photo modals you can dismiss with the back button), and beforeNavigate/afterNavigate hooks to intercept and react to navigations. Together these form the complete client-side routing API.`,
 	objectives: [
 		'Access current URL, params, and route via page from $app/state',
 		'Read navigating to show loading UI during in-flight navigation',
 		'Use goto() with its options (replaceState, keepFocus, noScroll, invalidateAll)',
 		'Trigger targeted re-loads with invalidate() and depends()',
 		'Intercept navigation with beforeNavigate and afterNavigate',
+		'Know the shallow routing APIs — pushState()/replaceState() and page.state — and when to reach for them',
 		'Detect app updates with updated and prompt the user to reload'
 	],
 	files: [

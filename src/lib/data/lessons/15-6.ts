@@ -56,6 +56,11 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
   let sliderValue: number = $state(50);
   const followSpring = Spring.of(() => sliderValue, firmSpring);
 
+  // Tween.of() — same idea, duration/easing instead of physics.
+  // Both .of() variants re-run whenever the source fn's deps change,
+  // which makes them perfect for props-driven motion.
+  const followTween = Tween.of(() => sliderValue, slowTween);
+
   // Force an instant update (bypassing the animation) with .set() options
   function snap() {
     // SpringUpdateOptions: { instant?: boolean; preserveMomentum?: number }
@@ -146,7 +151,11 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
   <div class="followbar">
     <div class="dot" style="transform: translateX({followSpring.current}px)"></div>
   </div>
-  <p class="value">target: {sliderValue} • current: {followSpring.current.toFixed(2)}</p>
+  <p class="value">Spring.of — target: {sliderValue} • current: {followSpring.current.toFixed(2)}</p>
+  <div class="followbar">
+    <div class="dot tween" style="transform: translateX({followTween.current}px)"></div>
+  </div>
+  <p class="value">Tween.of — target: {sliderValue} • current: {followTween.current.toFixed(2)}</p>
 </section>
 
 <section>
@@ -295,6 +304,8 @@ As of svelte@5.55, the public option types are exported directly from svelte/mot
     position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
     background: #e17055; border-radius: 50%;
   }
+  .followbar .dot.tween { background: #0984e3; }
+  .followbar + .followbar { margin-top: 0.4rem; }
   code { background: #fde68a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
 
   .chain { position: relative; height: 60px; margin-bottom: 0.5rem; }

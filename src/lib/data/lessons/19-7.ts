@@ -10,14 +10,15 @@ const lesson: LessonData = {
 	},
 	description: `Accessibility (a11y) ensures your SvelteKit application is usable by everyone, including people using screen readers, keyboard navigation, and assistive technologies. Svelte's compiler includes built-in a11y warnings that catch common issues at build time — missing alt attributes, improper ARIA roles, and non-interactive elements with click handlers.
 
-WCAG (Web Content Accessibility Guidelines) provides the standard. Focus management, semantic HTML, proper ARIA attributes, and keyboard navigation are the pillars. SvelteKit's $props.id() helper generates unique IDs for form label associations.
+WCAG (Web Content Accessibility Guidelines) provides the standard. Focus management, semantic HTML, proper ARIA attributes, and keyboard navigation are the pillars. SvelteKit's $props.id() helper generates unique IDs for form label associations. Compiler warnings only catch what is statically visible, though — the PE7 way is to also make a11y a CI gate: run @axe-core/playwright against every key page and fail the build on any violation.
 
 For media-heavy apps, the svelte-audio-ui community library is a reference example of accessible, composable component design — players, waveforms, and volume sliders that ship with keyboard controls, ARIA wiring, and focus management out of the box. Worth studying even if you don't use it directly.`,
 	objectives: [
 		'Apply ARIA roles, labels, and attributes correctly to interactive elements',
 		'Implement keyboard navigation and focus management in Svelte components',
 		'Use semantic HTML elements to convey structure and meaning',
-		'Leverage Svelte compiler a11y warnings to catch accessibility issues'
+		'Leverage Svelte compiler a11y warnings to catch accessibility issues',
+		'Enforce a11y as a CI gate with @axe-core/playwright — zero violations or the build fails'
 	],
 	files: [
 		{
@@ -147,6 +148,32 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
   let contrastGrade = $derived(
     contrastRatio >= 7 ? 'AAA' : contrastRatio >= 4.5 ? 'AA' : contrastRatio >= 3 ? 'AA Large' : 'Fail'
   );
+
+  // axe as a CI gate
+  const axeCode = [
+    '// e2e/a11y.spec.ts — a11y as a CI gate',
+    "import { expect, test } from '@playwright/test';",
+    "import AxeBuilder from '@axe-core/playwright';",
+    '',
+    "const pages = ['/', '/blog', '/pricing', '/login'];",
+    '',
+    'for (const path of pages) {',
+    "  test(path + ' has no axe violations', async ({ page }) => {",
+    '    await page.goto(path);',
+    '',
+    '    const results = await new AxeBuilder({ page })',
+    "      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])",
+    '      .analyze();',
+    '',
+    '    // Zero tolerance: any violation fails CI',
+    '    expect(results.violations).toEqual([]);',
+    '  });',
+    '}',
+    '',
+    '// Also scan stateful UI (open dialogs, expanded menus):',
+    "// await page.getByRole('button', { name: 'Open menu' }).click();",
+    '// then run AxeBuilder again against the new DOM state.'
+  ].join('\\n');
 
   // Svelte compiler a11y warnings
   const a11yWarnings = [
@@ -326,6 +353,17 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
       </tbody>
     </table>
   </section>
+
+  <!-- axe CI gate -->
+  <section>
+    <h2>a11y as a CI Gate: axe</h2>
+    <p>
+      The compiler catches static issues; axe catches runtime ones — contrast failures, broken
+      ARIA references, missing landmarks. Run it inside Playwright so every pull request is
+      blocked until the violation count is zero.
+    </p>
+    <pre><code>{axeCode}</code></pre>
+  </section>
 </main>
 
 <style>
@@ -477,6 +515,22 @@ For media-heavy apps, the svelte-audio-ui community library is a reference examp
     padding: 0.1rem 0.3rem;
     border-radius: 3px;
     font-size: 0.8rem;
+  }
+
+  pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
   }
 
   section { margin-bottom: 2.5rem; }

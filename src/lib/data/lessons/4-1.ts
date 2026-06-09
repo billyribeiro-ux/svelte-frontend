@@ -41,7 +41,7 @@ Pitfalls to watch: confusing \`oninput\` with \`onchange\` (they behave differen
   let log = $state([]);
   function addLog(msg) {
     const time = new Date().toLocaleTimeString();
-    log = [\\\`\\\${time} — \\\${msg}\\\`, ...log].slice(0, 15);
+    log = [\`\${time} — \${msg}\`, ...log].slice(0, 15);
   }
   function clearLog() { log = []; }
 
@@ -52,12 +52,12 @@ Pitfalls to watch: confusing \`oninput\` with \`onchange\` (they behave differen
     clickCount += 1;
     // event.clientX/Y are viewport coordinates; offsetX/Y are local.
     lastClickPos = { x: event.clientX, y: event.clientY };
-    addLog(\\\`Click #\\\${clickCount} at (\\\${event.clientX}, \\\${event.clientY})\\\`);
+    addLog(\`Click #\${clickCount} at (\${event.clientX}, \${event.clientY})\`);
   }
 
   // Inline arrow handler: perfect for small one-liners or passing args.
   function handleCategoryClick(category) {
-    addLog(\\\`Category clicked: \\\${category}\\\`);
+    addLog(\`Category clicked: \${category}\`);
   }
 
   // --- Example 2: Input events ---
@@ -110,7 +110,7 @@ Pitfalls to watch: confusing \`oninput\` with \`onchange\` (they behave differen
   const colors = ['red', 'orange', 'green', 'blue', 'purple'];
   function handleColorChange(event) {
     selectedColor = event.target.value;
-    addLog(\\\`Color changed to: \\\${event.target.value}\\\`);
+    addLog(\`Color changed to: \${event.target.value}\`);
   }
 
   // --- Example 7: Scroll event ---

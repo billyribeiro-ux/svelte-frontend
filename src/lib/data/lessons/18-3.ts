@@ -123,9 +123,8 @@ This lesson provides a live meta editor with character counting, SERP previews f
 
   const layoutExample = [
     '<!-- src/routes/+layout.svelte -->',
+    '<!-- charset + viewport belong in app.html, not here -->',
     '<svelte:head>',
-    '  <meta charset="utf-8" />',
-    '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
     '  <meta name="robots" content="index, follow" />',
     '  <meta name="theme-color" content="#ff3e00" />',
     '  <link rel="icon" href="/favicon.svg" />',
